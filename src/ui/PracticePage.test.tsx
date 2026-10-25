@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { parseExpression, type Exercise } from '../engine/index.ts'
 import { PracticePage } from './PracticePage.tsx'
 
@@ -11,6 +11,10 @@ function exercise(source: string): Exercise {
     expression: parseExpression(source),
   }
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function answer(text: string) {
   fireEvent.change(screen.getByLabelText('Risultato'), {
@@ -74,4 +78,50 @@ test('l’esercizio successivo riparte da capo', () => {
   expect(screen.getByRole('math', { name: '20 + 8 − 15' })).toBeInTheDocument()
   expect(screen.getByLabelText('Risultato')).toHaveValue('')
   expect(screen.queryByRole('status')).toBeNull()
+})
+
+test('a esercizio chiuso riferisce il tentativo', () => {
+  vi.useFakeTimers({ toFake: ['Date'], now: 1_000 })
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('12 − 5 + 3 − 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  vi.setSystemTime(26_000)
+  fireEvent.click(screen.getByRole('button', { name: 'Suggerimento' }))
+  answer('sei')
+  expect(onAttempt).not.toHaveBeenCalled()
+  answer('6')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith({
+    exercise: exercise('12 − 5 + 3 − 4'),
+    answer: '6',
+    outcome: { kind: 'correct' },
+    hints: 1,
+    rewrites: 0,
+    durationMs: 25_000,
+  })
+})
+
+test('la durata riparte con l’esercizio successivo', () => {
+  vi.useFakeTimers({ toFake: ['Date'], now: 1_000 })
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('12 − 5 + 3 − 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  vi.setSystemTime(11_000)
+  answer('14')
+  fireEvent.click(screen.getByRole('button', { name: 'Esercizio successivo' }))
+  vi.setSystemTime(18_000)
+  answer('6')
+  expect(onAttempt).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      outcome: { kind: 'correct' },
+      durationMs: 7_000,
+    }),
+  )
 })
