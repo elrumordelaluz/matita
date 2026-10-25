@@ -35,13 +35,24 @@ export function skillStates(
 // Un'abilità diventa acquisita la prima volta che la serie arriva a tre, e
 // lo resta: da lì la segue il ripasso.
 function masteredSkills(attempts: readonly Attempt[]): Set<string> {
+  return new Set(masteryAttempts(attempts).keys())
+}
+
+/**
+ * Per ogni abilità acquisita, l'id del tentativo che l'ha resa acquisita: il
+ * terzo corretto consecutivo senza aiuti.
+ */
+export function masteryAttempts(
+  attempts: readonly Attempt[],
+): Map<string, string> {
   const streaks = new Map<string, number>()
-  const mastered = new Set<string>()
+  const mastery = new Map<string, string>()
   for (const a of chronological(attempts)) {
     const clean = a.outcome === 'correct' && !isAssisted(a)
     const streak = clean ? (streaks.get(a.skill) ?? 0) + 1 : 0
     streaks.set(a.skill, streak)
-    if (streak >= masteryStreak) mastered.add(a.skill)
+    if (streak >= masteryStreak && !mastery.has(a.skill))
+      mastery.set(a.skill, a.id)
   }
-  return mastered
+  return mastery
 }
