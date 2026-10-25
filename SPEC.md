@@ -187,8 +187,8 @@ src/
 Regole, fatte rispettare da `tests/architecture.test.ts`:
 
 - `engine/` importa solo da `engine/`.
-- `progress/` non importa da `ui/` né da `content/` (da aggiungere al test
-  quando la cartella nasce).
+- `progress/` non importa da `ui/` né da `content/`: il grafo delle abilità
+  arriva come parametro.
 
 ## Dipendenze
 

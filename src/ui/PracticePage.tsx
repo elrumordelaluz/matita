@@ -12,26 +12,55 @@ import { cn } from '../lib/cn.ts'
 import { ExpressionFormula } from './Formula.tsx'
 
 // La pagina di pratica: espressione, risposta, esito, soluzione per righe.
-// Gli esercizi vivono in memoria; il salvataggio dei tentativi arriva dopo.
+// La pagina non salva nulla: quando un esercizio si chiude lo riferisce con
+// `onAttempt`, e chi la usa decide cosa farne.
+
+export interface PracticeAttempt {
+  readonly exercise: Exercise
+  readonly answer: string
+  readonly outcome: Outcome
+  readonly hints: number
+  readonly rewrites: number
+  readonly durationMs: number
+}
+
+function closes(outcome: Outcome | null): boolean {
+  return outcome?.kind === 'correct' || outcome?.kind === 'wrong'
+}
 
 export function PracticePage({
   createExercise,
+  onAttempt,
 }: {
   createExercise: () => Exercise
+  onAttempt?: (attempt: PracticeAttempt) => void
 }) {
   const [exercise, setExercise] = useState(createExercise)
   const [answer, setAnswer] = useState('')
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [hints, setHints] = useState(0)
+  const [startedAt, setStartedAt] = useState(() => Date.now())
   const answerId = useId()
 
   const solution = solve(exercise.expression)
-  const done = outcome?.kind === 'correct' || outcome?.kind === 'wrong'
+  const done = closes(outcome)
   const shownLines = done ? solution.lines : solution.lines.slice(0, hints)
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (!done) setOutcome(verify(answer, exercise))
+    if (done) return
+    const result = verify(answer, exercise)
+    setOutcome(result)
+    if (closes(result))
+      onAttempt?.({
+        exercise,
+        answer,
+        outcome: result,
+        hints,
+        // Le riscritture arrivano con l'esito `rewrite`, nel capitolo su Q.
+        rewrites: 0,
+        durationMs: Date.now() - startedAt,
+      })
   }
 
   function next() {
@@ -39,6 +68,7 @@ export function PracticePage({
     setAnswer('')
     setOutcome(null)
     setHints(0)
+    setStartedAt(Date.now())
   }
 
   return (
