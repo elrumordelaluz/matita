@@ -85,3 +85,17 @@ test('una sessione intera: dieci esercizi, tutti salvati', async () => {
     await screen.findByRole('button', { name: 'Inizia la sessione' }),
   ).toBeInTheDocument()
 })
+
+test('dalla lezione si passa alla pratica', () => {
+  render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Lezione' }))
+  expect(
+    screen.getByRole('heading', { name: 'Espressioni in N' }),
+  ).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))
+  expect(screen.getByLabelText('Risultato')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Lezione' }))
+  expect(
+    screen.getByRole('heading', { name: 'Espressioni in N' }),
+  ).toBeInTheDocument()
+})

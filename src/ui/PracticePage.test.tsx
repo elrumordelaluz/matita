@@ -49,6 +49,22 @@ test('risposta sbagliata con soluzione per righe', () => {
   expect(within(solution).getByText('10 − 4 = 6')).toBeInTheDocument()
 })
 
+test('un errore tipico mostra la spiegazione prima della soluzione', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  answer('20')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Non è corretto: il risultato è 14.',
+  )
+  const explanation = screen.getByText(/Senza parentesi si fanno prima × e :/)
+  const solution = screen.getByRole('region', { name: 'Soluzione' })
+  expect(
+    explanation.compareDocumentPosition(solution) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+  expect(within(solution).getByText('3 × 4 = 12')).toBeInTheDocument()
+  expect(screen.getByLabelText('Risultato')).toHaveAttribute('readonly')
+})
+
 test('una risposta illeggibile non chiude l’esercizio', () => {
   render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
   answer('sei')
@@ -122,6 +138,26 @@ test('la durata riparte con l’esercizio successivo', () => {
     expect.objectContaining({
       outcome: { kind: 'correct' },
       durationMs: 7_000,
+    }),
+  )
+})
+
+test('anche un errore tipico chiude l’esercizio e riferisce il tentativo', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('2 + 3 × 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  answer('20')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      answer: '20',
+      outcome: expect.objectContaining({
+        kind: 'misconception',
+        misconception: 'add-before-mul',
+      }),
     }),
   )
 })

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { NExpressionsLesson } from './content/lessons/NExpressionsLesson.tsx'
 import { skills } from './content/skills.ts'
-import { generate } from './engine/index.ts'
+import { generate, type GeneratedSkill } from './engine/index.ts'
 import { cn } from './lib/cn.ts'
 import { attemptFromPractice } from './progress/record.ts'
 import type { SessionItem } from './progress/session.ts'
@@ -11,10 +12,11 @@ import { PracticePage, type PracticeAttempt } from './ui/PracticePage.tsx'
 import { ProgressPage } from './ui/ProgressPage.tsx'
 import { SessionPage } from './ui/SessionPage.tsx'
 
-type View = 'home' | 'practice' | 'progress'
+type View = 'home' | 'lesson' | 'practice' | 'progress'
 
 const views: readonly { view: View; label: string }[] = [
   { view: 'home', label: 'Inizio' },
+  { view: 'lesson', label: 'Lezione' },
   { view: 'practice', label: 'Pratica' },
   { view: 'progress', label: 'I miei progressi' },
 ]
@@ -25,6 +27,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
   const [store] = useState(() => given ?? createMemoryStore())
   const [view, setView] = useState<View>('home')
   const [session, setSession] = useState<SessionItem[] | null>(null)
+  const [practised, setPractised] = useState<GeneratedSkill>('n.add-sub')
 
   function save(result: PracticeAttempt) {
     void store.addAttempt(
@@ -68,11 +71,22 @@ export default function App({ store: given }: { store?: ProgressStore }) {
           ) : (
             <HomePage store={store} skills={skills} onStart={setSession} />
           ))}
+        {view === 'lesson' && (
+          <NExpressionsLesson
+            onPractise={(skill) => {
+              setPractised(skill)
+              setView('practice')
+            }}
+          />
+        )}
         {view === 'practice' && (
           <>
-            <p className="mb-6 text-dim">Addizioni e sottrazioni in N.</p>
+            <p className="mb-6 text-dim">
+              {skills.find((s) => s.id === practised)?.title}
+            </p>
             <PracticePage
-              createExercise={() => generate('n.add-sub', randomSeed())}
+              key={practised}
+              createExercise={() => generate(practised, randomSeed())}
               onAttempt={save}
             />
           </>

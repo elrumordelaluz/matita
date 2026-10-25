@@ -1,13 +1,18 @@
 import type { Exercise } from './generators.ts'
+import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, rational, type Rational } from './rational.ts'
 import { solve } from './solver.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
-// risposte". Gli esiti `rewrite` e `misconception` arrivano con le slice che
-// li usano.
+// risposte". L'esito `rewrite` arriva con la slice che lo usa.
 
 export type Outcome =
   | { readonly kind: 'correct' }
+  | {
+      readonly kind: 'misconception'
+      readonly misconception: MisconceptionId
+      readonly explanation: string
+    }
   | { readonly kind: 'wrong' }
   | { readonly kind: 'invalid'; readonly message: string }
 
@@ -31,5 +36,13 @@ export function verify(answer: string, exercise: Exercise): Outcome {
   const reading = readAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
   const { result } = solve(exercise.expression)
-  return equals(reading.value, result) ? { kind: 'correct' } : { kind: 'wrong' }
+  if (equals(reading.value, result)) return { kind: 'correct' }
+  const misconception = recognise(reading.value, exercise.expression, result)
+  if (misconception)
+    return {
+      kind: 'misconception',
+      misconception: misconception.id,
+      explanation: misconception.explanation,
+    }
+  return { kind: 'wrong' }
 }

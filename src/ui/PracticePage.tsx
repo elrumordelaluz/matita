@@ -25,7 +25,7 @@ export interface PracticeAttempt {
 }
 
 function closes(outcome: Outcome | null): boolean {
-  return outcome?.kind === 'correct' || outcome?.kind === 'wrong'
+  return outcome !== null && outcome.kind !== 'invalid'
 }
 
 export function PracticePage({
@@ -44,6 +44,7 @@ export function PracticePage({
 
   const solution = solve(exercise.expression)
   const done = closes(outcome)
+  const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const shownLines = done ? solution.lines : solution.lines.slice(0, hints)
 
   function submit(event: FormEvent) {
@@ -116,15 +117,19 @@ export function PracticePage({
           role="status"
           className={cn(
             outcome.kind === 'correct' && 'text-ok',
-            outcome.kind === 'wrong' && 'text-err',
+            wrong && 'text-err',
             outcome.kind === 'invalid' && 'text-warn',
           )}
         >
           {outcome.kind === 'correct' && 'Corretto!'}
-          {outcome.kind === 'wrong' &&
+          {wrong &&
             `Non è corretto: il risultato è ${rationalToText(solution.result)}.`}
           {outcome.kind === 'invalid' && outcome.message}
         </p>
+      )}
+
+      {outcome?.kind === 'misconception' && (
+        <p className="rounded border border-hair p-3">{outcome.explanation}</p>
       )}
 
       {shownLines.length > 0 && (
