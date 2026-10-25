@@ -95,6 +95,57 @@ test('i passaggi di × e : dichiarano la loro regola', () => {
   ])
 })
 
+test('graffe, quadre e tonde: dal gruppo più interno, una riga per livello', () => {
+  expect(
+    describeSolution(solve(parseExpression('{[(8 − 3) × 2 + 4] : 7 + 1} × 3'))),
+  ).toEqual([
+    {
+      line: '{[5 × 2 + 4] : 7 + 1} × 3',
+      steps: ['8 - 3 = 5 → {[5 × 2 + 4] : 7 + 1} × 3'],
+    },
+    {
+      line: '{[10 + 4] : 7 + 1} × 3',
+      steps: ['5 × 2 = 10 → {[10 + 4] : 7 + 1} × 3'],
+    },
+    {
+      line: '{14 : 7 + 1} × 3',
+      steps: ['10 + 4 = 14 → {14 : 7 + 1} × 3'],
+    },
+    {
+      line: '{2 + 1} × 3',
+      steps: ['14 : 7 = 2 → {2 + 1} × 3'],
+    },
+    { line: '3 × 3', steps: ['2 + 1 = 3 → 3 × 3'] },
+    { line: '9', steps: ['3 × 3 = 9 → 9'] },
+  ])
+})
+
+test('le quadre restano quadre quando le tonde cadono', () => {
+  expect(
+    describeSolution(solve(parseExpression('[20 − (3 + 5)] : 4'))).map(
+      (l) => l.line,
+    ),
+  ).toEqual(['[20 − 8] : 4', '12 : 4', '3'])
+})
+
+test('i gruppi più interni si svolgono nella stessa riga', () => {
+  expect(
+    describeSolution(solve(parseExpression('(2 + 3) × (10 − 4)'))),
+  ).toEqual([
+    {
+      line: '5 × 6',
+      steps: ['2 + 3 = 5 → 5 × (10 − 4)', '10 - 4 = 6 → 5 × 6'],
+    },
+    { line: '30', steps: ['5 × 6 = 30 → 30'] },
+  ])
+})
+
+test('una parentesi intorno a un numero cade senza passaggi', () => {
+  expect(
+    describeSolution(solve(parseExpression('(7) + 2'))).map((l) => l.line),
+  ).toEqual(['9'])
+})
+
 test('un numero da solo non ha righe', () => {
   const solution = solve(parseExpression('7'))
   expect(solution.lines).toEqual([])

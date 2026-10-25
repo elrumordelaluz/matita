@@ -45,6 +45,30 @@ describe('parseExpression', () => {
     expect(parseExpression('6 · 4 : 2')).toEqual(expected)
     expect(parseExpression('6*4÷2')).toEqual(expected)
   })
+
+  test('un gruppo ricorda il tipo di parentesi', () => {
+    expect(parseExpression('[2 + 3] × 4')).toEqual({
+      kind: 'binary',
+      op: '×',
+      left: {
+        kind: 'group',
+        bracket: 'square',
+        inner: {
+          kind: 'binary',
+          op: '+',
+          left: { kind: 'number', value: rational(2n) },
+          right: { kind: 'number', value: rational(3n) },
+        },
+      },
+      right: { kind: 'number', value: rational(4n) },
+    })
+  })
+
+  test('rifiuta parentesi che non si chiudono o non corrispondono', () => {
+    expect(() => parseExpression('(2 + 3 × 4')).toThrow()
+    expect(() => parseExpression('(2 + 3] × 4')).toThrow()
+    expect(() => parseExpression('2 + 3) × 4')).toThrow()
+  })
 })
 
 describe('resa', () => {
@@ -63,6 +87,18 @@ describe('resa', () => {
   test('prodotto e divisione in KaTeX', () => {
     expect(toKatex(parseExpression('2 + 3 × 4 − 6 : 2'))).toBe(
       '2 + 3 \\times 4 - 6 \\mathbin{:} 2',
+    )
+  })
+
+  const nested = '{[(8 − 3) × 2 + 4] : 7 + 1} × 3'
+
+  test('tonde, quadre e graffe in testo semplice', () => {
+    expect(toText(parseExpression('{[(8-3)*2+4]:7+1}*3'))).toBe(nested)
+  })
+
+  test('tonde, quadre e graffe in KaTeX', () => {
+    expect(toKatex(parseExpression(nested))).toBe(
+      '\\{[(8 - 3) \\times 2 + 4] \\mathbin{:} 7 + 1\\} \\times 3',
     )
   })
 })

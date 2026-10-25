@@ -1,4 +1,11 @@
-import { binary, num, type Expression, type Operator } from './expression.ts'
+import {
+  binary,
+  group,
+  num,
+  type Bracket,
+  type Expression,
+  type Operator,
+} from './expression.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import { seededRandom, type Random } from './random.ts'
 import { solve } from './solver.ts'
@@ -81,6 +88,69 @@ function literal(random: Random): Built {
   return { expression: num(value), value }
 }
 
+// Un termine senza gruppi: un numero o un prodotto di due fattori.
+function simpleTerm(random: Random): Built {
+  return random.pick([true, false]) ? literal(random) : productChain(random, 2)
+}
+
+// Un termine che contiene il gruppo `g`: da solo, come fattore, come
+// dividendo o come divisore. Il valore del gruppo decide quali vanno bene.
+function termWith(random: Random, g: Built): Built {
+  const { value } = g
+  const make = (op: Operator, left: Built, right: Built): Built => ({
+    expression: binary(op, left.expression, right.expression),
+    value: op === '×' ? left.value * right.value : left.value / right.value,
+  })
+  const number = (n: bigint): Built => ({ expression: num(n), value: n })
+  const options: (() => Built)[] = [() => g]
+  if (value >= 2n && value <= factorMax && value * 2n <= productMax) {
+    const factor = () =>
+      number(random.int(2n, min(factorMax, productMax / value)))
+    options.push(() => make('×', g, factor()))
+    options.push(() => make('×', factor(), g))
+  }
+  const ds = divisors(value)
+  if (ds.length > 0) options.push(() => make(':', g, number(random.pick(ds))))
+  if (value >= 2n && value * 2n <= factorMax)
+    options.push(() =>
+      make(':', number(value * random.int(2n, factorMax / value)), g),
+    )
+  return random.pick(options)()
+}
+
+// Le tonde non contengono gruppi, le quadre contengono tonde, le graffe
+// contengono quadre: la parentesi dipende da quanti livelli ha dentro.
+function bracketFor(height: number): Bracket {
+  if (height === 0) return 'round'
+  if (height === 1) return 'square'
+  return 'curly'
+}
+
+function groupOf(random: Random, height: number): Built {
+  const inner =
+    height === 0
+      ? sumOf([simpleTerm(random), simpleTerm(random)], random)
+      : sumWithGroups(
+          random,
+          height - 1,
+          height === 1 ? random.int(1n, 2n) : 1n,
+        )
+  return {
+    expression: group(bracketFor(height), inner.expression),
+    value: inner.value,
+  }
+}
+
+// Una somma algebrica di `count` termini con un gruppo di altezza `height`
+// e un termine semplice, messo in una posizione a caso.
+function sumWithGroups(random: Random, height: number, count: bigint): Built {
+  const terms = Array.from({ length: Number(count) }, () =>
+    termWith(random, groupOf(random, height)),
+  )
+  terms.splice(Number(random.int(0n, count)), 0, simpleTerm(random))
+  return sumOf(terms, random)
+}
+
 const generators = {
   'n.add-sub': {
     version: 1,
@@ -121,6 +191,20 @@ const generators = {
       return sumOf(terms, random).expression
     },
     shows: ['add-before-mul'],
+  },
+  'n.parens': {
+    version: 1,
+    build(random) {
+      return sumWithGroups(random, 0, random.int(1n, 2n)).expression
+    },
+    shows: ['ignored-group'],
+  },
+  'n.brackets': {
+    version: 1,
+    build(random) {
+      return sumWithGroups(random, Number(random.int(1n, 2n)), 1n).expression
+    },
+    shows: ['ignored-group'],
   },
 } satisfies Record<string, Generator>
 

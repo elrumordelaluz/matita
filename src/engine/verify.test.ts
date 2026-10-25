@@ -81,6 +81,26 @@ describe('errore tipico', () => {
     expect(verify('12', order('12 × 3 : 3'))).toEqual({ kind: 'correct' })
   })
 
+  test('parentesi ignorata', () => {
+    expect(verify('14', order('(2 + 3) × 4'))).toMatchObject({
+      kind: 'misconception',
+      misconception: 'ignored-group',
+    })
+  })
+
+  test('parentesi ignorata, anche una quadra fra altre parentesi', () => {
+    // Senza la quadra: 20 − (3 + 5) : 4 = 18.
+    expect(verify('18', order('[20 − (3 + 5)] : 4'))).toMatchObject({
+      kind: 'misconception',
+      misconception: 'ignored-group',
+    })
+  })
+
+  test('parentesi ignorata, non quando il valore coincide con quello giusto', () => {
+    // 20 − (3 × 2): anche 20 − 3 × 2 dà 14.
+    expect(verify('14', order('20 − (3 × 2)'))).toEqual({ kind: 'correct' })
+  })
+
   test('ogni errore tipico porta la sua spiegazione', () => {
     const outcome = verify('20', order('2 + 3 × 4'))
     expect(outcome.kind === 'misconception' && outcome.explanation).toMatch(

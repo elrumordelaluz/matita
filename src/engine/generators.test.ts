@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { Expression, Operator } from './expression.ts'
+import type { Bracket, Expression, Operator } from './expression.ts'
 import { generate, type GeneratedSkill } from './generators.ts'
 import { isVisible } from './misconceptions.ts'
 import { compare, isInteger, rational } from './rational.ts'
@@ -8,9 +8,23 @@ import { solve } from './solver.ts'
 const seeds = Array.from({ length: 500 }, (_, i) => i * 7919 + 1)
 
 function numbers(e: Expression): bigint[] {
-  return e.kind === 'number'
-    ? [e.value.num]
-    : [...numbers(e.left), ...numbers(e.right)]
+  if (e.kind === 'number') return [e.value.num]
+  if (e.kind === 'group') return numbers(e.inner)
+  return [...numbers(e.left), ...numbers(e.right)]
+}
+
+interface GroupInfo {
+  readonly bracket: Bracket
+  /** Quanti livelli di gruppi ha dentro: 0 per un gruppo senza gruppi. */
+  readonly height: number
+}
+
+function groups(e: Expression): GroupInfo[] {
+  if (e.kind === 'number') return []
+  if (e.kind === 'binary') return [...groups(e.left), ...groups(e.right)]
+  const inner = groups(e.inner)
+  const height = Math.max(-1, ...inner.map((g) => g.height)) + 1
+  return [{ bracket: e.bracket, height }, ...inner]
 }
 
 describe('n.add-sub', () => {
@@ -143,5 +157,69 @@ describe('n.order', () => {
     for (const seed of seeds)
       for (const op of operators('n.order', seed)) all.add(op)
     expect(all).toEqual(new Set(['+', '-', '×', ':']))
+  })
+})
+
+describe('n.parens', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('n.parens', 42)).toEqual(generate('n.parens', 42))
+    expect(generate('n.parens', 42)).not.toEqual(generate('n.parens', 43))
+  })
+
+  test('divisioni esatte, intermedi in N, fattori fino a 20', () => {
+    expectChapterConstraints('n.parens')
+  })
+
+  test('almeno una parentesi, solo tonde, nessuna annidata', () => {
+    for (const seed of seeds) {
+      const gs = groups(generate('n.parens', seed).expression)
+      expect(gs.length).toBeGreaterThan(0)
+      for (const g of gs) expect(g).toEqual({ bracket: 'round', height: 0 })
+    }
+  })
+
+  test('ogni parentesi conta: ignorarla cambia il valore', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('n.parens', seed)
+      const { result } = solve(expression)
+      expect(isVisible('ignored-group', expression, result)).toBe(true)
+    }
+  })
+})
+
+describe('n.brackets', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('n.brackets', 42)).toEqual(generate('n.brackets', 42))
+    expect(generate('n.brackets', 42)).not.toEqual(generate('n.brackets', 43))
+  })
+
+  test('divisioni esatte, intermedi in N, fattori fino a 20', () => {
+    expectChapterConstraints('n.brackets')
+  })
+
+  test('graffe fuori, quadre in mezzo, tonde dentro', () => {
+    const order: Bracket[] = ['round', 'square', 'curly']
+    for (const seed of seeds)
+      for (const g of groups(generate('n.brackets', seed).expression))
+        expect(g.bracket).toBe(order[g.height])
+  })
+
+  test('sempre una quadra, e su molti semi anche le graffe', () => {
+    const heights = new Set<number>()
+    for (const seed of seeds) {
+      const gs = groups(generate('n.brackets', seed).expression)
+      const height = Math.max(...gs.map((g) => g.height))
+      expect(height).toBeGreaterThanOrEqual(1)
+      heights.add(height)
+    }
+    expect([...heights].sort()).toEqual([1, 2])
+  })
+
+  test('ogni parentesi conta: ignorarla cambia il valore', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('n.brackets', seed)
+      const { result } = solve(expression)
+      expect(isVisible('ignored-group', expression, result)).toBe(true)
+    }
   })
 })

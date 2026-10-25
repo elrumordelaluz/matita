@@ -7,7 +7,10 @@ import { apply } from './solver.ts'
 // confronta il risultato con la risposta. Vedi SPEC.md, "Errori tipici".
 
 export type MisconceptionId =
-  'add-before-mul' | 'add-sub-right-to-left' | 'mul-div-right-to-left'
+  | 'add-before-mul'
+  | 'add-sub-right-to-left'
+  | 'mul-div-right-to-left'
+  | 'ignored-group'
 
 export interface Misconception {
   readonly id: MisconceptionId
@@ -18,11 +21,14 @@ export interface Misconception {
 }
 
 // Le regole con cui si svolge un'espressione: quella giusta è prima × e :,
-// tutte e due le priorità da sinistra a destra.
+// tutte e due le priorità da sinistra a destra, ogni gruppo prima di ciò che
+// lo circonda.
 interface Rules {
   readonly first: 'mul-div' | 'add-sub'
   readonly mulDiv: 'left-to-right' | 'right-to-left'
   readonly addSub: 'left-to-right' | 'right-to-left'
+  /** Un gruppo letto come se le sue parentesi non ci fossero. */
+  readonly ignored?: Expression
 }
 
 const correctRules: Rules = {
@@ -31,7 +37,8 @@ const correctRules: Rules = {
   addSub: 'left-to-right',
 }
 
-// L'espressione letta come la scrive lo studente: numeri e operatori in fila.
+// L'espressione letta come la scrive lo studente: numeri e operatori in fila,
+// con ogni gruppo già ridotto al suo valore.
 interface Chain {
   readonly operands: Rational[]
   readonly ops: Operator[]
@@ -40,6 +47,11 @@ interface Chain {
 function flatten(e: Expression, rules: Rules, chain: Chain): void {
   if (e.kind === 'number') {
     chain.operands.push(e.value)
+    return
+  }
+  if (e.kind === 'group') {
+    if (e === rules.ignored) flatten(e.inner, rules, chain)
+    else chain.operands.push(evaluate(e.inner, rules))
     return
   }
   flatten(e.left, rules, chain)
@@ -91,6 +103,12 @@ function attempt(e: Expression, rules: Rules): Rational[] {
   }
 }
 
+function groups(e: Expression): Expression[] {
+  if (e.kind === 'number') return []
+  if (e.kind === 'group') return [e, ...groups(e.inner)]
+  return [...groups(e.left), ...groups(e.right)]
+}
+
 export const misconceptions: readonly Misconception[] = [
   {
     id: 'add-before-mul',
@@ -111,6 +129,14 @@ export const misconceptions: readonly Misconception[] = [
       'Hai svolto moltiplicazioni e divisioni partendo da destra. × e : hanno la stessa priorità: si svolgono nell’ordine in cui compaiono, da sinistra a destra.',
     wrongResults: (e) =>
       attempt(e, { ...correctRules, mulDiv: 'right-to-left' }),
+  },
+  {
+    id: 'ignored-group',
+    explanation:
+      'Hai svolto i calcoli come se una parentesi non ci fosse. Le parentesi dicono che cosa calcolare per primo: si parte dal gruppo più interno.',
+    // Un valore per ogni gruppo ignorato, uno alla volta.
+    wrongResults: (e) =>
+      groups(e).flatMap((ignored) => attempt(e, { ...correctRules, ignored })),
   },
 ]
 
