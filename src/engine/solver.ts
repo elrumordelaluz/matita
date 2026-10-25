@@ -1,10 +1,16 @@
-import { binary, type Expression, type Operator } from './expression.ts'
-import { add, sub, type Rational } from './rational.ts'
+import {
+  binary,
+  isMulDiv,
+  type Expression,
+  type Operator,
+} from './expression.ts'
+import { add, div, mul, sub, type Rational } from './rational.ts'
 
 // Il risolutore produce la soluzione come sul quaderno: una riga per livello,
-// ogni riga fatta di passaggi atomici. Vedi SPEC.md, "Risolutore".
+// ogni riga fatta di passaggi atomici. Un livello è prima × e : da sinistra a
+// destra, poi + e − da sinistra a destra. Vedi SPEC.md, "Risolutore".
 
-export type Rule = 'add-sub-left-to-right'
+export type Rule = 'mul-div-left-to-right' | 'add-sub-left-to-right'
 
 export interface Step {
   readonly rule: Rule
@@ -33,50 +39,82 @@ export function apply(op: Operator, left: Rational, right: Rational): Rational {
       return add(left, right)
     case '-':
       return sub(left, right)
+    case '×':
+      return mul(left, right)
+    case ':':
+      return div(left, right)
   }
 }
 
-// Svolge l'operazione più a sinistra fra due numeri. In una catena di + e −
-// associata a sinistra è il primo nodo in fondo al ramo sinistro.
-function reduceLeftmost(e: Expression): { expression: Expression; step: Step } {
-  if (e.kind === 'number') throw new Error('Niente da svolgere')
-  if (e.left.kind === 'number' && e.right.kind === 'number') {
+const ruleOf = (op: Operator): Rule =>
+  isMulDiv(op) ? 'mul-div-left-to-right' : 'add-sub-left-to-right'
+
+function contains(e: Expression, accepts: (op: Operator) => boolean): boolean {
+  if (e.kind === 'number') return false
+  return (
+    accepts(e.op) || contains(e.left, accepts) || contains(e.right, accepts)
+  )
+}
+
+interface Reduction {
+  readonly expression: Expression
+  readonly step: Omit<Step, 'expression'>
+}
+
+// Svolge la prima operazione accettata, da sinistra, fra due numeri. In una
+// catena associata a sinistra è il nodo più in fondo al ramo sinistro.
+function reduceFirst(
+  e: Expression,
+  accepts: (op: Operator) => boolean,
+): Reduction | null {
+  if (e.kind === 'number') return null
+  const left = reduceFirst(e.left, accepts)
+  if (left)
+    return { ...left, expression: binary(e.op, left.expression, e.right) }
+  if (accepts(e.op) && e.left.kind === 'number' && e.right.kind === 'number') {
     const result = apply(e.op, e.left.value, e.right.value)
-    const expression: Expression = { kind: 'number', value: result }
     return {
-      expression,
+      expression: { kind: 'number', value: result },
       step: {
-        rule: 'add-sub-left-to-right',
+        rule: ruleOf(e.op),
         left: e.left.value,
         op: e.op,
         right: e.right.value,
         result,
-        expression,
       },
     }
   }
-  const inner = reduceLeftmost(e.left)
-  const expression = binary(e.op, inner.expression, e.right)
-  return { expression, step: { ...inner.step, expression } }
+  const right = reduceFirst(e.right, accepts)
+  if (right)
+    return { ...right, expression: binary(e.op, e.left, right.expression) }
+  return null
 }
 
 function solveLevel(e: Expression): Line {
+  const accepts = contains(e, isMulDiv)
+    ? isMulDiv
+    : (op: Operator) => !isMulDiv(op)
   const steps: Step[] = []
   let current = e
-  while (current.kind !== 'number') {
-    const { expression, step } = reduceLeftmost(current)
-    steps.push(step)
-    current = expression
+  for (;;) {
+    const reduction = reduceFirst(current, accepts)
+    if (!reduction) break
+    current = reduction.expression
+    steps.push({ ...reduction.step, expression: current })
   }
   return { expression: current, steps }
 }
 
 export function solve(e: Expression): Solution {
-  if (e.kind === 'number') return { lines: [], result: e.value }
-  const line = solveLevel(e)
-  const last = line.expression
-  if (last.kind !== 'number') throw new Error('Livello non concluso')
-  return { lines: [line], result: last.value }
+  const lines: Line[] = []
+  let current = e
+  while (current.kind !== 'number') {
+    const line = solveLevel(current)
+    if (line.steps.length === 0) throw new Error('Livello senza passaggi')
+    lines.push(line)
+    current = line.expression
+  }
+  return { lines, result: current.value }
 }
 
 /** L'operazione svolta in un passaggio, come espressione da rendere. */

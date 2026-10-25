@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import type { Expression } from './expression.ts'
-import { generate } from './generators.ts'
-import { compare, rational } from './rational.ts'
+import type { Expression, Operator } from './expression.ts'
+import { generate, type GeneratedSkill } from './generators.ts'
+import { isVisible } from './misconceptions.ts'
+import { compare, isInteger, rational } from './rational.ts'
 import { solve } from './solver.ts'
 
 const seeds = Array.from({ length: 500 }, (_, i) => i * 7919 + 1)
@@ -56,5 +57,91 @@ describe('n.add-sub', () => {
       ),
     )
     expect(ops).toEqual(new Set(['+', '-']))
+  })
+})
+
+function steps(skill: GeneratedSkill, seed: number) {
+  return solve(generate(skill, seed).expression).lines.flatMap((l) => l.steps)
+}
+
+function operators(skill: GeneratedSkill, seed: number): Set<Operator> {
+  return new Set(steps(skill, seed).map((s) => s.op))
+}
+
+// Vincoli comuni del capitolo: ogni passaggio resta in N, quindi ogni
+// divisione è esatta, e i numeri scritti e i fattori vanno fino a 20.
+function expectChapterConstraints(skill: GeneratedSkill) {
+  for (const seed of seeds) {
+    for (const n of numbers(generate(skill, seed).expression)) {
+      expect(n).toBeGreaterThanOrEqual(1n)
+      expect(n).toBeLessThanOrEqual(20n)
+    }
+    for (const step of steps(skill, seed)) {
+      expect(isInteger(step.result)).toBe(true)
+      expect(compare(step.result, rational(0n))).toBeGreaterThanOrEqual(0)
+      if (step.op === '×' || step.op === ':')
+        expect(compare(step.right, rational(20n))).toBeLessThanOrEqual(0)
+    }
+  }
+}
+
+describe('n.mul-div', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('n.mul-div', 42)).toEqual(generate('n.mul-div', 42))
+    expect(generate('n.mul-div', 42)).not.toEqual(generate('n.mul-div', 43))
+  })
+
+  test('divisioni esatte, intermedi in N, fattori fino a 20', () => {
+    expectChapterConstraints('n.mul-div')
+  })
+
+  test('solo × e :, e su molti semi compaiono entrambe', () => {
+    const all = new Set<Operator>()
+    for (const seed of seeds)
+      for (const op of operators('n.mul-div', seed)) all.add(op)
+    expect(all).toEqual(new Set(['×', ':']))
+  })
+
+  test('da 3 a 4 numeri', () => {
+    const counts = new Set(
+      seeds.map(
+        (seed) => numbers(generate('n.mul-div', seed).expression).length,
+      ),
+    )
+    expect([...counts].sort()).toEqual([3, 4])
+  })
+})
+
+describe('n.order', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('n.order', 42)).toEqual(generate('n.order', 42))
+    expect(generate('n.order', 42)).not.toEqual(generate('n.order', 43))
+  })
+
+  test('divisioni esatte, intermedi in N, fattori fino a 20', () => {
+    expectChapterConstraints('n.order')
+  })
+
+  test('ogni esercizio ha sia × o : sia + o −', () => {
+    for (const seed of seeds) {
+      const ops = [...operators('n.order', seed)]
+      expect(ops.some((op) => op === '×' || op === ':')).toBe(true)
+      expect(ops.some((op) => op === '+' || op === '-')).toBe(true)
+    }
+  })
+
+  test('sommare prima di moltiplicare dà sempre un valore diverso da quello giusto', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('n.order', seed)
+      const { result } = solve(expression)
+      expect(isVisible('add-before-mul', expression, result)).toBe(true)
+    }
+  })
+
+  test('su molti semi compaiono tutte e quattro le operazioni', () => {
+    const all = new Set<Operator>()
+    for (const seed of seeds)
+      for (const op of operators('n.order', seed)) all.add(op)
+    expect(all).toEqual(new Set(['+', '-', '×', ':']))
   })
 })
