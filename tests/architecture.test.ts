@@ -25,3 +25,13 @@ test('il motore importa solo dal motore', () => {
   )
   expect(offenders).toEqual([])
 })
+
+test('i progressi non importano dall’interfaccia né dai contenuti', () => {
+  const offenders = sourceFiles('src/progress').flatMap((file) =>
+    [...readFileSync(file, 'utf8').matchAll(importPattern)]
+      .map(([, specifier]) => specifier ?? '')
+      .filter((s) => /(^|\/)(ui|content)(\/|$)/.test(s))
+      .map((s) => `${relative(root, file)} → ${s}`),
+  )
+  expect(offenders).toEqual([])
+})
