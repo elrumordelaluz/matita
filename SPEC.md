@@ -40,9 +40,54 @@ abilità già acquisite tornano nel ripasso.
 | `n.parens`   | parentesi tonde                                    | `n.order`                |
 | `n.brackets` | tonde, quadre e graffe annidate                    | `n.parens`               |
 
-Le abilità dei capitoli successivi si scrivono quando si arriva a quel
-capitolo, con lo stesso formato. I prerequisiti formano un grafo aciclico che
-attraversa i capitoli (`z.order` richiede `n.order`).
+### Abilità del secondo capitolo
+
+| id              | abilità                                         | prerequisiti                        |
+| --------------- | ----------------------------------------------- | ----------------------------------- |
+| `z.add-sub`     | somma algebrica di numeri relativi              | `n.add-sub`                         |
+| `z.mul-div`     | regola dei segni in moltiplicazioni e divisioni | `n.mul-div`                         |
+| `z.order`       | quattro operazioni con i relativi               | `z.add-sub`, `z.mul-div`, `n.order` |
+| `z.minus-group` | parentesi precedute dal meno                    | `z.order`, `n.parens`               |
+| `z.brackets`    | tonde, quadre e graffe in Z                     | `z.minus-group`, `n.brackets`       |
+
+### Abilità del terzo capitolo
+
+| id           | abilità                                                             | prerequisiti                        |
+| ------------ | ------------------------------------------------------------------- | ----------------------------------- |
+| `q.add-sub`  | somma algebrica di frazioni con il minimo comune multiplo           | `z.add-sub`                         |
+| `q.mul-div`  | prodotto con semplificazione incrociata, divisione per il reciproco | `z.mul-div`                         |
+| `q.order`    | quattro operazioni con le frazioni                                  | `q.add-sub`, `q.mul-div`, `z.order` |
+| `q.brackets` | tonde, quadre e graffe in Q                                         | `q.order`, `z.brackets`             |
+
+La riduzione ai minimi termini non è un'abilità a sé: si allena in ogni
+risposta, con la [Politica delle risposte](#politica-delle-risposte).
+
+### Abilità del quarto capitolo
+
+| id                  | abilità                                                          | prerequisiti                      |
+| ------------------- | ---------------------------------------------------------------- | --------------------------------- |
+| `pow.basics`        | la potenza come prodotto ripetuto, −3² e (−3)²                   | `z.mul-div`                       |
+| `pow.properties`    | proprietà delle potenze con la stessa base o lo stesso esponente | `pow.basics`                      |
+| `pow.zero-negative` | esponente zero e negativo                                        | `pow.properties`, `q.mul-div`     |
+| `pow.expressions`   | espressioni con potenze in Q                                     | `pow.zero-negative`, `q.brackets` |
+
+I prerequisiti formano un grafo aciclico che attraversa i capitoli
+(`z.order` richiede `n.order`). Ogni capitolo ha la sua lezione con la
+stessa struttura: introduzione, una parte per regola con esempio svolto e
+domanda di controllo, l'invito alla pratica.
+
+### Già saputo
+
+Chi un capitolo lo sa già può segnarlo come saputo e passare oltre. Tutte le
+abilità del capitolo diventano acquisite senza esercizi, e quindi si
+sbloccano le abilità che le richiedono. Il segno si salva come record a sé
+accanto ai tentativi, con la data, e finisce nel backup. Si può togliere: le
+abilità tornano allo stato che danno i loro tentativi.
+
+Un'abilità segnata come saputa entra nel ripasso come se fosse appena stata
+acquisita: la sua carta FSRS nasce alla data del segno con un voto Good, così
+il primo ripasso arriva dopo qualche giorno e verifica che lo studente la
+sappia davvero.
 
 ## Motore
 
@@ -138,8 +183,9 @@ durata, data.
 
 **Stato di un'abilità.** Un'abilità è _bloccata_ finché i suoi prerequisiti
 non sono acquisiti, poi è _in apprendimento_, poi _acquisita_. Diventa
-acquisita con tre tentativi corretti consecutivi senza aiuti. Da lì la
-programma il ripasso.
+acquisita con tre tentativi corretti consecutivi senza aiuti, oppure quando
+lo studente segna il suo capitolo come saputo (vedi
+[Già saputo](#già-saputo)). Da lì la programma il ripasso.
 
 **Ripasso spaziato.** Lo scheduling è FSRS (libreria `ts-fsrs`) e la carta è
 l'abilità, non l'esercizio: quando un'abilità scade, il generatore produce un
