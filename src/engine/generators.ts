@@ -7,6 +7,7 @@ import {
   type Operator,
 } from './expression.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
+import { basicPowers, powerProperties } from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
 import { solve } from './solver.ts'
 
@@ -205,6 +206,16 @@ const generators = {
       return sumWithGroups(random, Number(random.int(1n, 2n)), 1n).expression
     },
     shows: ['ignored-group'],
+  },
+  'pow.basics': {
+    version: 1,
+    build: basicPowers,
+    shows: ['power-as-product'],
+  },
+  'pow.properties': {
+    version: 1,
+    build: powerProperties,
+    shows: ['power-as-product'],
   },
 } satisfies Record<string, Generator>
 
