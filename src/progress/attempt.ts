@@ -1,6 +1,7 @@
-// Il tentativo come lo descrive SPEC.md, "Ripasso e tracking". È l'unica
-// cosa che si salva: lo stato delle abilità e le carte FSRS si ricalcolano
-// dai tentativi, così l'esportazione basta come backup.
+// Il tentativo come lo descrive SPEC.md, "Ripasso e tracking". Si salva
+// insieme ai segni di già saputo (known.ts), e nient'altro: lo stato delle
+// abilità e le carte FSRS si ricalcolano da questi, così l'esportazione basta
+// come backup.
 
 // Gli esiti con cui un esercizio si chiude, come stringhe stabili: finiscono
 // nel file di backup e non devono cambiare se cambia il tipo del motore.

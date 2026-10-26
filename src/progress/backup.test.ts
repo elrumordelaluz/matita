@@ -85,6 +85,66 @@ test.each([
   expect((await store.attempts()).map((a) => a.id)).toEqual(['kept'])
 })
 
+test('il backup porta i segni di già saputo e li reimporta', async () => {
+  const original = await storeWith([attempt({ skill: 'n.order' })])
+  await original.putKnown([
+    { skill: 'n.add-sub', markedAt: 1 },
+    { skill: 'n.mul-div', markedAt: 1 },
+  ])
+  const file = await exportBackup(original)
+  expect(JSON.parse(file)).toMatchObject({ version: 2 })
+
+  const restored = createMemoryStore()
+  expect(await importBackup(restored, file)).toEqual({
+    ok: true,
+    count: 1,
+    known: 2,
+  })
+  expect(await restored.known()).toEqual(await original.known())
+  expect(
+    skillStates(graph, await restored.attempts(), await restored.known()),
+  ).toEqual({
+    'n.add-sub': 'mastered',
+    'n.mul-div': 'mastered',
+    'n.order': 'learning',
+  })
+})
+
+test('un backup della versione 1 si legge ancora: solo tentativi', async () => {
+  const store = createMemoryStore()
+  await store.putKnown([{ skill: 'n.add-sub', markedAt: 1 }])
+  const text = JSON.stringify({
+    format: 'matita-progress',
+    version: 1,
+    attempts: [attempt({ id: 'old' })],
+  })
+  expect(await importBackup(store, text)).toEqual({ ok: true, count: 1 })
+  expect((await store.attempts()).map((a) => a.id)).toEqual(['old'])
+  expect(await store.known()).toEqual([{ skill: 'n.add-sub', markedAt: 1 }])
+})
+
+test.each([
+  ['senza segni', { attempts: [] }],
+  ['con un segno senza data', { attempts: [], known: [{ skill: 'n.order' }] }],
+  [
+    'con un segno senza abilità',
+    { attempts: [], known: [{ skill: '', markedAt: 1 }] },
+  ],
+])(
+  'rifiuta un backup della versione 2 %s senza toccare i dati',
+  async (_, body) => {
+    const store = await storeWith([attempt({ id: 'kept' })])
+    const text = JSON.stringify({
+      format: 'matita-progress',
+      version: 2,
+      ...body,
+    })
+    expect((await importBackup(store, text)).ok).toBe(false)
+    expect((await store.attempts()).map((a) => a.id)).toEqual(['kept'])
+    expect(await store.known()).toEqual([])
+  },
+)
+
 test('rifiuta tutto il file se anche un solo tentativo non è valido', async () => {
   const store = createMemoryStore()
   const text = JSON.stringify({

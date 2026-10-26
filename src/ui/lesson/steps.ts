@@ -2,7 +2,9 @@ import {
   binary,
   equals,
   group,
+  isNegatedPower,
   num,
+  powerOfPower,
   toKatex,
   type Bracket,
   type Expression,
@@ -45,12 +47,20 @@ function changed(a: Expression, b: Expression): Direction[] | null {
   if (a.kind === 'number' && b.kind === 'number')
     return equals(a.value, b.value) ? null : []
   if (a.kind === 'binary' && b.kind === 'binary' && a.op === b.op) {
+    // Una potenza di potenza che diventa una potenza cambia tutta: (3²)³ è
+    // diventata 3⁶, non è cambiata solo la base.
+    if (powerOfPower(a) && !powerOfPower(b)) return []
     const left = changed(a.left, b.left)
     if (left) return ['left', ...left]
     const right = changed(a.right, b.right)
     return right && ['right', ...right]
   }
-  if (a.kind === 'group' && b.kind === 'group' && a.bracket === b.bracket) {
+  if (
+    a.kind === 'group' &&
+    b.kind === 'group' &&
+    a.bracket === b.bracket &&
+    a.negated === b.negated
+  ) {
     const inner = changed(a.inner, b.inner)
     return inner && ['inner', ...inner]
   }
@@ -64,7 +74,9 @@ function put(
 ): Expression {
   if (head === undefined) return node
   if (head === 'inner' && e.kind === 'group')
-    return group(e.bracket, put(e.inner, rest, node))
+    return group(e.bracket, put(e.inner, rest, node), {
+      negated: e.negated === true,
+    })
   if (head === 'left' && e.kind === 'binary')
     return binary(e.op, put(e.left, rest, node), e.right)
   if (head === 'right' && e.kind === 'binary')
@@ -81,15 +93,27 @@ function mark(before: Expression, step: Step): MarkedStep {
   if (!path) throw new Error('Passaggio senza cambiamenti')
   let bracket: Bracket | null = null
   let target = before
+  // Se il pezzo sta all'inizio di tutto o di un gruppo: decide se un numero
+  // negativo va fra parentesi.
+  let leading = true
   for (const d of path) {
-    if (target.kind === 'group') bracket = target.bracket
+    // Il meno davanti a una potenza non disegna parentesi.
+    if (target.kind === 'group' && !isNegatedPower(target))
+      bracket = target.bracket
     target = child(target, d)
+    if (d !== 'left') leading = d === 'inner'
   }
-  const settles = target.kind === 'group'
-  if (target.kind === 'group') bracket = target.bracket
+  // Nel cambio di segno, −(−4), le parentesi spariscono con il meno: non si
+  // lavora dentro di loro. In −3² le parentesi non ci sono.
+  const settles =
+    target.kind === 'group' &&
+    step.rule !== 'change-sign' &&
+    step.rule !== 'minus-power'
+  if (settles && target.kind === 'group') bracket = target.bracket
   const tex = toKatex(put(before, path, hole)).replace(
     toKatex(hole),
-    () => `\\mathord{\\htmlClass{${markClass}}{${toKatex(target)}}}`,
+    () =>
+      `\\mathord{\\htmlClass{${markClass}}{${toKatex(target, { leading })}}}`,
   )
   return { step, before, target, tex, bracket, settles }
 }

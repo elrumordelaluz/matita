@@ -16,7 +16,7 @@ export function exerciseFor(skill: string, seed: number): Exercise | null {
   }
 }
 
-export function canPractise(skill: string): boolean {
+export function canPractise(skill: string): skill is GeneratedSkill {
   return exerciseFor(skill, 0) !== null
 }
 

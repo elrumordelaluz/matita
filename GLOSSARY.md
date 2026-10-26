@@ -14,13 +14,16 @@ di sinistra; nei nomi di tipi e funzioni, la colonna del codice.
 | seme             | `seed`          | Il numero che rende un esercizio riproducibile.                                                        |
 | riga             | `Line`          | Un livello della soluzione, come sul quaderno.                                                         |
 | passaggio        | `Step`          | Una sola operazione dentro una riga, con la regola applicata.                                          |
+| potenza          | `power`         | Base ed esponente, `2³`. Nell'albero è l'operazione `^`.                                               |
+| proprietà        | `PropertyRule`  | Regola che trasforma potenze senza calcolarle: stessa base, stesso esponente, potenza di potenza.      |
 | forma canonica   | `canonical`     | Il modo in cui il risultato va scritto in quel capitolo (frazione ridotta, segno davanti).             |
 | esito            | `Outcome`       | Il giudizio su una risposta: corretto, da riscrivere, errore tipico, sbagliato, non valido.            |
 | da riscrivere    | `rewrite`       | Valore giusto in forma non canonica. Non è un errore.                                                  |
 | errore tipico    | `Misconception` | Una regola sbagliata riconoscibile, con la sua spiegazione. Mai chiamarlo "bug" davanti allo studente. |
 | tentativo        | `Attempt`       | Una risposta salvata, con esito, aiuti e durata.                                                       |
 | aiuto            | `assisted`      | Un tentativo con suggerimento o riscrittura.                                                           |
-| acquisita        | `mastered`      | Abilità con tre tentativi corretti consecutivi senza aiuti.                                            |
+| acquisita        | `mastered`      | Abilità con tre tentativi corretti consecutivi senza aiuti, oppure già saputa.                         |
+| già saputo       | `known`         | Abilità che lo studente ha segnato come saputa insieme al suo capitolo. Conta come acquisita.          |
 | ripasso          | `Review`        | Un esercizio proposto perché FSRS ha fatto scadere l'abilità.                                          |
 | sessione         | `Session`       | Una seduta di circa dieci esercizi.                                                                    |
 | lezione          | `Lesson`        | La spiegazione di un capitolo.                                                                         |
