@@ -89,6 +89,31 @@ acquisita: la sua carta FSRS nasce alla data del segno con un voto Good, così
 il primo ripasso arriva dopo qualche giorno e verifica che lo studente la
 sappia davvero.
 
+**Il segno.** Si salva per abilità, `{ skill, markedAt }`: i progressi non
+conoscono i capitoli. Segnare un capitolo vuol dire segnare tutte le sue
+abilità con la stessa data, e un capitolo è saputo quando tutte le sue
+abilità hanno il segno. Se un capitolo guadagna un'abilità nuova, quella
+resta senza segno finché lo studente non segna di nuovo il capitolo. "Lo so
+già" si offre su ogni capitolo non ancora acquisito per intero, anche
+bloccato.
+
+**Segno e tentativi.** Un'abilità è acquisita se lo dicono i tentativi
+oppure se ha il segno. La carta FSRS nasce dal primo dei due eventi: il
+tentativo che completa la serie di tre, o il segno. Se nasce dal segno, i
+tentativi di prima non contano per la carta e quelli di dopo sono ripassi.
+Un segno messo dopo l'acquisizione non cambia nulla.
+
+**Togliere il segno.** Stato e carta si ricalcolano dai soli tentativi, come
+se il segno non ci fosse mai stato. I ripassi fatti nel frattempo restano
+tentativi come gli altri e contano per la serie di tre. Un'abilità acquisita
+con i tentativi resta acquisita anche se il suo prerequisito torna in
+apprendimento, come vale per ogni abilità acquisita.
+
+**Backup.** Il file è alla versione 2, con tentativi e segni. Un file della
+versione 1, solo tentativi, si importa ancora. L'importazione aggiunge: un
+segno nel file sostituisce quello della stessa abilità, gli altri segni
+restano.
+
 ## Motore
 
 Il motore è puro: funzioni senza stato, nessun import da React, dal DOM o
@@ -205,8 +230,9 @@ di quella a blocchi), poi l'abilità in apprendimento, poi, se c'è spazio, la
 prossima abilità sbloccata preceduta dalla sua lezione.
 
 **Storage.** IndexedDB, dietro un'interfaccia `ProgressStore` così la
-persistenza si può cambiare senza toccare il resto. Esportazione e
-importazione di un file JSON con tutti i tentativi: senza account, il backup è
+persistenza si può cambiare senza toccare il resto. Si salvano solo i
+tentativi e i segni di già saputo; stato e carte si ricalcolano. Esportazione
+e importazione di un file JSON con tutti e due: senza account, il backup è
 l'unica difesa contro un browser ripulito.
 
 ## Lezioni

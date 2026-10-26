@@ -20,7 +20,7 @@ di sinistra; nei nomi di tipi e funzioni, la colonna del codice.
 | errore tipico    | `Misconception` | Una regola sbagliata riconoscibile, con la sua spiegazione. Mai chiamarlo "bug" davanti allo studente. |
 | tentativo        | `Attempt`       | Una risposta salvata, con esito, aiuti e durata.                                                       |
 | aiuto            | `assisted`      | Un tentativo con suggerimento o riscrittura.                                                           |
-| acquisita        | `mastered`      | Abilità con tre tentativi corretti consecutivi senza aiuti.                                            |
+| acquisita        | `mastered`      | Abilità con tre tentativi corretti consecutivi senza aiuti, oppure già saputa.                         |
 | già saputo       | `known`         | Abilità che lo studente ha segnato come saputa insieme al suo capitolo. Conta come acquisita.          |
 | ripasso          | `Review`        | Un esercizio proposto perché FSRS ha fatto scadere l'abilità.                                          |
 | sessione         | `Session`       | Una seduta di circa dieci esercizi.                                                                    |
