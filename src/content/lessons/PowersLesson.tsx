@@ -2,8 +2,9 @@ import { generate } from '../../engine/index.ts'
 import { chapterById } from '../chapters.ts'
 import { Lesson, type LessonPart, type LessonProps } from './Lesson.tsx'
 
-// La lezione del capitolo "Potenze". Per ora con basi naturali: la potenza,
-// il suo posto nell'ordine delle operazioni e le proprietà.
+// La lezione del capitolo "Potenze": la potenza, il suo posto nell'ordine
+// delle operazioni, il meno davanti alla potenza, le proprietà, l'esponente
+// zero e negativo.
 
 const chapter = chapterById('pow')
 
@@ -36,6 +37,22 @@ const parts: readonly LessonPart[] = [
     ),
     example: generate('pow.basics', 58), // 9 + (9 − 5)² × 6
     question: generate('pow.basics', 11), // (10 − 6)³ − 13
+  },
+  {
+    id: 'lezione-meno-e-potenza',
+    title: '−3² e (−3)²',
+    note: 'l’esponente è di chi lo tocca',
+    text: (
+      <p>
+        L’esponente vale per quello che ha subito a sinistra. In (−3)² tocca la
+        parentesi, quindi si eleva −3: (−3) × (−3) = 9. In −3² tocca solo il 3:
+        prima si calcola 3² = 9, poi il meno resta davanti, −9. Con una base
+        negativa la regola dei segni decide: esponente pari, risultato positivo;
+        esponente dispari, negativo.
+      </p>
+    ),
+    example: generate('pow.basics', 175), // −9² + (−3)²
+    question: generate('pow.basics', 258), // −6² + 8 − (−3)²
   },
   {
     id: 'lezione-stessa-base',
@@ -81,11 +98,36 @@ const parts: readonly LessonPart[] = [
     example: generate('pow.properties', 34), // 15³ : 5³
     question: generate('pow.properties', 74), // 2² × 5²
   },
-  // Le parti che arrivano con le basi negative e le frazioni, quando il
-  // motore le avrà:
-  // - −3² e (−3)²: il meno fuori dalla potenza e la base negativa;
-  // - l'esponente zero: a⁰ = 1, da a³ : a³;
-  // - l'esponente negativo: a⁻ⁿ è il reciproco di aⁿ.
+  {
+    id: 'lezione-esponente-zero',
+    title: 'Esponente zero',
+    note: 'a⁰ = 1, se a non è zero',
+    text: (
+      <p>
+        Che cosa vuol dire 5⁰? La proprietà del quoziente lo dice: 5³ : 5³ = 5⁰,
+        ma un numero diviso per sé stesso fa 1. Per questo ogni potenza con
+        esponente zero vale 1, qualunque sia la base, purché non sia zero: 0⁰
+        non ha significato.
+      </p>
+    ),
+    example: generate('pow.zero-negative', 19), // (−5/3)⁰ + 4⁴ : 4⁴
+    question: generate('pow.zero-negative', 8), // (−3)⁰ + 1/4
+  },
+  {
+    id: 'lezione-esponente-negativo',
+    title: 'Esponente negativo',
+    note: 'a⁻ⁿ = 1/aⁿ: il reciproco',
+    text: (
+      <p>
+        Anche l’esponente negativo nasce dal quoziente: 2³ : 2⁵ = 2⁻², e 8 : 32
+        = 1/4. Un esponente negativo chiede il reciproco della base, elevato
+        all’esponente positivo: 2⁻² = (1/2)² = 1/4, (2/3)⁻² = (3/2)² = 9/4. Il
+        segno della potenza non cambia: 2⁻³ è 1/8, non −8.
+      </p>
+    ),
+    example: generate('pow.zero-negative', 3), // 2³ × 2⁻⁵ − (3/2)⁻¹
+    question: generate('pow.zero-negative', 15), // (2/3)⁻²
+  },
 ]
 
 export function PowersLesson({ onPractise }: LessonProps) {
@@ -104,8 +146,10 @@ export function PowersLesson({ onPractise }: LessonProps) {
         <p>
           Scrivere 2 × 2 × 2 × 2 × 2 è lungo, e con tanti fattori si sbaglia a
           contarli. La potenza lo scrive in breve: 2⁵. Qui si impara a
-          calcolarla, a metterla al suo posto in un’espressione e a lavorare con
-          le potenze senza calcolarle, grazie alle loro proprietà.
+          calcolarla, anche con basi negative e frazioni, a metterla al suo
+          posto in un’espressione e a lavorare con le potenze senza calcolarle,
+          grazie alle loro proprietà. Alla fine l’esponente può essere zero, o
+          negativo.
         </p>
       }
       parts={parts}

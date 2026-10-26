@@ -81,6 +81,59 @@ test('una domanda di controllo riconosce base per esponente', () => {
   expect(within(question).getByRole('status')).toHaveTextContent('Esatto!')
 })
 
+test('−3² si svolge con il meno fuori dalla potenza', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: −9² + (−3)²',
+  })
+  expect(lines(example)).toEqual(['−81 + 9', '−72'])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  expect(within(example).getByText('−9² = −81')).toBeInTheDocument()
+  expect(within(example).getByText('(−3)² = 9')).toBeInTheDocument()
+  expect(
+    within(example).getByText('prima la potenza, il meno resta fuori'),
+  ).toBeInTheDocument()
+})
+
+function answer(name: string, value: string) {
+  const question = screen.getByRole('group', { name: `Domanda: ${name}` })
+  fireEvent.change(within(question).getByLabelText('Risposta'), {
+    target: { value },
+  })
+  fireEvent.click(within(question).getByRole('button', { name: 'Controlla' }))
+  return within(question).getByRole('status')
+}
+
+test('una domanda di controllo riconosce il meno elevato', () => {
+  lesson()
+  // −6² + 8 − (−3)² letto come 36 + 8 − 9
+  expect(answer('−6² + 8 − (−3)²', '35')).toHaveTextContent(
+    'Hai elevato anche il meno.',
+  )
+  expect(answer('−6² + 8 − (−3)²', '-37')).toHaveTextContent('Esatto!')
+})
+
+test('le domande sull’esponente zero e negativo riconoscono i loro errori', () => {
+  lesson()
+  expect(answer('(−3)⁰ + 1/4', '1/4')).toHaveTextContent(
+    'Una potenza con esponente zero vale 1',
+  )
+  expect(answer('(2/3)⁻²', '-4/9')).toHaveTextContent(
+    'L’esponente negativo non rende negativa la potenza',
+  )
+  expect(answer('(2/3)⁻²', '9/4')).toHaveTextContent('Esatto!')
+})
+
+test('gli esempi sull’esponente zero e negativo mostrano le righe del quaderno', () => {
+  lesson()
+  expect(
+    lines(screen.getByRole('figure', { name: 'Esempio: (−5/3)⁰ + 4⁴ : 4⁴' })),
+  ).toEqual(['(−5/3)⁰ + 4⁰', '1 + 1', '2'])
+  expect(
+    lines(screen.getByRole('figure', { name: 'Esempio: 2³ × 2⁻⁵ − (3/2)⁻¹' })),
+  ).toEqual(['2⁻² − (3/2)⁻¹', '1/4 − 2/3', '−5/12'])
+})
+
 test('una domanda di controllo riconosce gli esponenti sommati', () => {
   lesson()
   const question = screen.getByRole('group', { name: 'Domanda: (3²)³ : 3³' })
