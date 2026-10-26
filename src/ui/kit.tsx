@@ -21,7 +21,7 @@ export function Sheet({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'bg-grid rounded-3xl border border-hair/70 shadow-panel',
+        'bg-squared rounded-3xl border border-hair/70 shadow-panel',
         className,
       )}
       {...props}
@@ -56,7 +56,7 @@ type Variant = 'primary' | 'pencil' | 'ghost'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-ink text-paper hover:bg-ink/90 shadow-key',
-  pencil: 'bg-pencil text-[#1c1b19] hover:brightness-105 shadow-key',
+  pencil: 'bg-pencil text-on-pencil hover:brightness-105 shadow-key',
   ghost: 'border border-hair bg-panel text-ink hover:bg-paper',
 }
 

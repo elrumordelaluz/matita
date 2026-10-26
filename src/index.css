@@ -20,6 +20,7 @@
   --color-pencil: #f6c443;
   --color-pencil-soft: #fdf1cc;
   --color-pencil-ink: #6b4e00;
+  --color-on-pencil: #1c1b19;
   --color-lead: #3b4a5c;
   --color-ok: #2f7d4f;
   --color-ok-soft: #e3f2e8;
@@ -107,7 +108,7 @@
 }
 
 /* Il foglio a quadretti da 5 mm del quaderno di matematica. */
-@utility bg-grid {
+@utility bg-squared {
   background-color: var(--color-paper);
   background-image:
     linear-gradient(var(--color-grid) 1px, transparent 1px),
@@ -132,7 +133,7 @@ body {
 
 ::selection {
   background: var(--color-pencil);
-  color: #1c1b19;
+  color: var(--color-on-pencil);
 }
 
 .katex {

@@ -46,6 +46,11 @@ export default function App({ store: given }: { store?: ProgressStore }) {
     )
   }
 
+  function practise(skill: GeneratedSkill) {
+    setPractised(skill)
+    setView('practice')
+  }
+
   function show(v: View) {
     setSession(null)
     setView(v)
@@ -87,7 +92,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
         <header className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="grid size-11 -rotate-6 place-items-center rounded-2xl bg-pencil text-[#1c1b19] shadow-key"
+            className="grid size-11 -rotate-6 place-items-center rounded-2xl bg-pencil text-on-pencil shadow-key"
           >
             <Pencil className="size-5" strokeWidth={2.4} />
           </span>
@@ -111,30 +116,25 @@ export default function App({ store: given }: { store?: ProgressStore }) {
                 onDone={() => setSession(null)}
               />
             ) : (
-              <HomePage store={store} skills={skills} onStart={setSession} />
+              <HomePage
+                store={store}
+                skills={skills}
+                onStart={setSession}
+                onOpenLesson={() => show('lesson')}
+                onOpenProgress={() => show('progress')}
+              />
             ))}
-          {view === 'lesson' && (
-            <NExpressionsLesson
-              onPractise={(skill) => {
-                setPractised(skill)
-                setView('practice')
-              }}
+          {view === 'lesson' && <NExpressionsLesson onPractise={practise} />}
+          {view === 'practice' && (
+            <PracticePage
+              key={practised}
+              title={skills.find((s) => s.id === practised)?.title ?? ''}
+              createExercise={() => generate(practised, randomSeed())}
+              onAttempt={save}
             />
           )}
-          {view === 'practice' && (
-            <>
-              <p className="mb-6 text-dim">
-                {skills.find((s) => s.id === practised)?.title}
-              </p>
-              <PracticePage
-                key={practised}
-                createExercise={() => generate(practised, randomSeed())}
-                onAttempt={save}
-              />
-            </>
-          )}
           {view === 'progress' && (
-            <ProgressPage store={store} skills={skills} />
+            <ProgressPage store={store} skills={skills} onPractise={practise} />
           )}
         </div>
       </div>

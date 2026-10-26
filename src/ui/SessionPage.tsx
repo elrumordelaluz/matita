@@ -1,17 +1,34 @@
-import { useRef, useState } from 'react'
+import {
+  Check,
+  House,
+  PencilLine,
+  RotateCcw,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Skill } from '../content/skills.ts'
 import type { Exercise } from '../engine/index.ts'
 import type { SessionItem } from '../progress/session.ts'
 import { exerciseFor, randomSeed } from './exercises.ts'
+import { Button, Panel } from './kit.tsx'
 import { PracticePage, type PracticeAttempt } from './PracticePage.tsx'
+import {
+  SessionRecap,
+  SessionTrack,
+  type Mark,
+} from './practice/SessionTrack.tsx'
 
 // Una sessione: gli esercizi in fila, uno per voce del piano. Finita la fila,
 // "Esercizio successivo" continua con l'ultima abilità, fuori sessione.
 
-const reasonLabel: Record<SessionItem['reason'], string> = {
-  review: 'Ripasso',
-  learning: 'In apprendimento',
-  new: 'Abilità nuova',
+const reasons: Record<
+  SessionItem['reason'],
+  { label: string; icon: LucideIcon }
+> = {
+  review: { label: 'Ripasso', icon: RotateCcw },
+  learning: { label: 'In apprendimento', icon: PencilLine },
+  new: { label: 'Abilità nuova', icon: Sparkles },
 }
 
 interface Progress {
@@ -19,6 +36,11 @@ interface Progress {
   readonly index: number
   /** Se l'esercizio mostrato si è già chiuso. */
   readonly closed: boolean
+}
+
+function markOf({ outcome, hints, rewrites }: PracticeAttempt): Mark {
+  if (outcome.kind !== 'correct') return 'missed'
+  return hints > 0 || rewrites > 0 ? 'helped' : 'clean'
 }
 
 export function SessionPage({
@@ -36,6 +58,8 @@ export function SessionPage({
     index: 0,
     closed: false,
   })
+  // Com'è andato ogni esercizio della sessione, nell'ordine.
+  const [results, setResults] = useState<Mark[]>([])
   // createExercise legge la posizione da un ref: PracticePage lo chiama sia
   // nel primo render sia dal pulsante, e solo il pulsante deve farla avanzare.
   const current = useRef(progress)
@@ -62,6 +86,8 @@ export function SessionPage({
 
   function record(attempt: PracticeAttempt) {
     onAttempt(attempt)
+    if (current.current.index <= last)
+      setResults((r) => [...r, markOf(attempt)])
     update({ ...current.current, closed: true })
   }
 
@@ -69,27 +95,96 @@ export function SessionPage({
   const finished =
     progress.index > last || (progress.index === last && progress.closed)
 
+  // Finita la sessione, il prossimo passo è tornare all'inizio. L'effetto
+  // gira dopo quello di PracticePage, quindi vince sul suo.
+  const home = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (finished) home.current?.focus()
+  }, [finished])
+
+  const reason = item && reasons[item.reason]
+
   return (
-    <section className="space-y-6">
-      {inSession && item && (
-        <p className="flex gap-2 text-sm text-dim">
-          <span>{`Esercizio ${progress.index + 1} di ${items.length}`}</span>
-          <span>{`${reasonLabel[item.reason]}: ${title ?? item.skill}`}</span>
-        </p>
+    <section className="space-y-5">
+      {finished ? (
+        <Completed
+          results={results}
+          total={items.length}
+          home={home}
+          onDone={onDone}
+        />
+      ) : (
+        inSession &&
+        reason && (
+          <Panel className="space-y-3 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-display text-lg font-bold">{`Esercizio ${progress.index + 1} di ${items.length}`}</p>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pencil-soft px-3 py-1 text-xs font-semibold text-pencil-ink">
+                <reason.icon aria-hidden="true" className="size-3.5" />
+                {reason.label}
+              </span>
+            </div>
+            <SessionTrack
+              total={items.length}
+              index={progress.index}
+              closed={progress.closed}
+            />
+          </Panel>
+        )
       )}
-      <PracticePage createExercise={createExercise} onAttempt={record} />
-      {finished && (
-        <div className="space-y-3 border-t border-hair pt-4">
-          <p className="text-ok">Sessione completata.</p>
-          <button
-            type="button"
-            onClick={onDone}
-            className="rounded border border-hair px-4 py-2"
-          >
-            Torna all’inizio
-          </button>
-        </div>
-      )}
+      <PracticePage
+        createExercise={createExercise}
+        onAttempt={record}
+        {...(title === undefined ? {} : { title })}
+      />
     </section>
   )
+}
+
+function Completed({
+  results,
+  total,
+  home,
+  onDone,
+}: {
+  results: readonly Mark[]
+  total: number
+  home: RefObject<HTMLButtonElement | null>
+  onDone: () => void
+}) {
+  const correct = results.filter((m) => m !== 'missed').length
+  const clean = results.filter((m) => m === 'clean').length
+  return (
+    <Panel className="flex animate-rise flex-col gap-5 sm:flex-row sm:items-center">
+      <span className="grid size-16 shrink-0 animate-pop place-items-center rounded-full bg-ok-soft text-ok">
+        <Check aria-hidden="true" strokeWidth={3} className="size-8" />
+      </span>
+      <div className="min-w-0 flex-1 space-y-3">
+        <div>
+          <h2 className="font-display text-2xl font-bold">
+            Sessione completata.
+          </h2>
+          <p className="text-dim">{summary(correct, clean, total)}</p>
+        </div>
+        <SessionRecap results={results} />
+        <p className="text-sm text-dim">
+          Le abilità torneranno nel ripasso quando stanno per sfumare.
+        </p>
+      </div>
+      <Button
+        ref={home}
+        onClick={onDone}
+        icon={<House aria-hidden="true" className="size-4" />}
+        className="shrink-0"
+      >
+        Torna all’inizio
+      </Button>
+    </Panel>
+  )
+}
+
+function summary(correct: number, clean: number, total: number): string {
+  if (clean === total) return 'Tutti corretti, senza suggerimenti.'
+  const right = `${correct} ${correct === 1 ? 'corretto' : 'corretti'} su ${total}`
+  return clean > 0 ? `${right}, ${clean} senza suggerimenti.` : `${right}.`
 }

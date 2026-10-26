@@ -1,12 +1,31 @@
-import { useEffect, useId, useState, type ChangeEvent } from 'react'
+import {
+  Check,
+  Download,
+  HardDrive,
+  Lock,
+  PencilLine,
+  Upload,
+} from 'lucide-react'
+import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react'
 import type { Skill } from '../content/skills.ts'
+import type { GeneratedSkill } from '../engine/index.ts'
+import { cn } from '../lib/cn.ts'
 import type { Attempt } from '../progress/attempt.ts'
 import { exportBackup, importBackup } from '../progress/backup.ts'
+import { reviewCards } from '../progress/review.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
-import { cn } from '../lib/cn.ts'
+import { canPractise } from './exercises.ts'
+import { firstChapter } from './home/chapters.ts'
+import {
+  attemptStats,
+  currentStreaks,
+  masteryStreak,
+} from './home/skillProgress.ts'
+import { Button, Eyebrow, Note, Panel, Ring, Sheet } from './kit.tsx'
 
-// "I miei progressi": lo stato di ogni abilità e il backup dei tentativi.
+// "I miei progressi": la mappa delle abilità del capitolo, qualche conto sui
+// tentativi e il backup.
 
 const stateLabel: Record<SkillState, string> = {
   locked: 'bloccata',
@@ -14,16 +33,84 @@ const stateLabel: Record<SkillState, string> = {
   mastered: 'acquisita',
 }
 
+const stateCard: Record<SkillState, string> = {
+  locked: 'border-dashed border-dim/30 bg-panel/70 shadow-none',
+  learning: 'border-pencil ring-4 ring-pencil-soft',
+  mastered: 'border-ok/30',
+}
+
+const stateTag: Record<SkillState, string> = {
+  locked: 'bg-paper text-dim',
+  learning: 'bg-pencil-soft text-pencil-ink',
+  mastered: 'bg-ok-soft text-ok',
+}
+
+// Il tratto che entra in un nodo: pieno se il nodo è aperto, tratteggiato se
+// è ancora bloccato.
+const strokeOpen = 'before:border-lead/50 after:border-lead/50'
+const strokeLocked =
+  'before:border-dashed before:border-dim/40 after:border-dashed after:border-dim/40'
+
+const columns: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+}
+
+// Dove cade la U che raccoglie una riga di nodi: dal centro della prima
+// colonna al centro dell'ultima.
+const mergeInset: Record<number, string> = {
+  2: 'before:inset-x-1/4',
+  3: 'before:inset-x-1/6',
+}
+
+const riseDelay = [
+  '',
+  '[animation-delay:80ms]',
+  '[animation-delay:160ms]',
+  '[animation-delay:240ms]',
+  '[animation-delay:320ms]',
+]
+
+const day = 86_400_000
+
 type Notice =
   | { readonly ok: true; readonly text: string }
   | { readonly ok: false; readonly text: string }
 
+// Il livello di ogni abilità nel grafo: zero senza prerequisiti, poi uno in
+// più del prerequisito più profondo. Le abilità dello stesso livello stanno
+// sulla stessa riga della mappa.
+function levels(skills: readonly Skill[]): Skill[][] {
+  const depth = new Map<string, number>()
+  const of = (skill: Skill): number => {
+    const known = depth.get(skill.id)
+    if (known !== undefined) return known
+    const prereqs = skills.filter((s) => skill.prerequisites.includes(s.id))
+    const d = prereqs.length ? 1 + Math.max(...prereqs.map(of)) : 0
+    depth.set(skill.id, d)
+    return d
+  }
+  const rows: Skill[][] = []
+  for (const skill of skills) (rows[of(skill)] ??= []).push(skill)
+  return rows.filter(Boolean)
+}
+
+function reviewText(due: Date, now: Date): string {
+  const days = Math.ceil((due.getTime() - now.getTime()) / day)
+  if (days <= 0) return 'da ripassare'
+  if (days === 1) return 'ripasso domani'
+  return `ripasso fra ${days} giorni`
+}
+
 export function ProgressPage({
   store,
   skills,
+  onPractise,
 }: {
   store: ProgressStore
   skills: readonly Skill[]
+  onPractise?: (skill: GeneratedSkill) => void
 }) {
   const [attempts, setAttempts] = useState<Attempt[] | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -70,75 +157,290 @@ export function ProgressPage({
     })
   }
 
-  const states = attempts && skillStates(skills, attempts)
+  const progress = useMemo(
+    () =>
+      attempts && {
+        states: skillStates(skills, attempts),
+        streaks: currentStreaks(attempts),
+        cards: reviewCards(attempts),
+        stats: attemptStats(attempts),
+      },
+    [attempts, skills],
+  )
+  const rows = useMemo(() => levels(skills), [skills])
+  const width = Math.min(3, Math.max(...rows.map((r) => r.length)))
+  const mastered = progress
+    ? skills.filter((s) => progress.states[s.id] === 'mastered').length
+    : 0
+  const now = new Date()
+  const titleOf = (sid: string) =>
+    skills.find((s) => s.id === sid)?.title ?? sid
 
   return (
-    <section aria-labelledby={`${id}-title`} className="space-y-8">
-      <h2 id={`${id}-title`} className="text-xl font-semibold">
-        I miei progressi
-      </h2>
-
-      {states && (
-        <ul className="divide-y divide-hair border-y border-hair">
-          {skills.map((skill) => {
-            const state = states[skill.id] ?? 'locked'
-            return (
-              <li
-                key={skill.id}
-                aria-labelledby={`${id}-${skill.id}`}
-                className="flex items-baseline justify-between gap-4 py-3"
-              >
-                <span id={`${id}-${skill.id}`}>{skill.title}</span>
-                <span
-                  className={cn(
-                    'text-sm',
-                    state === 'mastered' && 'text-ok',
-                    state !== 'mastered' && 'text-dim',
-                  )}
-                >
-                  {stateLabel[state]}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      <section aria-labelledby={`${id}-backup`} className="space-y-3">
-        <h3 id={`${id}-backup`} className="text-sm text-dim">
-          Backup
-        </h3>
-        <p className="text-sm text-dim">
-          I progressi vivono solo in questo browser. Scarica un backup ogni
-          tanto: se il browser viene ripulito, lo reimporti e non perdi nulla.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void download()}
-            className="rounded border border-hair px-4 py-2"
+    <section aria-labelledby={`${id}-title`} className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2
+            id={`${id}-title`}
+            className="font-display text-3xl font-bold tracking-tight"
           >
-            Scarica un backup
-          </button>
-          <label className="cursor-pointer rounded border border-hair px-4 py-2">
-            Importa un backup
-            <input
-              type="file"
-              accept="application/json,.json"
-              onChange={(e) => void upload(e)}
-              className="sr-only"
-            />
-          </label>
+            I miei progressi
+          </h2>
+          {progress && (
+            <p className="mt-1 text-dim">
+              {mastered === skills.length
+                ? 'Capitolo completo: ora lo tiene vivo il ripasso.'
+                : `${mastered} abilità su ${skills.length} acquisite.`}
+            </p>
+          )}
         </div>
-        {notice && (
-          <p
-            role={notice.ok ? 'status' : 'alert'}
-            className={cn('text-sm', notice.ok ? 'text-ok' : 'text-err')}
-          >
-            {notice.text}
-          </p>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
+        {progress && (
+          <Sheet className="animate-rise p-4 sm:p-8 lg:col-span-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Eyebrow>Capitolo {firstChapter.number}</Eyebrow>
+                <p className="mt-1 font-display text-2xl leading-tight font-bold">
+                  {firstChapter.title}
+                </p>
+              </div>
+              <Ring value={mastered / skills.length} className="size-14">
+                {mastered}/{skills.length}
+              </Ring>
+            </div>
+            <Note className="mt-2 inline-block -rotate-1">
+              {masteryStreak} corretti di fila senza aiuti, ed è acquisita
+            </Note>
+
+            <ul
+              className={cn(
+                'mx-auto mt-8 grid max-w-2xl gap-y-12',
+                columns[width],
+              )}
+            >
+              {rows.flatMap((row, level) =>
+                row.map((skill) => {
+                  const state = progress.states[skill.id] ?? 'locked'
+                  const streak = Math.min(
+                    masteryStreak,
+                    progress.streaks.get(skill.id) ?? 0,
+                  )
+                  const card = progress.cards.get(skill.id)
+                  const alone = row.length === 1
+                  const merge =
+                    level > 0 && alone && (rows[level - 1]?.length ?? 0) > 1
+                  const titleId = `${id}-${skill.id}`
+                  return (
+                    <li
+                      key={skill.id}
+                      aria-labelledby={titleId}
+                      className={cn(
+                        'relative animate-rise px-1.5 sm:px-4',
+                        riseDelay[Math.min(level, riseDelay.length - 1)],
+                        alone && 'col-span-full',
+                        level > 0 &&
+                          'before:absolute before:-ml-px after:absolute after:-ml-px',
+                        level > 0 &&
+                          !merge &&
+                          'before:-top-12 before:left-1/2 before:h-12 before:border-l-2',
+                        merge &&
+                          'before:-top-12 before:h-6 before:rounded-b-2xl before:border-2 before:border-t-0 after:-top-6 after:left-1/2 after:h-6 after:border-l-2',
+                        merge && mergeInset[rows[level - 1]?.length ?? 2],
+                        level > 0 &&
+                          (state === 'locked' ? strokeLocked : strokeOpen),
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'mx-auto flex h-full max-w-xs flex-col items-center gap-2 rounded-2xl border bg-panel p-3 text-center shadow-panel sm:p-4',
+                          stateCard[state],
+                        )}
+                      >
+                        {state === 'mastered' && (
+                          <span className="grid size-12 animate-pop place-items-center rounded-full bg-ok text-panel">
+                            <Check
+                              aria-hidden="true"
+                              className="size-6"
+                              strokeWidth={3}
+                            />
+                          </span>
+                        )}
+                        {state === 'learning' && (
+                          <Ring
+                            value={streak / masteryStreak}
+                            className="size-12"
+                          >
+                            <PencilLine
+                              aria-hidden="true"
+                              className="size-4 text-pencil-ink"
+                              strokeWidth={2.4}
+                            />
+                          </Ring>
+                        )}
+                        {state === 'locked' && (
+                          <span className="grid size-12 place-items-center rounded-full border border-dashed border-dim/40 bg-paper text-dim">
+                            <Lock aria-hidden="true" className="size-5" />
+                          </span>
+                        )}
+                        <span
+                          id={titleId}
+                          className={cn(
+                            'font-display leading-tight font-bold sm:text-lg',
+                            state === 'locked' && 'text-ink/60',
+                          )}
+                        >
+                          {skill.title}
+                        </span>
+                        <span
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                            stateTag[state],
+                          )}
+                        >
+                          {stateLabel[state]}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-xs text-dim',
+                            card &&
+                              card.due.getTime() <= now.getTime() &&
+                              'font-semibold text-lead',
+                          )}
+                        >
+                          {state === 'mastered' &&
+                            card &&
+                            reviewText(card.due, now)}
+                          {state === 'learning' &&
+                            `${streak}/${masteryStreak} corretti di fila`}
+                          {state === 'locked' &&
+                            `Prima: ${skill.prerequisites
+                              .filter((p) => progress.states[p] !== 'mastered')
+                              .map(titleOf)
+                              .join(', ')}`}
+                        </span>
+                        {state === 'learning' &&
+                          onPractise &&
+                          canPractise(skill.id) && (
+                            <Button
+                              variant="pencil"
+                              onClick={() =>
+                                onPractise(skill.id as GeneratedSkill)
+                              }
+                              aria-describedby={titleId}
+                              className="mt-auto px-3 py-1.5 text-sm"
+                            >
+                              Allena
+                            </Button>
+                          )}
+                      </div>
+                    </li>
+                  )
+                }),
+              )}
+            </ul>
+          </Sheet>
         )}
-      </section>
+
+        <div className="space-y-5 lg:col-span-4">
+          {progress && (
+            <dl className="grid animate-rise grid-cols-3 gap-3 [animation-delay:90ms] lg:grid-cols-1">
+              <Stat label="esercizi svolti" value={progress.stats.total} />
+              <Stat
+                label="corretti al primo colpo"
+                value={progress.stats.clean}
+                note={
+                  progress.stats.total > 0
+                    ? `${Math.round((100 * progress.stats.clean) / progress.stats.total)}%`
+                    : undefined
+                }
+              />
+              <Stat label="giorni di pratica" value={progress.stats.days} />
+            </dl>
+          )}
+
+          <Panel
+            aria-labelledby={`${id}-backup`}
+            className="animate-rise space-y-3 [animation-delay:160ms]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-2xl bg-paper text-lead">
+                <HardDrive aria-hidden="true" className="size-5" />
+              </span>
+              <h3
+                id={`${id}-backup`}
+                className="font-display text-lg font-bold"
+              >
+                Backup
+              </h3>
+            </div>
+            <p className="text-sm text-dim">
+              I progressi vivono solo in questo browser. Scarica un backup ogni
+              tanto: se il browser viene ripulito, lo reimporti e non perdi
+              nulla.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => void download()}
+                icon={<Download aria-hidden="true" className="size-4" />}
+                className="text-sm"
+              >
+                Scarica un backup
+              </Button>
+              <label
+                className={cn(
+                  'inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-hair bg-panel px-4 py-2.5 text-sm font-semibold transition hover:bg-paper',
+                  'focus-within:ring-2 focus-within:ring-pencil focus-within:ring-offset-2 focus-within:ring-offset-panel',
+                )}
+              >
+                <Upload aria-hidden="true" className="size-4" />
+                Importa un backup
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(e) => void upload(e)}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {notice && (
+              <p
+                role={notice.ok ? 'status' : 'alert'}
+                className={cn(
+                  'rounded-xl px-3 py-2 text-sm font-medium',
+                  notice.ok ? 'bg-ok-soft text-ok' : 'bg-err-soft text-err',
+                )}
+              >
+                {notice.text}
+              </p>
+            )}
+          </Panel>
+        </div>
+      </div>
     </section>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  note,
+}: {
+  label: string
+  value: number
+  note?: string | undefined
+}) {
+  return (
+    <div className="rounded-3xl border border-hair/70 bg-panel p-4 shadow-panel">
+      <dt className="text-xs leading-tight text-dim sm:text-sm">{label}</dt>
+      <dd className="mt-1 flex items-baseline gap-2">
+        <span className="font-display text-3xl font-bold tabular-nums">
+          {value}
+        </span>
+        {note && <Note>{note}</Note>}
+      </dd>
+    </div>
   )
 }
