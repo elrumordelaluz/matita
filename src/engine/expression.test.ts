@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { parseExpression, toKatex, toText } from './expression.ts'
+import {
+  binary,
+  group,
+  literal,
+  num,
+  parseExpression,
+  toKatex,
+  toText,
+} from './expression.ts'
 import { rational } from './rational.ts'
 
 describe('parseExpression', () => {
@@ -100,5 +108,105 @@ describe('resa', () => {
     expect(toKatex(parseExpression(nested))).toBe(
       '\\{[(8 - 3) \\times 2 + 4] \\mathbin{:} 7 + 1\\} \\times 3',
     )
+  })
+})
+
+describe('numeri relativi', () => {
+  test('fra tonde, tranne all’inizio dell’espressione', () => {
+    expect(toText(parseExpression('-3 + 5 - (-7)'))).toBe('−3 + 5 − (−7)')
+    expect(toKatex(parseExpression('−3 + 5 − (−7)'))).toBe('-3 + 5 - (-7)')
+  })
+
+  test('fra tonde, tranne all’inizio di un gruppo', () => {
+    expect(toText(parseExpression('[−2 + (3 − 7)] × (−2)'))).toBe(
+      '[−2 + (3 − 7)] × (−2)',
+    )
+  })
+
+  test('all’inizio un numero relativo perde le tonde, il segno più resta', () => {
+    expect(toText(parseExpression('(−3) × (+4) − (−5)'))).toBe(
+      '−3 × (+4) − (−5)',
+    )
+  })
+
+  test('un numero relativo fra tonde non è un gruppo', () => {
+    expect(parseExpression('5 − (−4)')).toEqual({
+      kind: 'binary',
+      op: '-',
+      left: { kind: 'number', value: rational(5n) },
+      right: { kind: 'number', value: rational(-4n) },
+    })
+    expect(parseExpression('5 − (+4)')).toMatchObject({
+      right: { kind: 'number', value: rational(4n), plus: true },
+    })
+  })
+
+  test('altrove un segno senza tonde non si legge', () => {
+    expect(() => parseExpression('5 × −3')).toThrow()
+    expect(() => parseExpression('5 + +3')).toThrow()
+  })
+
+  test('un numero da solo, all’inizio o in mezzo', () => {
+    expect(toText(literal(rational(-12n)))).toBe('−12')
+    expect(toText(literal(rational(-12n)), { leading: false })).toBe('(−12)')
+    expect(toText(literal(rational(4n), { plus: true }))).toBe('+4')
+  })
+})
+
+describe('il meno davanti a un gruppo', () => {
+  test('è un gruppo che ricorda il meno', () => {
+    expect(parseExpression('−(3 − 7) + 2')).toEqual({
+      kind: 'binary',
+      op: '+',
+      left: {
+        kind: 'group',
+        bracket: 'round',
+        negated: true,
+        inner: parseExpression('3 − 7'),
+      },
+      right: { kind: 'number', value: rational(2n) },
+    })
+  })
+
+  test('in testo semplice e in KaTeX', () => {
+    const e = parseExpression('-[4 - (5 - (-5)) * 2] - 4')
+    expect(toText(e)).toBe('−[4 − (5 − (−5)) × 2] − 4')
+    expect(toKatex(e)).toBe('-[4 - (5 - (-5)) \\times 2] - 4')
+  })
+
+  test('con un solo numero dentro, il numero ha sempre il segno', () => {
+    expect(toText(group('round', num(3n), { negated: true }))).toBe('−(+3)')
+    expect(toText(group('round', num(-4n), { negated: true }))).toBe('−(−4)')
+    expect(parseExpression('−(+3)')).toEqual(
+      group('round', num(3n), { negated: true }),
+    )
+  })
+
+  test('lontano dall’inizio va fra tonde', () => {
+    const e = binary(
+      '×',
+      num(5n),
+      group('round', parseExpression('3 − 7'), { negated: true }),
+    )
+    expect(toText(e)).toBe('5 × (−(3 − 7))')
+    expect(parseExpression(toText(e))).toEqual(e)
+  })
+
+  test('il più davanti a un gruppo non si legge', () => {
+    expect(() => parseExpression('+(3 − 7)')).toThrow()
+  })
+})
+
+describe('parseExpression legge quello che scrive toText', () => {
+  test.each([
+    '−14 − (+10) − (−9)',
+    '+8 : (+4) × (−6) : (−4)',
+    '−(−3 + (+5)) + (+5)',
+    '−{+6 − (−3) × [(+5 + (−8)) × (+5) − (−4)]} + (+9)',
+    '−[−(+3 + (−9)) − (+5)] + (−8)',
+  ])('%s', (source) => {
+    const e = parseExpression(source)
+    expect(toText(e)).toBe(source)
+    expect(parseExpression(toText(e))).toEqual(e)
   })
 })

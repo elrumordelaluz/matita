@@ -50,7 +50,12 @@ function changed(a: Expression, b: Expression): Direction[] | null {
     const right = changed(a.right, b.right)
     return right && ['right', ...right]
   }
-  if (a.kind === 'group' && b.kind === 'group' && a.bracket === b.bracket) {
+  if (
+    a.kind === 'group' &&
+    b.kind === 'group' &&
+    a.bracket === b.bracket &&
+    a.negated === b.negated
+  ) {
     const inner = changed(a.inner, b.inner)
     return inner && ['inner', ...inner]
   }
@@ -64,7 +69,9 @@ function put(
 ): Expression {
   if (head === undefined) return node
   if (head === 'inner' && e.kind === 'group')
-    return group(e.bracket, put(e.inner, rest, node))
+    return group(e.bracket, put(e.inner, rest, node), {
+      negated: e.negated === true,
+    })
   if (head === 'left' && e.kind === 'binary')
     return binary(e.op, put(e.left, rest, node), e.right)
   if (head === 'right' && e.kind === 'binary')
@@ -81,15 +88,22 @@ function mark(before: Expression, step: Step): MarkedStep {
   if (!path) throw new Error('Passaggio senza cambiamenti')
   let bracket: Bracket | null = null
   let target = before
+  // Se il pezzo sta all'inizio di tutto o di un gruppo: decide se un numero
+  // negativo va fra parentesi.
+  let leading = true
   for (const d of path) {
     if (target.kind === 'group') bracket = target.bracket
     target = child(target, d)
+    if (d !== 'left') leading = d === 'inner'
   }
-  const settles = target.kind === 'group'
-  if (target.kind === 'group') bracket = target.bracket
+  // Nel cambio di segno, −(−4), le parentesi spariscono con il meno: non si
+  // lavora dentro di loro.
+  const settles = target.kind === 'group' && step.rule !== 'change-sign'
+  if (settles && target.kind === 'group') bracket = target.bracket
   const tex = toKatex(put(before, path, hole)).replace(
     toKatex(hole),
-    () => `\\mathord{\\htmlClass{${markClass}}{${toKatex(target)}}}`,
+    () =>
+      `\\mathord{\\htmlClass{${markClass}}{${toKatex(target, { leading })}}}`,
   )
   return { step, before, target, tex, bracket, settles }
 }

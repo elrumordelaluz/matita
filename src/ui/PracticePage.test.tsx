@@ -161,3 +161,14 @@ test('anche un errore tipico chiude l’esercizio e riferisce il tentativo', () 
     }),
   )
 })
+
+test('in Z il risultato e i conti hanno il meno tipografico', () => {
+  render(<PracticePage createExercise={() => exercise('−8 − (3 − (−6))')} />)
+  answer('-1')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Non è corretto: il risultato è −17.',
+  )
+  const solution = screen.getByRole('region', { name: 'Soluzione' })
+  expect(within(solution).getByText('3 − (−6) = 9')).toBeInTheDocument()
+  expect(within(solution).getByText('−8 − 9 = −17')).toBeInTheDocument()
+})

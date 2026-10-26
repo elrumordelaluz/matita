@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  rationalToText,
+  literal,
   solve,
   toText,
   verify,
@@ -40,7 +40,7 @@ function feedback(
       return {
         tone: 'err',
         title: 'Non è corretto.',
-        detail: `Il risultato è ${rationalToText(solve(exercise.expression).result)}.`,
+        detail: `Il risultato è ${toText(literal(solve(exercise.expression).result))}.`,
       }
     case 'invalid':
       return { tone: 'warn', title: outcome.message }
@@ -147,7 +147,7 @@ export function CheckQuestion({
               id={id}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              inputMode="numeric"
+              inputMode="text"
               autoComplete="off"
               placeholder="?"
               className={cn(

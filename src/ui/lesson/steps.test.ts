@@ -63,3 +63,24 @@ test('la resa KaTeX avvolge solo il pezzo svolto', () => {
     `\\mathord{\\htmlClass{${markClass}}{6 \\mathbin{:} 3}} + 3 \\times 8`,
   )
 })
+
+test('un negativo in mezzo resta fra tonde anche quando è evidenziato', () => {
+  const start = parseExpression('5 − (−3) × 2')
+  const [first] = markedSteps(start, solve(start).lines).flat()
+  expect(first?.tex).toBe(
+    `5 - \\mathord{\\htmlClass{${markClass}}{(-3) \\times 2}}`,
+  )
+})
+
+test('il cambio di segno si evidenzia con il suo meno, senza parentesi da togliere', () => {
+  expect(marks('−(3 − 7) + 2')).toEqual([
+    {
+      before: '−(3 − 7) + 2',
+      target: '3 − 7',
+      bracket: 'round',
+      settles: false,
+    },
+    { before: '−(−4) + 2', target: '−(−4)', bracket: null, settles: false },
+    { before: '4 + 2', target: '4 + 2', bracket: null, settles: false },
+  ])
+})

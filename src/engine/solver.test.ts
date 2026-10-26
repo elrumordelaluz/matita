@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { parseExpression, toText } from './expression.ts'
 import { rationalToText as rationalText } from './rational.ts'
 import { solve, type Solution } from './solver.ts'
@@ -150,4 +150,93 @@ test('un numero da solo non ha righe', () => {
   const solution = solve(parseExpression('7'))
   expect(solution.lines).toEqual([])
   expect(rationalText(solution.result)).toBe('7')
+})
+
+// Le righe con i conti a margine, come li mostra il quaderno.
+function notebook(source: string) {
+  return solve(parseExpression(source)).lines.map((line) => ({
+    line: toText(line.expression),
+    steps: line.steps.map(
+      (s) => `${toText(s.operation)} = ${toText(s.outcome)}`,
+    ),
+  }))
+}
+
+describe('in Z', () => {
+  test('una somma algebrica da sinistra a destra', () => {
+    expect(notebook('−7 + (−3) − (−5) + 2')).toEqual([
+      {
+        line: '−3',
+        steps: ['−7 + (−3) = −10', '−10 − (−5) = −5', '−5 + 2 = −3'],
+      },
+    ])
+  })
+
+  test('la regola dei segni in moltiplicazioni e divisioni', () => {
+    expect(notebook('(−3) × (+4) − (−18) : (−6)')).toEqual([
+      {
+        line: '−12 − 3',
+        steps: ['−3 × (+4) = −12', '−18 : (−6) = 3'],
+      },
+      { line: '−15', steps: ['−12 − 3 = −15'] },
+    ])
+  })
+
+  test('un gruppo che si riduce a un negativo resta fra tonde', () => {
+    expect(notebook('5 − (3 − 7)')).toEqual([
+      { line: '5 − (−4)', steps: ['3 − 7 = −4'] },
+      { line: '9', steps: ['5 − (−4) = 9'] },
+    ])
+  })
+
+  test('il meno davanti a un gruppo: prima il gruppo, poi il cambio di segno', () => {
+    expect(notebook('−(3 − 7) + 2')).toEqual([
+      { line: '−(−4) + 2', steps: ['3 − 7 = −4'] },
+      { line: '4 + 2', steps: ['−(−4) = 4'] },
+      { line: '6', steps: ['4 + 2 = 6'] },
+    ])
+  })
+
+  test('il cambio di segno di un positivo', () => {
+    expect(notebook('−(5 − 2) + 1').map((l) => l.line)).toEqual([
+      '−(+3) + 1',
+      '−3 + 1',
+      '−2',
+    ])
+  })
+
+  test('il cambio di segno sta nel giro di × e :', () => {
+    expect(notebook('−(−2) × 3 − 1')).toEqual([
+      { line: '6 − 1', steps: ['−(−2) = 2', '2 × 3 = 6'] },
+      { line: '5', steps: ['6 − 1 = 5'] },
+    ])
+  })
+
+  test('il cambio di segno dichiara la sua regola', () => {
+    const lines = solve(parseExpression('−(3 − 7) + 2')).lines
+    expect(lines.map((l) => l.steps.map((s) => s.rule))).toEqual([
+      ['add-sub-left-to-right'],
+      ['change-sign'],
+      ['add-sub-left-to-right'],
+    ])
+  })
+
+  test('il meno davanti a una quadra', () => {
+    expect(notebook('−[4 − (5 − (−5)) × 2] − 4').map((l) => l.line)).toEqual([
+      '−[4 − 10 × 2] − 4',
+      '−[4 − 20] − 4',
+      '−[−16] − 4',
+      '16 − 4',
+      '12',
+    ])
+  })
+
+  test('un’espressione che è solo il meno davanti a un gruppo', () => {
+    const solution = solve(parseExpression('−(2 − 9)'))
+    expect(solution.lines.map((l) => toText(l.expression))).toEqual([
+      '−(−7)',
+      '7',
+    ])
+    expect(rationalText(solution.result)).toBe('7')
+  })
 })

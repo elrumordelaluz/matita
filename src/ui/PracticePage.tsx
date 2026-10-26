@@ -1,8 +1,9 @@
 import { ArrowRight, Check, Lightbulb } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
-  rationalToText,
+  literal,
   solve,
+  toText,
   verify,
   type Exercise,
   type Outcome,
@@ -153,7 +154,7 @@ export function PracticePage({
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               readOnly={done}
-              inputMode="numeric"
+              inputMode="text"
               autoComplete="off"
               placeholder="?"
               className={cn(
@@ -173,7 +174,7 @@ export function PracticePage({
             <OutcomeCard
               key={tries}
               outcome={outcome}
-              result={rationalToText(solution.result)}
+              result={toText(literal(solution.result))}
               hints={hints}
             />
           )}
