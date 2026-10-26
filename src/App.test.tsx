@@ -99,3 +99,96 @@ test('dalla lezione si passa alla pratica', () => {
     screen.getByRole('heading', { name: 'Espressioni in N' }),
   ).toBeInTheDocument()
 })
+
+// Vedi SPEC.md, "Già saputo".
+
+const chapterCard = async (title: string) =>
+  within(await screen.findByRole('listitem', { name: title }))
+
+test('un capitolo segnato come già saputo apre il successivo, e si annulla', async () => {
+  const store = createMemoryStore()
+  render(<App store={store} />)
+
+  let first = await chapterCard('Espressioni in N')
+  expect(
+    (await chapterCard('Espressioni in Z')).getByText(/bloccato/),
+  ).toBeInTheDocument()
+  fireEvent.click(first.getByRole('button', { name: 'Lo so già' }))
+  expect(
+    first.getByText(
+      'Le 5 abilità del capitolo diventano acquisite senza esercizi e il ripasso le controlla fra qualche giorno.',
+    ),
+  ).toBeInTheDocument()
+  fireEvent.click(first.getByRole('button', { name: 'Sì, lo so già' }))
+
+  expect(
+    await first.findByText(/Segnato come già saputo il/),
+  ).toBeInTheDocument()
+  expect(first.getByText('5/5 acquisite')).toBeInTheDocument()
+  const second = await chapterCard('Espressioni in Z')
+  expect(second.queryByText(/bloccato/)).not.toBeInTheDocument()
+  expect(second.getByText('0/5 acquisite')).toBeInTheDocument()
+  expect(await store.known()).toHaveLength(5)
+  expect(await store.attempts()).toEqual([])
+
+  // La mappa si apre sul capitolo su cui si lavora: il secondo.
+  fireEvent.click(screen.getByRole('button', { name: 'I miei progressi' }))
+  const sum = await screen.findByRole('listitem', { name: 'Somma algebrica' })
+  expect(within(sum).getByText('in apprendimento')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /Espressioni in N/ }))
+  for (const title of ['Addizioni e sottrazioni', 'Tonde, quadre e graffe']) {
+    const item = await screen.findByRole('listitem', { name: title })
+    expect(within(item).getByText('acquisita')).toBeInTheDocument()
+  }
+
+  fireEvent.click(screen.getByRole('button', { name: 'Inizio' }))
+  first = await chapterCard('Espressioni in N')
+  fireEvent.click(await first.findByRole('button', { name: 'Annulla' }))
+
+  expect(await first.findByText('0/5 acquisite')).toBeInTheDocument()
+  expect(first.getByRole('button', { name: 'Lo so già' })).toBeInTheDocument()
+  expect(
+    (await chapterCard('Espressioni in Z')).getByText(/bloccato/),
+  ).toBeInTheDocument()
+  expect(await store.known()).toEqual([])
+})
+
+test('“Non ora” chiude la conferma senza segnare nulla', async () => {
+  const store = createMemoryStore()
+  render(<App store={store} />)
+  const first = await chapterCard('Espressioni in N')
+  fireEvent.click(first.getByRole('button', { name: 'Lo so già' }))
+  fireEvent.click(first.getByRole('button', { name: 'Non ora' }))
+  expect(first.getByRole('button', { name: 'Lo so già' })).toHaveFocus()
+  expect(await store.known()).toEqual([])
+})
+
+test('la lezione si apre sul capitolo su cui si lavora', async () => {
+  const store = createMemoryStore()
+  await store.putKnown(
+    ['n.add-sub', 'n.mul-div', 'n.order', 'n.parens', 'n.brackets'].map(
+      (skill) => ({ skill, markedAt: monday }),
+    ),
+  )
+  render(<App store={store} />)
+  await chapterCard('Espressioni in N')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Lezione' }))
+  expect(
+    screen.getByRole('button', { name: /Espressioni in Z/, pressed: true }),
+  ).toBeInTheDocument()
+
+  // Dalla scheda del capitolo si apre la sua lezione.
+  fireEvent.click(screen.getByRole('button', { name: 'Inizio' }))
+  const first = await chapterCard('Espressioni in N')
+  fireEvent.click(first.getByRole('button', { name: 'Apri la lezione' }))
+  expect(
+    screen.getByRole('heading', { name: 'Espressioni in N' }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('button', { name: /Espressioni in N/, pressed: true }),
+  ).toBeInTheDocument()
+  expect(
+    await screen.findByText(/Segnato come già saputo il/),
+  ).toBeInTheDocument()
+})

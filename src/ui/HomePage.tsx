@@ -1,23 +1,35 @@
 import { ArrowRight, BookOpen, Lock, Map as MapIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useId, useMemo } from 'react'
+import { chapters, type Chapter, type ChapterId } from '../content/chapters.ts'
+import { lessons } from '../content/lessons/index.ts'
 import type { Skill } from '../content/skills.ts'
 import { cn } from '../lib/cn.ts'
+import type { Known } from '../progress/known.ts'
 import { dueReviews } from '../progress/review.ts'
 import { composeSession, type SessionItem } from '../progress/session.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { canPractise } from './exercises.ts'
-import { firstChapter, upcomingChapters } from './home/chapters.ts'
+import {
+  markChapterKnown,
+  summarize,
+  unmarkChapterKnown,
+  workingChapter,
+  type ChapterStatus,
+} from './home/chapterProgress.ts'
 import { groupSession, reasonLabel, type Reason } from './home/skillProgress.ts'
+import { KnownChapter } from './KnownChapter.tsx'
 import { Button, Eyebrow, Note, Panel, Ring, Sheet } from './kit.tsx'
+import { useProgress } from './useProgress.ts'
 
 // La pagina iniziale: quanti ripassi aspettano, cosa c'è nella sessione di
-// oggi e a che punto è il percorso.
+// oggi e a che punto è il percorso, capitolo per capitolo.
 
 interface Plan {
   readonly due: number
   readonly session: SessionItem[]
   readonly states: Record<string, SkillState>
+  readonly known: readonly Known[]
 }
 
 function pendingText(due: number): string {
@@ -46,36 +58,56 @@ const stateSegment: Record<SkillState, string> = {
   mastered: 'bg-ok',
 }
 
+// Il capitolo su cui si lavora ha il giallo della matita, uno chiuso il
+// tratteggio; gli altri aperti stanno sulla carta.
+const chapterCard: Record<ChapterStatus | 'working', string> = {
+  working: 'border-pencil/60 bg-pencil-soft/40',
+  open: 'border-hair',
+  mastered: 'border-ok/30',
+  locked: 'border-dashed border-hair',
+}
+
 export function HomePage({
   store,
   skills,
   onStart,
   onOpenLesson,
   onOpenProgress,
+  onChange,
 }: {
   store: ProgressStore
   skills: readonly Skill[]
   onStart: (session: SessionItem[]) => void
-  onOpenLesson?: () => void
-  onOpenProgress?: () => void
+  onOpenLesson?: (chapter: ChapterId) => void
+  onOpenProgress?: (chapter: ChapterId) => void
+  /** Dopo ogni scrittura nel ProgressStore. */
+  onChange?: () => void
 }) {
-  const [plan, setPlan] = useState<Plan | null>(null)
+  const { progress, reload } = useProgress(store)
 
-  useEffect(() => {
-    let live = true
-    void store.attempts().then((attempts) => {
-      if (!live) return
-      const now = new Date()
-      setPlan({
-        due: dueReviews(attempts, now).filter(canPractise).length,
-        session: composeSession({ graph: skills, attempts, now, canPractise }),
-        states: skillStates(skills, attempts),
-      })
-    })
-    return () => {
-      live = false
+  const plan = useMemo<Plan | null>(() => {
+    if (!progress) return null
+    const { attempts, known } = progress
+    const now = new Date()
+    return {
+      due: dueReviews(attempts, now, known).filter(canPractise).length,
+      session: composeSession({
+        graph: skills,
+        attempts,
+        known,
+        now,
+        canPractise,
+      }),
+      states: skillStates(skills, attempts, known),
+      known,
     }
-  }, [store, skills])
+  }, [progress, skills])
+
+  async function write(change: Promise<void>) {
+    await change
+    await reload()
+    onChange?.()
+  }
 
   if (!plan) return null
 
@@ -88,9 +120,13 @@ export function HomePage({
       />
       <Path
         states={plan.states}
-        skills={skills}
+        known={plan.known}
         onOpenLesson={onOpenLesson}
         onOpenProgress={onOpenProgress}
+        onMark={(chapter) =>
+          void write(markChapterKnown(store, chapter, Date.now()))
+        }
+        onUnmark={(chapter) => void write(unmarkChapterKnown(store, chapter))}
       />
     </div>
   )
@@ -204,16 +240,20 @@ function Today({
 
 function Path({
   states,
-  skills,
+  known,
   onOpenLesson,
   onOpenProgress,
+  onMark,
+  onUnmark,
 }: {
   states: Record<string, SkillState>
-  skills: readonly Skill[]
-  onOpenLesson?: (() => void) | undefined
-  onOpenProgress?: (() => void) | undefined
+  known: readonly Known[]
+  onOpenLesson?: ((chapter: ChapterId) => void) | undefined
+  onOpenProgress?: ((chapter: ChapterId) => void) | undefined
+  onMark: (chapter: Chapter) => void
+  onUnmark: (chapter: Chapter) => void
 }) {
-  const mastered = skills.filter((s) => states[s.id] === 'mastered').length
+  const working = workingChapter(states)
 
   return (
     <Panel
@@ -225,85 +265,147 @@ function Path({
         id="path-title"
         className="mt-1 font-display text-2xl font-bold tracking-tight"
       >
-        {upcomingChapters.length + 1} capitoli, uno alla volta
+        {chapters.length} capitoli, uno alla volta
       </h2>
 
       <ol className="mt-5 space-y-3">
-        <li className="rounded-2xl border border-pencil/60 bg-pencil-soft/40 p-4">
-          <div className="flex items-center gap-4">
-            <Ring value={mastered / skills.length} className="size-14">
-              {mastered}/{skills.length}
-            </Ring>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-pencil-ink">
-                Capitolo {firstChapter.number}
-              </p>
-              <p className="font-display text-lg leading-tight font-bold">
-                {firstChapter.title}
-              </p>
-              <p className="text-sm text-dim">{firstChapter.blurb}</p>
-              <p className="mt-1 text-sm font-semibold">
-                {mastered}/{skills.length} acquisite
-              </p>
-            </div>
-          </div>
-          <div aria-hidden="true" className="mt-4 flex gap-1">
-            {skills.map((s) => (
-              <span
-                key={s.id}
-                className={cn(
-                  'h-1.5 flex-1 rounded-full',
-                  stateSegment[states[s.id] ?? 'locked'],
-                )}
-              />
-            ))}
-          </div>
-          {(onOpenLesson || onOpenProgress) && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {onOpenLesson && (
-                <Button
-                  variant="ghost"
-                  onClick={onOpenLesson}
-                  icon={<BookOpen aria-hidden="true" className="size-4" />}
-                  className="px-3 py-2 text-sm"
-                >
-                  Apri la lezione
-                </Button>
-              )}
-              {onOpenProgress && (
-                <Button
-                  variant="ghost"
-                  onClick={onOpenProgress}
-                  icon={<MapIcon aria-hidden="true" className="size-4" />}
-                  className="px-3 py-2 text-sm"
-                >
-                  Vedi la mappa
-                </Button>
-              )}
-            </div>
-          )}
-        </li>
-
-        {upcomingChapters.map((chapter) => (
-          <li
-            key={chapter.number}
-            className="flex items-start gap-4 rounded-2xl border border-dashed border-hair p-4"
-          >
-            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-paper text-dim">
-              <Lock aria-hidden="true" className="size-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-dim">
-                Capitolo {chapter.number} · in arrivo
-              </p>
-              <p className="font-display text-lg leading-tight font-bold text-ink/70">
-                {chapter.title}
-              </p>
-              <p className="text-sm text-dim">{chapter.blurb}</p>
-            </div>
-          </li>
+        {chapters.map((chapter) => (
+          <ChapterCard
+            key={chapter.id}
+            chapter={chapter}
+            states={states}
+            known={known}
+            working={chapter.id === working.id}
+            onOpenLesson={
+              onOpenLesson && lessons[chapter.id]
+                ? () => onOpenLesson(chapter.id)
+                : undefined
+            }
+            onOpenProgress={
+              onOpenProgress ? () => onOpenProgress(chapter.id) : undefined
+            }
+            onMark={() => onMark(chapter)}
+            onUnmark={() => onUnmark(chapter)}
+          />
         ))}
       </ol>
     </Panel>
+  )
+}
+
+function ChapterCard({
+  chapter,
+  states,
+  known,
+  working,
+  onOpenLesson,
+  onOpenProgress,
+  onMark,
+  onUnmark,
+}: {
+  chapter: Chapter
+  states: Record<string, SkillState>
+  known: readonly Known[]
+  working: boolean
+  onOpenLesson?: (() => void) | undefined
+  onOpenProgress?: (() => void) | undefined
+  onMark: () => void
+  onUnmark: () => void
+}) {
+  const titleId = useId()
+  const summary = summarize(chapter, states, known)
+  const { status, mastered, total } = summary
+  const locked = status === 'locked'
+
+  return (
+    <li
+      aria-labelledby={titleId}
+      className={cn(
+        'rounded-2xl border p-4',
+        chapterCard[working ? 'working' : status],
+      )}
+    >
+      <div
+        className={cn('flex gap-4', locked ? 'items-start' : 'items-center')}
+      >
+        {locked ? (
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-paper text-dim">
+            <Lock aria-hidden="true" className="size-5" />
+          </span>
+        ) : (
+          <Ring value={total ? mastered / total : 0} className="size-14">
+            {mastered}/{total}
+          </Ring>
+        )}
+        <div className="min-w-0">
+          <p
+            className={cn(
+              'text-xs font-semibold',
+              working ? 'text-pencil-ink' : 'text-dim',
+            )}
+          >
+            Capitolo {chapter.number}
+            {locked && ' · bloccato'}
+            {status === 'mastered' && ' · completo'}
+          </p>
+          <p
+            id={titleId}
+            className={cn(
+              'font-display text-lg leading-tight font-bold',
+              locked && 'text-ink/70',
+            )}
+          >
+            {chapter.title}
+          </p>
+          <p className="text-sm text-dim">{chapter.blurb}</p>
+          {!locked && (
+            <p className="mt-1 text-sm font-semibold">
+              {mastered}/{total} acquisite
+            </p>
+          )}
+        </div>
+      </div>
+      <div aria-hidden="true" className="mt-4 flex gap-1">
+        {chapter.skills.map((s) => (
+          <span
+            key={s.id}
+            className={cn(
+              'h-1.5 flex-1 rounded-full',
+              stateSegment[states[s.id] ?? 'locked'],
+            )}
+          />
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-start gap-2">
+        {!locked && onOpenLesson && (
+          <Button
+            variant="ghost"
+            onClick={onOpenLesson}
+            aria-describedby={titleId}
+            icon={<BookOpen aria-hidden="true" className="size-4" />}
+            className="px-3 py-2 text-sm"
+          >
+            Apri la lezione
+          </Button>
+        )}
+        {!locked && onOpenProgress && (
+          <Button
+            variant="ghost"
+            onClick={onOpenProgress}
+            aria-describedby={titleId}
+            icon={<MapIcon aria-hidden="true" className="size-4" />}
+            className="px-3 py-2 text-sm"
+          >
+            Vedi la mappa
+          </Button>
+        )}
+        <KnownChapter
+          summary={summary}
+          onMark={onMark}
+          onUnmark={onUnmark}
+          describedBy={titleId}
+        />
+      </div>
+    </li>
   )
 }

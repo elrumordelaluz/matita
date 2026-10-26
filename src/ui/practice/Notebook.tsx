@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { stepExpression, toText, type Line } from '../../engine/index.ts'
+import { toText, type Line } from '../../engine/index.ts'
 import { cn } from '../../lib/cn.ts'
 import { ExpressionFormula } from '../Formula.tsx'
 import { Note } from '../kit.tsx'
@@ -104,7 +104,7 @@ export function SolutionLines({
                 {line.steps.map((step, j) => (
                   <li key={j}>
                     <Note className="text-2xl">
-                      {`${toText(stepExpression(step))} = ${toText(step.outcome)}`}
+                      {`${toText(step.operation)} = ${toText(step.outcome)}`}
                     </Note>
                   </li>
                 ))}
