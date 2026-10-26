@@ -124,18 +124,46 @@ positivo, MCD 1). Mai `number` per i valori, mai float. La forma in cui lo
 studente scrive una risposta è un'altra cosa e non si normalizza: serve per
 giudicarla (vedi [Politica delle risposte](#politica-delle-risposte)).
 
-**Espressioni.** Un albero con numeri, operazioni binarie (`+ − × :`), meno
-unario e gruppi. Il gruppo ricorda il suo tipo (tonda, quadra, graffa) perché
-lo studente lo vede e lo deve rispettare. Le potenze entrano con il capitolo 4.
-Ogni albero si rende in KaTeX e in testo semplice.
+**Espressioni.** Un albero con numeri, operazioni binarie (`+ − × :`) e
+gruppi. Il gruppo ricorda il suo tipo (tonda, quadra, graffa) perché lo
+studente lo vede e lo deve rispettare. Le potenze entrano con il capitolo 4.
+Ogni albero si rende in KaTeX e in testo semplice, e la lettura del testo
+ridà lo stesso albero.
+
+Il meno unario non è un nodo a sé. Nei libri compare in due posti, e ciascuno
+ha la sua forma nell'albero. Davanti a un numero è il segno del numero: un
+numero relativo è un numero con valore negativo, e un positivo può ricordare
+il segno scritto, (+4). Davanti a un gruppo, −(3 − 7), è il gruppo che
+ricorda di essere preceduto dal meno.
+
+**Scrittura dei relativi.** Come nei libri: un numero con il segno scritto va
+fra tonde, (−3) × (+4), tranne all'inizio dell'espressione o di un gruppo,
+−3 + 5 e [−2 + (3 − 7)]. L'inizio è la foglia più a sinistra: lo eredita solo
+il primo operando di un'operazione, e ricomincia dentro ogni gruppo. Dentro
+−( ) un numero solo ha sempre il segno: −(+3), −(−4). Un'espressione si
+scrive tutta in un modo, con il segno davanti ai positivi o senza.
 
 **Risolutore.** Dato un albero, produce la soluzione come sequenza di righe,
 nello stile del quaderno. Ogni riga è l'espressione dopo aver svolto un
 livello: il gruppo più interno, al suo interno prima le potenze, poi × e : da
 sinistra a destra, poi + e − da sinistra a destra. Quando un gruppo si riduce a
-un solo numero le sue parentesi cadono. Ogni riga è composta di passaggi
+un solo numero le sue parentesi cadono; se il numero è negativo resta fra
+tonde, perché è la sua scrittura: 5 − (3 − 7) = 5 − (−4) = 9. Se il gruppo
+era preceduto dal meno restano il meno e le parentesi, −(−4), e il cambio di
+segno è un passaggio del giro di × e :, perché è la regola dei segni:
+−(3 − 7) + 2 = −(−4) + 2 = 4 + 2 = 6. Ogni riga è composta di passaggi
 atomici (una sola operazione ciascuno) con la regola applicata, così la
-lezione può mostrare la riga intera o aprirla operazione per operazione.
+lezione può mostrare la riga intera o aprirla operazione per operazione. Il
+risolutore calcola la parentesi prima del meno che la precede; togliere le
+parentesi cambiando i segni è l'altra strada, e la spiega la lezione.
+
+In Q ogni operazione fra due frazioni resta un passaggio solo, con il
+risultato già ridotto: 1/4 + 1/6 = 5/12, 9/8 : 3/2 = 3/4. Il minimo comune
+multiplo, la semplificazione in croce e il prodotto per il reciproco sono il
+modo di fare quel conto, non un'operazione in più: non cambiano l'ordine delle
+operazioni né la riga. Li spiega la lezione, che lo dice, e il quaderno non
+finge di mostrarli. Una riga che riscrive 9/8 : 3/2 come 9/8 × 2/3 sarebbe un
+passaggio senza conto, e il risolutore ne ha solo con il conto.
 
 **Generatore.** Per ogni abilità, un generatore parametrico che riceve un seme
 e una difficoltà e restituisce un esercizio. Stesso seme, stesso esercizio:
@@ -143,7 +171,16 @@ il tentativo salva il seme e la versione del generatore, e l'esercizio si può
 sempre ricostruire. I vincoli sono parte del generatore: ogni risultato
 intermedio appartiene all'insieme del capitolo, i numeri restano nel calcolo
 mentale (fino a 20 per i fattori in N, denominatori piccoli in Q), il
-risultato finale è "pulito".
+risultato finale è "pulito". In Z i numeri scritti vanno fino a 15 in valore
+assoluto, i fattori fino a 10, e ogni risultato intermedio è un intero fino a
+100; solo il risultato finale può valere zero. In Q i denominatori scritti
+vanno fino a 12 e una frazione scritta è già ridotta; ogni intermedio ha
+denominatore fino a 36 e numeratore fino a 60, il minimo comune multiplo di
+una somma resta entro 24, il risultato ha denominatore fino a 12 e numeratore
+fino a 30. Prodotti e quozienti hanno sempre qualcosa da semplificare in
+croce. Quando la costruzione da sola
+non garantisce un vincolo, il generatore scarta l'esercizio guardando la sua
+soluzione e ne costruisce un altro: lo stesso seme scarta sempre gli stessi.
 
 **Errori tipici.** Ogni errore tipico è una variante sbagliata di una regola
 del risolutore: sommare prima di moltiplicare, svolgere 10 − 4 + 2 da destra,
@@ -151,7 +188,16 @@ ignorare una parentesi, sommare numeratori e denominatori, dimenticare il
 segno davanti a una parentesi. Per riconoscerlo il motore valuta l'esercizio
 con la regola sbagliata e confronta il risultato con la risposta. Se
 coincidono, lo studente riceve la spiegazione di quell'errore e non un
-generico "sbagliato". Il catalogo cresce per capitolo.
+generico "sbagliato". Il catalogo cresce per capitolo. In Z: togliere una
+parentesi preceduta dal meno senza cambiare i segni dentro, perdere il meno
+davanti a una parentesi (5 − (−4) come 5 − 4), meno per meno preso come meno,
+la regola dei segni usata in una somma (−3 − 4 come +7). In Q: sommare
+numeratori e denominatori, dividere moltiplicando senza prendere il
+reciproco. Ciascuno vale solo dove ha senso: fra due frazioni il primo, con
+almeno una frazione il secondo, così 12 : 4 resta una divisione fra interi.
+Quando due errori
+spiegano la stessa risposta vince il più preciso: la parentesi preceduta dal
+meno viene prima della parentesi ignorata, anche in N.
 
 **Verifica.** `verifica(risposta, esercizio)` restituisce un esito:
 
@@ -169,16 +215,23 @@ studente vede il motivo e la riscrive, e l'esercizio si chiude quando la forma
 è giusta. Il tentativo conta come aiutato (vedi
 [Ripasso e tracking](#ripasso-e-tracking)).
 
-| caso                             | esempio         | esito           | messaggio                          |
-| -------------------------------- | --------------- | --------------- | ---------------------------------- |
-| intero con segno più             | `+5`            | `corretto`      |                                    |
-| frazione non ridotta             | `4/6`           | `da-riscrivere` | Riduci ai minimi termini.          |
-| intero scritto come frazione     | `6/3`, `4/1`    | `da-riscrivere` | Il risultato è un numero intero.   |
-| segno al denominatore            | `2/-3`, `-2/-3` | `da-riscrivere` | Il segno va davanti alla frazione. |
-| decimale al posto della frazione | `0,5`, `0.5`    | `da-riscrivere` | Scrivi il risultato come frazione. |
-| frazione impropria               | `7/3`           | `corretto`      |                                    |
-| numero misto                     | `2 1/3`         | `non-valido`    | Scrivi il risultato come frazione. |
-| doppio segno                     | `--5`           | `non-valido`    | Scrivi un solo segno.              |
+| caso                             | esempio         | esito           | messaggio                            |
+| -------------------------------- | --------------- | --------------- | ------------------------------------ |
+| intero con segno più             | `+5`            | `corretto`      |                                      |
+| frazione non ridotta             | `4/6`           | `da-riscrivere` | Riduci ai minimi termini.            |
+| intero scritto come frazione     | `6/3`, `4/1`    | `da-riscrivere` | Il risultato è un numero intero.     |
+| segno al denominatore            | `2/-3`, `-2/-3` | `da-riscrivere` | Il segno va davanti alla frazione.   |
+| decimale al posto della frazione | `0,5`, `0.5`    | `da-riscrivere` | Scrivi il risultato come frazione.   |
+| frazione impropria               | `7/3`           | `corretto`      |                                      |
+| numero misto                     | `2 1/3`         | `non-valido`    | Scrivi il risultato come frazione.   |
+| doppio segno                     | `--5`           | `non-valido`    | Scrivi un solo segno.                |
+| decimale che vale un intero      | `2,0`           | `da-riscrivere` | Il risultato è un numero intero.     |
+| denominatore zero                | `2/0`           | `non-valido`    | Il denominatore non può essere zero. |
+
+Una risposta con più di un motivo mostra il primo, nell'ordine in cui lo si
+corregge: il segno, poi l'intero, poi i minimi termini. Una risposta in forma
+non canonica con il valore sbagliato si giudica dal valore: sbagliata, o
+errore tipico.
 
 L'input accetta `·`, `×`, `*` per il prodotto, `:`, `÷` per la divisione, la
 virgola e il punto come separatore decimale. La barra `/` è la linea di

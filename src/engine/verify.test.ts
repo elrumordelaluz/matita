@@ -135,3 +135,118 @@ describe('non valido', () => {
     })
   })
 })
+
+function inQ(source: string): Exercise {
+  return {
+    skill: 'q.order',
+    seed: 1,
+    generatorVersion: 1,
+    expression: parseExpression(source),
+  }
+}
+
+// 1/2 + 1/6 = 2/3
+const twoThirds = inQ('1/2 + 1/6')
+// 3/4 − 5/4 = −1/2
+const minusHalf = inQ('3/4 − 5/4')
+// 4/3 + 2/3 = 2
+const two = inQ('4/3 + 2/3')
+
+describe('in Z', () => {
+  test('un negativo con il meno tipografico o con il trattino', () => {
+    const e = inQ('−8 − (3 − (−6))')
+    expect(verify('−17', e)).toEqual({ kind: 'correct' })
+    expect(verify('-17', e)).toEqual({ kind: 'correct' })
+  })
+})
+
+describe('politica delle risposte', () => {
+  test('una frazione ridotta è corretta, anche con il segno più', () => {
+    expect(verify('2/3', twoThirds)).toEqual({ kind: 'correct' })
+    expect(verify('+2/3', twoThirds)).toEqual({ kind: 'correct' })
+    expect(verify(' 2 / 3 ', twoThirds)).toEqual({ kind: 'correct' })
+  })
+
+  test('una frazione negativa con il segno davanti', () => {
+    expect(verify('-1/2', minusHalf)).toEqual({ kind: 'correct' })
+    expect(verify('−1/2', minusHalf)).toEqual({ kind: 'correct' })
+  })
+
+  test('una frazione impropria è corretta', () => {
+    expect(verify('7/3', inQ('2 + 1/3'))).toEqual({ kind: 'correct' })
+  })
+
+  test('frazione non ridotta: da riscrivere', () => {
+    expect(verify('4/6', twoThirds)).toEqual({
+      kind: 'rewrite',
+      reason: 'not-reduced',
+      message: 'Riduci ai minimi termini.',
+    })
+  })
+
+  test('intero scritto come frazione: da riscrivere', () => {
+    for (const answer of ['6/3', '2/1'])
+      expect(verify(answer, two)).toEqual({
+        kind: 'rewrite',
+        reason: 'integer-as-fraction',
+        message: 'Il risultato è un numero intero.',
+      })
+  })
+
+  test('segno al denominatore: da riscrivere', () => {
+    expect(verify('1/-2', minusHalf)).toEqual({
+      kind: 'rewrite',
+      reason: 'sign-at-denominator',
+      message: 'Il segno va davanti alla frazione.',
+    })
+    expect(verify('-2/-3', twoThirds)).toMatchObject({
+      kind: 'rewrite',
+      reason: 'sign-at-denominator',
+    })
+  })
+
+  test('decimale al posto della frazione: da riscrivere', () => {
+    for (const answer of ['-0,5', '-0.5'])
+      expect(verify(answer, minusHalf)).toEqual({
+        kind: 'rewrite',
+        reason: 'decimal',
+        message: 'Scrivi il risultato come frazione.',
+      })
+  })
+
+  test('un decimale che vale un intero chiede l’intero', () => {
+    expect(verify('2,0', two)).toEqual({
+      kind: 'rewrite',
+      reason: 'decimal',
+      message: 'Il risultato è un numero intero.',
+    })
+  })
+
+  test('numero misto: non valido', () => {
+    expect(verify('2 1/3', inQ('2 + 1/3'))).toEqual({
+      kind: 'invalid',
+      message: 'Scrivi il risultato come frazione.',
+    })
+  })
+
+  test('denominatore zero: non valido', () => {
+    expect(verify('2/0', two)).toEqual({
+      kind: 'invalid',
+      message: 'Il denominatore non può essere zero.',
+    })
+  })
+
+  test('una forma non canonica con il valore sbagliato è sbagliata', () => {
+    expect(verify('2/6', twoThirds)).toEqual({ kind: 'wrong' })
+    expect(verify('0,5', minusHalf)).toEqual({ kind: 'wrong' })
+  })
+
+  test('una frazione sbagliata può essere un errore tipico', () => {
+    // (1 + 1)/(2 + 6) = 1/4, scritto anche come 2/8.
+    for (const answer of ['1/4', '2/8'])
+      expect(verify(answer, twoThirds)).toMatchObject({
+        kind: 'misconception',
+        misconception: 'added-numerators-denominators',
+      })
+  })
+})
