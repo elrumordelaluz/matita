@@ -1,15 +1,141 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource/caveat/600.css';
 
+/* Il banco di lavoro: una scrivania chiara, pannelli bianchi che galleggiano,
+   il quaderno a quadretti al centro. Il giallo è quello della matita. */
 @theme {
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, sans-serif;
+  --font-hand: 'Caveat', ui-serif, cursive;
+
+  --color-desk: #ecebe6;
   --color-paper: #fbfaf7;
+  --color-panel: #ffffff;
   --color-ink: #1c1b19;
   --color-dim: #6b6862;
   --color-hair: #e4e1da;
+  --color-grid: #dde3ea;
+  --color-pencil: #f6c443;
+  --color-pencil-soft: #fdf1cc;
+  --color-pencil-ink: #6b4e00;
+  --color-on-pencil: #1c1b19;
+  --color-lead: #3b4a5c;
   --color-ok: #2f7d4f;
+  --color-ok-soft: #e3f2e8;
   --color-warn: #b5651d;
+  --color-warn-soft: #fbeee0;
   --color-err: #b3261e;
+  --color-err-soft: #fbe7e5;
+
+  --shadow-panel:
+    0 1px 2px rgb(28 27 25 / 0.05), 0 8px 24px -8px rgb(28 27 25 / 0.12);
+  --shadow-lift:
+    0 2px 4px rgb(28 27 25 / 0.06), 0 18px 40px -12px rgb(28 27 25 / 0.22);
+  --shadow-key: 0 2px 0 rgb(28 27 25 / 0.9);
+
+  --animate-rise: rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 360ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  --animate-shake: shake 380ms ease-in-out both;
+  --animate-write: write 700ms cubic-bezier(0.6, 0, 0.2, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    20%,
+    60% {
+      transform: translateX(-6px);
+    }
+    40%,
+    80% {
+      transform: translateX(6px);
+    }
+  }
+  /* Una riga che si scrive da sinistra a destra, come a matita. */
+  @keyframes write {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-desk: #141412;
+    --color-paper: #1d1d1a;
+    --color-panel: #23231f;
+    --color-ink: #f1efe9;
+    --color-dim: #a29e95;
+    --color-hair: #36352f;
+    --color-grid: #2c3138;
+    --color-pencil: #f6c443;
+    --color-pencil-soft: #3a3016;
+    --color-pencil-ink: #f6d47a;
+    --color-lead: #b9c6d6;
+    --color-ok: #6cc28f;
+    --color-ok-soft: #1c2e23;
+    --color-warn: #e7a160;
+    --color-warn-soft: #36271a;
+    --color-err: #f08a80;
+    --color-err-soft: #3a1f1c;
+  }
+}
+
+/* Il foglio a quadretti da 5 mm del quaderno di matematica. */
+@utility bg-squared {
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -1px -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
 }
 
 body {
-  @apply bg-paper text-ink antialiased;
+  @apply bg-desk font-sans text-ink antialiased;
+}
+
+::selection {
+  background: var(--color-pencil);
+  color: var(--color-on-pencil);
+}
+
+.katex {
+  font-size: 1.1em;
 }

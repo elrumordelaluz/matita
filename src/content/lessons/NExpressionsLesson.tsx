@@ -1,96 +1,279 @@
-import type { ReactNode } from 'react'
-import { generate, type GeneratedSkill } from '../../engine/index.ts'
+import { ArrowRight, Check } from 'lucide-react'
+import { useId, useState, type ReactNode } from 'react'
+import {
+  generate,
+  type Exercise,
+  type GeneratedSkill,
+} from '../../engine/index.ts'
 import { CheckQuestion } from '../../ui/CheckQuestion.tsx'
+import { Button, Eyebrow, Note, Panel, Ring } from '../../ui/kit.tsx'
 import { WorkedExample } from '../../ui/WorkedExample.tsx'
+import { cn } from '../../lib/cn.ts'
+import { skills } from '../skills.ts'
 
 // La lezione del capitolo "Espressioni in N". Esempi e domande vengono dai
 // generatori con un seme fisso, così la lezione mostra le stesse righe che lo
 // studente vedrà nella soluzione di un esercizio. Vedi SPEC.md, "Lezioni".
+//
+// Sul banco: la testata del capitolo con il percorso della lezione, poi una
+// postazione per regola, con la spiegazione e la domanda a sinistra e il
+// quaderno al centro.
 
 const firstSkill: GeneratedSkill = 'n.add-sub'
 
-const examples = {
-  order: generate('n.order', 15), // 6 : 3 + 3 × 8
-  parens: generate('n.parens', 29), // 1 + (7 + 8) × 3
-  brackets: generate('n.brackets', 98), // [4 × (8 + 8) − 20] : 4 + 16
+interface LessonPart {
+  readonly id: string
+  readonly title: string
+  /** La regola da ricordare, scritta a margine. */
+  readonly note: string
+  readonly text: ReactNode
+  readonly example: Exercise
+  readonly question: Exercise
 }
 
-const questions = {
-  order: generate('n.order', 8), // 14 + 10 : 2 × 3
-  parens: generate('n.parens', 41), // (12 − 8) : 2 + 5
-  brackets: generate('n.brackets', 72), // 4 × 11 − [20 : (3 + 7) + 12]
-}
+const parts: readonly LessonPart[] = [
+  {
+    id: 'lezione-ordine',
+    title: 'Prima × e :, poi + e −',
+    note: 'stesso tipo? da sinistra a destra',
+    text: (
+      <p>
+        Moltiplicazioni e divisioni si svolgono prima di addizioni e
+        sottrazioni. Fra operazioni dello stesso tipo si va da sinistra a
+        destra, nell’ordine in cui compaiono. Sul quaderno si scrive una riga
+        per ogni giro: prima tutti i × e i :, poi tutti i + e i −.
+      </p>
+    ),
+    example: generate('n.order', 15), // 6 : 3 + 3 × 8
+    question: generate('n.order', 8), // 14 + 10 : 2 × 3
+  },
+  {
+    id: 'lezione-parentesi',
+    title: 'Le parentesi',
+    note: 'un solo numero? via le parentesi',
+    text: (
+      <p>
+        Le parentesi cambiano l’ordine: quello che sta dentro si calcola per
+        primo, con le stesse regole. Quando dentro resta un solo numero, le
+        parentesi non servono più e si tolgono.
+      </p>
+    ),
+    example: generate('n.parens', 29), // 1 + (7 + 8) × 3
+    question: generate('n.parens', 41), // (12 − 8) : 2 + 5
+  },
+  {
+    id: 'lezione-graffe',
+    title: 'Tonde, quadre e graffe',
+    note: '( ) dentro [ ] dentro { }',
+    text: (
+      <p>
+        Quando le parentesi sono una dentro l’altra, le tonde stanno dentro, le
+        quadre le contengono e le graffe stanno fuori. Si parte sempre dalle più
+        interne. Una quadra resta una quadra anche quando le tonde sono sparite:
+        le parentesi non cambiano tipo.
+      </p>
+    ),
+    example: generate('n.brackets', 98), // [4 × (8 + 8) − 20] : 4 + 16
+    question: generate('n.brackets', 72), // 4 × 11 − [20 : (3 + 7) + 12]
+  },
+]
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-4">
-      <h3 className="text-xl font-semibold">{title}</h3>
-      {children}
-    </section>
-  )
-}
+const practiceId = 'lezione-pratica'
 
 export function NExpressionsLesson({
   onPractise,
 }: {
   onPractise: (skill: GeneratedSkill) => void
 }) {
+  // Le domande di controllo già risolte, per il percorso in testata.
+  const [solved, setSolved] = useState<ReadonlySet<string>>(new Set())
+
   return (
-    <article className="space-y-10 leading-relaxed">
-      <header className="space-y-2">
-        <h2 className="text-2xl font-semibold">Espressioni in N</h2>
-        <p>
-          Un’espressione è una fila di numeri e operazioni. Per calcolarla
-          bisogna sapere in che ordine svolgere le operazioni: se ognuno
-          scegliesse il suo, la stessa espressione darebbe risultati diversi. Le
-          regole sono poche e valgono sempre.
-        </p>
-      </header>
+    <article className="flex flex-col gap-8 leading-relaxed sm:gap-10">
+      <Panel className="grid animate-rise gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-10">
+        <header className="flex flex-col gap-4">
+          <Eyebrow>
+            Capitolo 1 <span className="text-pencil">·</span> Lezione
+          </Eyebrow>
+          <h2 className="font-display text-4xl leading-none font-bold tracking-tight sm:text-5xl">
+            Espressioni in{' '}
+            <span className="underline decoration-pencil decoration-6 underline-offset-[6px]">
+              N
+            </span>
+          </h2>
+          <p className="max-w-prose">
+            Un’espressione è una fila di numeri e operazioni. Per calcolarla
+            bisogna sapere in che ordine svolgere le operazioni: se ognuno
+            scegliesse il suo, la stessa espressione darebbe risultati diversi.
+            Le regole sono poche e valgono sempre.
+          </p>
+          <div className="mt-1">
+            <Eyebrow>Le abilità del capitolo</Eyebrow>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {skills.map((skill) => (
+                <li
+                  key={skill.id}
+                  className="rounded-full border border-hair bg-paper px-3 py-1 text-sm"
+                >
+                  {skill.title}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </header>
 
-      <Section title="Prima × e :, poi + e −">
-        <p>
-          Moltiplicazioni e divisioni si svolgono prima di addizioni e
-          sottrazioni. Fra operazioni dello stesso tipo si va da sinistra a
-          destra, nell’ordine in cui compaiono. Sul quaderno si scrive una riga
-          per ogni giro: prima tutti i × e i :, poi tutti i + e i −.
-        </p>
-        <WorkedExample exercise={examples.order} />
-        <CheckQuestion exercise={questions.order} />
-      </Section>
+        <nav
+          aria-label="Percorso della lezione"
+          className="self-start rounded-2xl border border-hair/70 bg-paper p-4"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Eyebrow>Percorso</Eyebrow>
+              <p className="font-display font-bold">Domande di controllo</p>
+            </div>
+            <Ring value={solved.size / parts.length}>
+              {solved.size}/{parts.length}
+            </Ring>
+          </div>
+          <ol className="mt-3 flex flex-col gap-1">
+            {parts.map((part, i) => (
+              <li key={part.id}>
+                <TrackLink
+                  href={`#${part.id}`}
+                  index={i + 1}
+                  done={solved.has(part.id)}
+                >
+                  <span className="sr-only">
+                    {solved.has(part.id) ? 'Risolta: ' : `${i + 1}. `}
+                  </span>
+                  {part.title}
+                </TrackLink>
+              </li>
+            ))}
+            <li>
+              <a
+                href={`#${practiceId}`}
+                className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold text-pencil-ink transition hover:bg-pencil-soft focus-visible:ring-2 focus-visible:ring-pencil focus-visible:outline-none"
+              >
+                <span
+                  aria-hidden="true"
+                  className="grid size-7 place-items-center rounded-lg bg-pencil text-on-pencil"
+                >
+                  <ArrowRight className="size-4" strokeWidth={2.4} />
+                </span>
+                La pratica
+              </a>
+            </li>
+          </ol>
+        </nav>
+      </Panel>
 
-      <Section title="Le parentesi">
-        <p>
-          Le parentesi cambiano l’ordine: quello che sta dentro si calcola per
-          primo, con le stesse regole. Quando dentro resta un solo numero, le
-          parentesi non servono più e si tolgono.
-        </p>
-        <WorkedExample exercise={examples.parens} />
-        <CheckQuestion exercise={questions.parens} />
-      </Section>
+      {parts.map((part, i) => (
+        <Part
+          key={part.id}
+          part={part}
+          index={i + 1}
+          onSolved={() => setSolved((s) => new Set(s).add(part.id))}
+        />
+      ))}
 
-      <Section title="Tonde, quadre e graffe">
-        <p>
-          Quando le parentesi sono una dentro l’altra, le tonde stanno dentro,
-          le quadre le contengono e le graffe stanno fuori. Si parte sempre
-          dalle più interne. Una quadra resta una quadra anche quando le tonde
-          sono sparite: le parentesi non cambiano tipo.
-        </p>
-        <WorkedExample exercise={examples.brackets} />
-        <CheckQuestion exercise={questions.brackets} />
-      </Section>
-
-      <footer className="border-t border-hair pt-6">
-        <p className="mb-4">
-          Si comincia dalle addizioni e sottrazioni, poi si aggiunge il resto.
-        </p>
-        <button
-          type="button"
+      <Panel
+        id={practiceId}
+        className="flex scroll-mt-6 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7"
+      >
+        <div>
+          <Eyebrow>Adesso tocca a te</Eyebrow>
+          <p className="mt-1 max-w-prose">
+            Si comincia dalle addizioni e sottrazioni, poi si aggiunge il resto.
+          </p>
+        </div>
+        <Button
+          variant="pencil"
           onClick={() => onPractise(firstSkill)}
-          className="rounded bg-ink px-4 py-2 text-paper"
+          className="shrink-0 px-5 py-3"
         >
           Inizia la pratica
-        </button>
-      </footer>
+          <ArrowRight aria-hidden="true" className="size-4" strokeWidth={2.4} />
+        </Button>
+      </Panel>
     </article>
+  )
+}
+
+function TrackLink({
+  href,
+  index,
+  done,
+  children,
+}: {
+  href: string
+  index: number
+  done: boolean
+  children: ReactNode
+}) {
+  return (
+    <a
+      href={href}
+      className="group flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm transition hover:bg-panel focus-visible:ring-2 focus-visible:ring-pencil focus-visible:outline-none"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'grid size-7 shrink-0 place-items-center rounded-lg border text-xs font-bold transition-colors',
+          done
+            ? 'animate-pop border-ok bg-ok-soft text-ok'
+            : 'border-hair bg-panel text-dim group-hover:border-pencil',
+        )}
+      >
+        {done ? <Check className="size-4" strokeWidth={3} /> : index}
+      </span>
+      <span>{children}</span>
+    </a>
+  )
+}
+
+// Una postazione: spiegazione e domanda in colonna, il quaderno accanto. Sul
+// telefono si legge in fila: spiegazione, esempio, domanda.
+function Part({
+  part,
+  index,
+  onSolved,
+}: {
+  part: LessonPart
+  index: number
+  onSolved: () => void
+}) {
+  const headingId = useId()
+  return (
+    <section
+      id={part.id}
+      aria-labelledby={headingId}
+      className="grid scroll-mt-6 gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] xl:grid-cols-[21rem_minmax(0,1fr)]"
+    >
+      <Panel className="flex flex-col gap-3 lg:col-start-1 lg:row-start-1">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="grid size-10 shrink-0 -rotate-3 place-items-center rounded-2xl bg-pencil font-display text-lg font-bold text-on-pencil shadow-key"
+          >
+            {index}
+          </span>
+          <h3
+            id={headingId}
+            className="font-display text-xl leading-tight font-bold sm:text-2xl"
+          >
+            {part.title}
+          </h3>
+        </div>
+        {part.text}
+        <Note className="-rotate-1 self-start text-2xl">{part.note}</Note>
+      </Panel>
+      <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <WorkedExample exercise={part.example} />
+      </div>
+      <div className="lg:col-start-1 lg:row-start-2">
+        <CheckQuestion exercise={part.question} onSolved={onSolved} />
+      </div>
+    </section>
   )
 }
