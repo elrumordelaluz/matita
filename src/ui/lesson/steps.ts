@@ -2,6 +2,7 @@ import {
   binary,
   equals,
   group,
+  isNegatedPower,
   num,
   powerOfPower,
   toKatex,
@@ -96,13 +97,18 @@ function mark(before: Expression, step: Step): MarkedStep {
   // negativo va fra parentesi.
   let leading = true
   for (const d of path) {
-    if (target.kind === 'group') bracket = target.bracket
+    // Il meno davanti a una potenza non disegna parentesi.
+    if (target.kind === 'group' && !isNegatedPower(target))
+      bracket = target.bracket
     target = child(target, d)
     if (d !== 'left') leading = d === 'inner'
   }
   // Nel cambio di segno, −(−4), le parentesi spariscono con il meno: non si
-  // lavora dentro di loro.
-  const settles = target.kind === 'group' && step.rule !== 'change-sign'
+  // lavora dentro di loro. In −3² le parentesi non ci sono.
+  const settles =
+    target.kind === 'group' &&
+    step.rule !== 'change-sign' &&
+    step.rule !== 'minus-power'
   if (settles && target.kind === 'group') bracket = target.bracket
   const tex = toKatex(put(before, path, hole)).replace(
     toKatex(hole),

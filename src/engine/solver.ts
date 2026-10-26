@@ -2,6 +2,7 @@ import {
   binary,
   group,
   isMulDiv,
+  isNegatedPower,
   isPower,
   isSignChange,
   literal,
@@ -10,6 +11,7 @@ import {
 } from './expression.ts'
 import {
   applyFirstProperty,
+  numericPower,
   powerOfPower,
   raise,
   type PropertyRule,
@@ -30,6 +32,8 @@ export type Rule =
   | 'add-sub-left-to-right'
   /** Il meno davanti a un numero fra parentesi: −(−4) = 4. */
   | 'change-sign'
+  /** Il meno davanti a una potenza: −3² = −9, il meno resta fuori. */
+  | 'minus-power'
   | 'power'
   | PropertyRule
 
@@ -37,7 +41,8 @@ export interface Step {
   readonly rule: Rule
   /**
    * I valori del passaggio. Nel cambio di segno −x si legge 0 − x: `left` è
-   * 0 e `op` è −. Per una proprietà sono i valori delle due potenze.
+   * 0 e `op` è −; così anche −3², con `right` il valore della potenza. Per
+   * una proprietà sono i valori delle due potenze.
    */
   readonly left: Rational
   readonly op: Operator
@@ -95,6 +100,7 @@ const ruleOf = (op: Operator): Rule => {
 // Cerca un'operazione del livello fuori dai gruppi.
 function contains(e: Expression, level: Level): boolean {
   if (isSignChange(e)) return level === 'mul-div'
+  if (isNegatedPower(e) && e.kind === 'group') return contains(e.inner, level)
   if (e.kind !== 'binary') return false
   return (
     levelOf(e.op) === level ||
@@ -132,6 +138,15 @@ function reduceFirst(e: Expression, level: Level): Reduction | null {
     const { value } = e.inner
     const zero = rational(0n)
     return reduced(e, 'change-sign', zero, '-', value, sub(zero, value))
+  }
+  // −3² si svolge in un passaggio solo, nel giro delle potenze: la potenza
+  // e il meno che resta davanti.
+  if (isNegatedPower(e) && e.kind === 'group') {
+    const p = numericPower(e.inner)
+    if (level !== 'power' || !p) return null
+    const value = raise(p.base, p.exponent)
+    const zero = rational(0n)
+    return reduced(e, 'minus-power', zero, '-', value, sub(zero, value))
   }
   if (e.kind !== 'binary') return null
   const left = reduceFirst(e.left, level)
@@ -178,14 +193,17 @@ function replace(e: Expression, path: Path, node: Expression): Expression {
   throw new Error('Percorso non valido')
 }
 
-// Un gruppo da svolgere: −(−4) non lo è più, è un numero da cambiare di segno.
+// Un gruppo da svolgere: −(−4) non lo è più, è un numero da cambiare di
+// segno; −3² non lo è mai, è un meno davanti a una potenza.
 function isOpenGroup(e: Expression): boolean {
-  return e.kind === 'group' && !isSignChange(e)
+  return e.kind === 'group' && !isSignChange(e) && !isNegatedPower(e)
 }
 
 // Una potenza di potenza, (3²)³, non conta come gruppo: le sue parentesi
-// cadono con la proprietà, non svolgendo il dentro.
+// cadono con la proprietà, non svolgendo il dentro. Il meno davanti a una
+// potenza è trasparente: conta quello che ha dentro.
 function hasGroup(e: Expression): boolean {
+  if (isNegatedPower(e) && e.kind === 'group') return hasGroup(e.inner)
   if (e.kind === 'group') return isOpenGroup(e)
   if (powerOfPower(e)) return false
   return e.kind === 'binary' && (hasGroup(e.left) || hasGroup(e.right))
@@ -194,6 +212,8 @@ function hasGroup(e: Expression): boolean {
 // I gruppi che non contengono altri gruppi, da sinistra a destra.
 function innermostGroups(e: Expression, path: Path = []): Path[] {
   if (e.kind === 'number' || powerOfPower(e)) return []
+  if (isNegatedPower(e))
+    return innermostGroups(at(e, ['inner']), [...path, 'inner'])
   if (e.kind === 'group') {
     if (!isOpenGroup(e)) return []
     return hasGroup(e.inner)

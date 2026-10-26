@@ -9,7 +9,9 @@ import { isInteger, rational, type Rational } from './rational.ts'
 //
 // Un numero relativo è un nodo `number` con valore negativo, una frazione un
 // nodo `number` con valore non intero: il valore è sempre un razionale. Il
-// meno davanti a un gruppo, −(3 − 7), è un gruppo con `negated`.
+// meno davanti a un gruppo, −(3 − 7), è un gruppo con `negated`; il meno
+// davanti a una potenza, −3², è lo stesso gruppo intorno alla potenza, che
+// non disegna le parentesi perché la potenza lega più del meno.
 //
 // La potenza è un nodo binario con l'operatore `^`: a sinistra la base, un
 // numero o un gruppo, a destra l'esponente, sempre un numero intero. Lega più
@@ -121,6 +123,25 @@ function fromSuperscript(text: string): bigint {
   return negative ? -BigInt(digits) : BigInt(digits)
 }
 
+/** Il meno davanti alla potenza `p`: −3², −(2 + 1)². */
+export function negatedPower(p: Expression): Expression {
+  return group('round', p, { negated: true })
+}
+
+/**
+ * Un meno davanti a una potenza, −3²: il gruppo con `negated` intorno a una
+ * potenza. Si scrive senza parentesi e non è un gruppo da svolgere: il meno
+ * resta fuori mentre si calcola la potenza.
+ */
+export function isNegatedPower(e: Expression): boolean {
+  return (
+    e.kind === 'group' &&
+    e.negated === true &&
+    e.inner.kind === 'binary' &&
+    e.inner.op === '^'
+  )
+}
+
 /**
  * Un gruppo preceduto dal meno con dentro un solo numero, −(−4): non è più
  * un gruppo da svolgere ma un numero a cui cambiare segno.
@@ -198,20 +219,39 @@ function renderNumber(
     : text
 }
 
+// La base non sta mai all'inizio: un numero relativo va fra tonde, (−3)².
+// Anche una frazione va fra tonde, (2/3)², perché l'esponente è di tutta la
+// frazione.
+function renderPower(
+  base: Expression,
+  exponent: Expression,
+  symbols: Symbols,
+): string {
+  const text = render(base, symbols, false)
+  const bareFraction =
+    base.kind === 'number' &&
+    !isInteger(base.value) &&
+    base.value.num > 0n &&
+    !base.plus
+  return symbols.power(
+    bareFraction ? symbols.enclose('round', text, true) : text,
+    exponentOf(exponent),
+  )
+}
+
 function render(e: Expression, symbols: Symbols, leading: boolean): string {
   switch (e.kind) {
     case 'number':
       return renderNumber(e, symbols, leading)
     case 'binary':
-      // La base non sta mai all'inizio: un numero relativo va fra tonde.
-      if (isPower(e.op))
-        return symbols.power(
-          render(e.left, symbols, false),
-          exponentOf(e.right),
-        )
+      if (isPower(e.op)) return renderPower(e.left, e.right, symbols)
       return `${render(e.left, symbols, leading)} ${symbols.op[e.op]} ${render(e.right, symbols, false)}`
     case 'group': {
       const tall = hasFraction(e.inner)
+      if (isNegatedPower(e)) {
+        const negated = `${symbols.minus}${render(e.inner, symbols, true)}`
+        return leading ? negated : symbols.enclose('round', negated, tall)
+      }
       const inner =
         e.negated && e.inner.kind === 'number'
           ? renderNumber(e.inner, symbols, true, true)
@@ -308,25 +348,50 @@ export function parseExpression(source: string): Expression {
     if (bracket) return bracketed(bracket, false)
     return literal(magnitude())
   }
+  const hasExponent = () =>
+    tokens[i] === '^' || superscriptToken.test(tokens[i] ?? '')
   // All'inizio di un'espressione o di un gruppo il primo fattore può avere
-  // il segno: −3, +4, −(3 − 7).
+  // il segno: −3, +4, −(3 − 7). Davanti a una potenza il meno vale per
+  // tutta la potenza, come sul libro: −3² è −(3²), non (−3)².
   const leadingFactor = (): Expression => {
     const sign = operatorOf[tokens[i] ?? '']
-    if (sign !== '+' && sign !== '-') return factor()
+    if (sign !== '+' && sign !== '-') return raised(factor())
     i++
     const bracket = openBracket[tokens[i] ?? '']
     if (bracket) {
       if (sign === '+') throw fail()
-      return bracketed(bracket, true)
+      const negated = bracketed(bracket, true)
+      if (!hasExponent() || negated.kind !== 'group') return negated
+      // −(3 − 7)²: la base è la parentesi senza il meno.
+      const { inner } = negated
+      const base =
+        bracket === 'round' && inner.kind === 'number'
+          ? inner
+          : group(bracket, inner)
+      return negatedPower(raised(base))
     }
     const value = magnitude()
-    return sign === '-'
-      ? literal(rational(-value.num, value.den))
-      : literal(value, { plus: true })
+    if (sign === '-' && hasExponent())
+      return negatedPower(raised(literal(value)))
+    return raised(
+      sign === '-'
+        ? literal(rational(-value.num, value.den))
+        : literal(value, { plus: true }),
+    )
   }
   // Una base con il suo esponente, se c'è. Dopo `^` l'esponente può avere
-  // il segno meno.
-  const raised = (base: Expression): Expression => {
+  // il segno meno. Le tonde intorno a una frazione sono la sua scrittura come
+  // base, (2/3)², non un gruppo.
+  const raised = (written: Expression): Expression => {
+    const base =
+      written.kind === 'group' &&
+      written.bracket === 'round' &&
+      !written.negated &&
+      written.inner.kind === 'number' &&
+      !isInteger(written.inner.value) &&
+      hasExponent()
+        ? written.inner
+        : written
     const t = tokens[i] ?? ''
     if (superscriptToken.test(t)) {
       i++
@@ -355,7 +420,7 @@ export function parseExpression(source: string): Expression {
   }
   const product = (leading: boolean) =>
     chain(
-      raised(leading ? leadingFactor() : factor()),
+      leading ? leadingFactor() : raised(factor()),
       () => raised(factor()),
       isMulDiv,
     )

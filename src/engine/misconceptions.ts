@@ -1,6 +1,7 @@
 import {
   isAddSub,
   isMulDiv,
+  isNegatedPower,
   isPower,
   type Expression,
   type Operator,
@@ -9,6 +10,8 @@ import {
   addExponentsOfPowerOfPower,
   distributeExponentOverSum,
   multiplyExponentsOfSameBase,
+  numericPower,
+  takeMinusIntoPower,
 } from './power.ts'
 import {
   equals,
@@ -18,7 +21,7 @@ import {
   sub,
   type Rational,
 } from './rational.ts'
-import { apply } from './solver.ts'
+import { apply, solve } from './solver.ts'
 
 // Gli errori tipici. Ognuno è una variante sbagliata di una regola del
 // risolutore: il motore valuta l'esercizio con la regola sbagliata e
@@ -39,6 +42,10 @@ export type MisconceptionId =
   | 'power-of-power-adds-exponents'
   | 'same-base-multiplies-exponents'
   | 'power-of-sum'
+  | 'minus-taken-into-power'
+  | 'negative-base-sign-kept'
+  | 'zero-exponent-is-zero'
+  | 'negative-exponent-is-negative'
 
 export interface Misconception {
   readonly id: MisconceptionId
@@ -148,8 +155,11 @@ function attempt(e: Expression, rules: Rules): Rational[] {
   }
 }
 
+// I gruppi scritti con le parentesi: il meno davanti a una potenza, −3², non
+// ne ha.
 function groups(e: Expression): Expression[] {
   if (e.kind === 'number') return []
+  if (e.kind === 'group' && isNegatedPower(e)) return groups(e.inner)
   if (e.kind === 'group') return [e, ...groups(e.inner)]
   return [...groups(e.left), ...groups(e.right)]
 }
@@ -159,7 +169,10 @@ function groups(e: Expression): Expression[] {
 function afterMinus(e: Expression): Expression[] {
   if (e.kind === 'number') return []
   if (e.kind === 'group')
-    return [...(e.negated ? [e] : []), ...afterMinus(e.inner)]
+    return [
+      ...(e.negated && !isNegatedPower(e) ? [e] : []),
+      ...afterMinus(e.inner),
+    ]
   const right = e.right
   const enclosed =
     right.kind === 'group' ||
@@ -217,6 +230,76 @@ function powerAsProduct(
   return isPower(op) ? mul(left, right) : apply(op, left, right)
 }
 
+// (−2)⁴ come −2⁴: il segno della base resta, qualunque sia l'esponente.
+function negativeBaseSignKept(
+  op: Operator,
+  left: Rational,
+  right: Rational,
+): Rational {
+  if (!isPower(op) || !negative(left)) return apply(op, left, right)
+  return opposite(apply(op, opposite(left), right))
+}
+
+// a⁰ come 0.
+function zeroExponentIsZero(
+  op: Operator,
+  left: Rational,
+  right: Rational,
+): Rational {
+  return isPower(op) && right.num === 0n ? rational(0n) : apply(op, left, right)
+}
+
+// a⁻ⁿ come −aⁿ.
+function negativeExponentIsNegative(
+  op: Operator,
+  left: Rational,
+  right: Rational,
+): Rational {
+  if (!isPower(op) || !negative(right)) return apply(op, left, right)
+  return opposite(apply(op, left, opposite(right)))
+}
+
+// Le potenze di un'espressione, dentro i gruppi e i meno.
+function powers(e: Expression): Expression[] {
+  if (e.kind === 'number') return []
+  if (e.kind === 'group') return powers(e.inner)
+  return [...(isPower(e.op) ? [e] : []), ...powers(e.left), ...powers(e.right)]
+}
+
+// La prima riga, a partire dall'esercizio, in cui compare una potenza con
+// l'esponente che il test cerca: un esponente zero può nascere da una
+// proprietà, 5³ : 5³ = 5⁰, e l'errore si fa lì.
+function firstWithExponent(
+  e: Expression,
+  test: (exponent: bigint) => boolean,
+): Expression | null {
+  const written = (x: Expression) =>
+    powers(x).some((p) => {
+      const n = numericPower(p)
+      return n !== null && test(n.exponent)
+    })
+  if (written(e)) return e
+  try {
+    return (
+      solve(e)
+        .lines.map((l) => l.expression)
+        .find(written) ?? null
+    )
+  } catch (error) {
+    if (error instanceof RangeError) return null
+    throw error
+  }
+}
+
+function attemptOnLine(
+  e: Expression,
+  test: (exponent: bigint) => boolean,
+  rules: Rules,
+): Rational[] {
+  const line = firstWithExponent(e, test)
+  return line ? attempt(line, rules) : []
+}
+
 // a/b : c/d come a/b × c/d, quando c'è una frazione.
 function withoutReciprocal(
   op: Operator,
@@ -268,6 +351,28 @@ export const misconceptions: readonly Misconception[] = [
     wrongResults: (e) =>
       groups(e).flatMap((ignored) => attempt(e, { ...correctRules, ignored })),
   },
+  // Prima di base per esponente: con l'esponente zero danno lo stesso
+  // valore, 5 × 0 = 0, e la spiegazione dell'esponente zero è più precisa.
+  {
+    id: 'zero-exponent-is-zero',
+    explanation:
+      'Una potenza con esponente zero vale 1, non 0: 5⁰ = 1, perché 5³ : 5³ = 5⁰ e un numero diviso per sé stesso fa 1.',
+    wrongResults: (e) =>
+      attemptOnLine(e, (n) => n === 0n, {
+        ...correctRules,
+        apply: zeroExponentIsZero,
+      }),
+  },
+  {
+    id: 'negative-exponent-is-negative',
+    explanation:
+      'L’esponente negativo non rende negativa la potenza: vuol dire reciproco. 2⁻³ = 1/2³ = 1/8, non −8.',
+    wrongResults: (e) =>
+      attemptOnLine(e, (n) => n < 0n, {
+        ...correctRules,
+        apply: negativeExponentIsNegative,
+      }),
+  },
   {
     id: 'power-as-product',
     explanation:
@@ -309,6 +414,19 @@ export const misconceptions: readonly Misconception[] = [
       'Hai moltiplicato invece di dividere. Dividere per una frazione vuol dire moltiplicare per il suo reciproco: si scambiano numeratore e denominatore del divisore.',
     wrongResults: (e) =>
       attempt(e, { ...correctRules, apply: withoutReciprocal }),
+  },
+  {
+    id: 'minus-taken-into-power',
+    explanation:
+      'Hai elevato anche il meno. In −3² l’esponente è solo del 3: −3² = −(3 × 3) = −9. Per elevare il numero negativo serve la parentesi: (−3)² = 9.',
+    wrongResults: (e) => attempt(takeMinusIntoPower(e), correctRules),
+  },
+  {
+    id: 'negative-base-sign-kept',
+    explanation:
+      'Hai lasciato il meno alla potenza di un numero negativo. Il segno segue la regola dei segni: con esponente pari il risultato è positivo, (−2)⁴ = 16; con esponente dispari è negativo, (−2)³ = −8.',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, apply: negativeBaseSignKept }),
   },
   {
     id: 'power-of-power-adds-exponents',

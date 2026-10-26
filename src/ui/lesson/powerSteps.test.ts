@@ -55,3 +55,19 @@ test('la resa KaTeX avvolge la potenza con il suo esponente', () => {
     `3 \\times \\mathord{\\htmlClass{${markClass}}{{2}^{3}}}`,
   )
 })
+
+test('−3² si evidenzia con il suo meno, senza parentesi da togliere', () => {
+  expect(marks('−3² + 5')).toEqual([
+    { before: '−3² + 5', target: '−3²', bracket: null, settles: false },
+    { before: '−9 + 5', target: '−9 + 5', bracket: null, settles: false },
+  ])
+})
+
+test('con la parentesi alla base, prima la parentesi dentro il meno', () => {
+  expect(marks('−(5 − 2)² + 1')[0]).toEqual({
+    before: '−(5 − 2)² + 1',
+    target: '(5 − 2)',
+    bracket: 'round',
+    settles: true,
+  })
+})

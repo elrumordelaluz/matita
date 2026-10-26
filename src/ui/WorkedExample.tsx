@@ -35,6 +35,7 @@ const ruleNote: Record<Rule, string> = {
   'mul-div-left-to-right': 'prima × e :',
   'add-sub-left-to-right': 'poi + e −',
   'change-sign': 'il meno cambia il segno',
+  'minus-power': 'prima la potenza, il meno resta fuori',
   power: 'prima le potenze',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',

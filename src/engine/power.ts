@@ -2,11 +2,13 @@ import {
   binary,
   group,
   isAddSub,
+  isNegatedPower,
+  negatedPower,
   power,
   type Expression,
   type Operator,
 } from './expression.ts'
-import { div, equals, mul, rational, type Rational } from './rational.ts'
+import { div, equals, mul, rational, sub, type Rational } from './rational.ts'
 
 // Le potenze: il calcolo, le proprietà che il risolutore applica prima di
 // calcolare e le letture sbagliate degli errori tipici. Vedi SPEC.md,
@@ -135,6 +137,11 @@ export interface PropertyReduction {
  * nell'ordine da sinistra a destra.
  */
 export function applyFirstProperty(e: Expression): PropertyReduction | null {
+  // Il meno davanti a una potenza resta fuori: −(3²)³ diventa −3⁶.
+  if (isNegatedPower(e) && e.kind === 'group') {
+    const inner = applyFirstProperty(e.inner)
+    return inner && { ...inner, expression: negatedPower(inner.expression) }
+  }
   if (e.kind !== 'binary') return null
   if (e.op !== '^') {
     const left = applyFirstProperty(e.left)
@@ -195,6 +202,23 @@ export function multiplyExponentsOfSameBase(e: Expression): Expression {
       return powerOf(a.base, a.exponent / b.exponent)
   }
   return binary(e.op, left, right)
+}
+
+/** −3² letto come (−3)²: il meno preso dentro la base. */
+export function takeMinusIntoPower(e: Expression): Expression {
+  return rewrite(e, (node) => {
+    if (!isNegatedPower(node) || node.kind !== 'group') return null
+    const p = node.inner
+    if (p.kind !== 'binary') return null
+    const base = takeMinusIntoPower(p.left)
+    const negatedBase =
+      base.kind === 'number'
+        ? numeric(sub(rational(0n), base.value))
+        : base.kind === 'group'
+          ? group(base.bracket, base.inner, { negated: !base.negated })
+          : group('round', base, { negated: true })
+    return binary('^', negatedBase, p.right)
+  })
 }
 
 /** (2 + 3)² letto come 2² + 3²: l'esponente distribuito sui termini. */
