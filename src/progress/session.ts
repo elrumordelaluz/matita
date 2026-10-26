@@ -1,4 +1,5 @@
 import type { Attempt } from './attempt.ts'
+import type { Known } from './known.ts'
 import { dueReviews } from './review.ts'
 import { skillStates, type SkillGraph } from './skillState.ts'
 
@@ -20,19 +21,22 @@ const learningShare = 6
 export function composeSession({
   graph,
   attempts,
+  known = [],
   now,
   canPractise = () => true,
 }: {
   graph: SkillGraph
   attempts: readonly Attempt[]
+  /** I segni di già saputo: quelle abilità contano come acquisite. */
+  known?: readonly Known[]
   now: Date
   /** Esclude le abilità senza generatore. */
   canPractise?: (skill: string) => boolean
 }): SessionItem[] {
-  const states = skillStates(graph, attempts)
+  const states = skillStates(graph, attempts, known)
   const practised = new Set(attempts.map((a) => a.skill))
 
-  const reviews: SessionItem[] = dueReviews(attempts, now)
+  const reviews: SessionItem[] = dueReviews(attempts, now, known)
     .filter(canPractise)
     .slice(0, sessionSize)
     .map((skill) => ({ skill, reason: 'review' }))
