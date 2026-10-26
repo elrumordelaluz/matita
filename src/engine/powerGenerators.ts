@@ -1,6 +1,8 @@
 import {
   binary,
   group,
+  literal as numberOf,
+  negatedPower,
   num,
   power,
   type Expression,
@@ -9,11 +11,13 @@ import {
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import type { Random } from './random.ts'
 import { rational } from './rational.ts'
+import { solve } from './solver.ts'
 
-// I generatori del capitolo sulle potenze, con basi naturali. Le potenze
-// restano nel calcolo mentale: base fino a 10, valore fino a 125 (5³). Le
-// proprietà lavorano con esponenti anche grandi, ma la potenza che resta da
-// calcolare alla fine rispetta lo stesso limite. Vedi SPEC.md, "Generatore".
+// I generatori del capitolo sulle potenze. Con basi intere le potenze
+// restano nel calcolo mentale: base fino a 10, valore fino a 125 (5³), in
+// valore assoluto. Le proprietà lavorano con esponenti anche grandi, ma la
+// potenza che resta da calcolare alla fine rispetta lo stesso limite. Vedi
+// SPEC.md, "Generatore".
 
 const baseMax = 10n
 const powerMax = 125n
@@ -54,19 +58,45 @@ function groupPower(random: Random): Built {
   }
 }
 
+// Una base negativa fra parentesi: (−2)³, (−3)².
+function negativeBasePower(random: Random): Built {
+  const base = random.int(2n, 5n)
+  const exponent = random.int(2n, maxExponent(base))
+  return {
+    expression: power(num(-base), exponent),
+    value: (-base) ** exponent,
+  }
+}
+
+// Il meno davanti alla potenza: −3², che vale −9.
+function minusPower(random: Random): Built {
+  const { expression, value } = plainPower(random)
+  return { expression: negatedPower(expression), value: -value }
+}
+
+function abs(n: bigint): bigint {
+  return n < 0n ? -n : n
+}
+
 function divisorsOf(n: bigint): bigint[] {
   const ds: bigint[] = []
   for (let d = 2n; d < n && d <= 20n; d++) if (n % d === 0n) ds.push(d)
   return ds
 }
 
-// Un termine con una potenza: da sola, con la base fra parentesi, per un
-// numero o divisa per un suo divisore.
+// Un termine con una potenza: da sola, con la base fra parentesi o
+// negativa, per un numero o divisa per un suo divisore.
 function powerTerm(random: Random): Built {
-  const p = random.pick([plainPower, groupPower])(random)
+  const p = random.pick([
+    plainPower,
+    plainPower,
+    groupPower,
+    negativeBasePower,
+  ])(random)
+  const size = abs(p.value)
   const options: (() => Built)[] = [() => p]
-  if (p.value * 2n <= productMax) {
-    const factor = () => random.int(2n, min(9n, productMax / p.value))
+  if (size * 2n <= productMax) {
+    const factor = () => random.int(2n, min(9n, productMax / size))
     options.push(() => {
       const k = factor()
       return {
@@ -82,7 +112,7 @@ function powerTerm(random: Random): Built {
       }
     })
   }
-  const ds = divisorsOf(p.value)
+  const ds = divisorsOf(size)
   if (ds.length > 0)
     options.push(() => {
       const d = random.pick(ds)
@@ -99,6 +129,19 @@ function literal(random: Random): Built {
   return { expression: num(value), value }
 }
 
+/** Una somma algebrica di termini, in Z: + e − a caso. */
+function algebraicSum(terms: readonly Built[], random: Random): Built {
+  const [first, ...rest] = terms
+  if (!first) throw new RangeError('Nessun termine')
+  let { expression, value } = first
+  for (const term of rest) {
+    const op = random.pick(['+', '-'] as const)
+    value = op === '+' ? value + term.value : value - term.value
+    expression = binary(op, expression, term.expression)
+  }
+  return { expression, value }
+}
+
 /** Una somma algebrica di termini, con ogni sottrazione possibile in N. */
 export function sumOf(terms: readonly Built[], random: Random): Built {
   const [first, ...rest] = terms
@@ -113,21 +156,26 @@ export function sumOf(terms: readonly Built[], random: Random): Built {
 }
 
 /**
- * `pow.basics`: una potenza da sola, oppure una somma di due o tre termini
- * in cui almeno uno ha una potenza. Le potenze non stanno mai una accanto
- * all'altra in un prodotto, così nessuna proprietà anticipa la lezione.
+ * `pow.basics`: una potenza da sola, oppure una somma algebrica di due o tre
+ * termini in cui almeno uno ha una potenza. Le basi negative compaiono fra
+ * parentesi, (−2)³, e il meno davanti alla potenza, −3², all'inizio, dove si
+ * scrive senza parentesi. Le potenze non stanno mai una accanto all'altra in
+ * un prodotto, così nessuna proprietà anticipa la lezione.
  */
 export function basicPowers(random: Random): Expression {
   // Una potenza da sola ogni quattro esercizi, più o meno.
   const count = random.pick([1, 2, 2, 3])
-  if (count === 1) return plainPower(random).expression
+  if (count === 1)
+    return random.pick([plainPower, negativeBasePower, minusPower])(random)
+      .expression
   const terms = Array.from({ length: count }, (_, i) =>
     i === 0 || random.pick([true, false]) ? powerTerm(random) : literal(random),
   )
   const first = terms.shift()
   if (!first) throw new RangeError('Nessun termine')
   terms.splice(Number(random.int(0n, BigInt(terms.length))), 0, first)
-  return sumOf(terms, random).expression
+  if (random.pick([true, false, false])) terms[0] = minusPower(random)
+  return algebraicSum(terms, random).expression
 }
 
 // Le proprietà. Ogni blocco finisce in una potenza `base^final` che resta
@@ -236,6 +284,183 @@ export function powerProperties(random: Random): Expression {
     ? [block()]
     : [block(), block()]
   return sumOf(blocks, random).expression
+}
+
+// Esponente zero e negativo, e le potenze in Q. Qui le basi sono intere o
+// frazioni piccole, e il valore dell'esercizio lo controlla la soluzione
+// (vedi `accepts` in generators.ts): si costruisce e si guarda dove porta.
+
+function gcd(a: bigint, b: bigint): bigint {
+  a = abs(a)
+  b = abs(b)
+  while (b !== 0n) [a, b] = [b, a % b]
+  return a
+}
+
+// Una frazione ridotta piccola, a volte negativa: 2/3, −1/2, 5/4.
+function smallFraction(random: Random): Expression {
+  const den = random.pick([2n, 2n, 3n, 3n, 4n, 5n])
+  const numerators: bigint[] = []
+  for (let n = 1n; n < 2n * den; n++)
+    if (n !== den && gcd(n, den) === 1n) numerators.push(n)
+  const magnitude = random.pick(numerators)
+  const sign = random.pick([1n, 1n, -1n])
+  return numberOf(rational(sign * magnitude, den))
+}
+
+// Un numero piccolo di Q: quasi sempre una frazione, a volte un intero.
+function smallRational(random: Random): Expression {
+  if (random.pick([true, true, true, false])) return smallFraction(random)
+  const magnitude = random.int(1n, 5n)
+  return num(random.pick([true, false]) ? -magnitude : magnitude)
+}
+
+// Una base per l'esponente zero o negativo: un intero da 2 a 5, anche
+// negativo, o una frazione piccola.
+function zeroNegativeBase(random: Random): Expression {
+  if (random.pick([true, false])) return smallFraction(random)
+  const magnitude = random.int(2n, 5n)
+  return num(random.pick([true, true, false]) ? magnitude : -magnitude)
+}
+
+// a⁰: con qualunque base diversa da zero vale 1.
+function zeroPower(random: Random): Expression {
+  return power(zeroNegativeBase(random), 0n)
+}
+
+// a⁻ⁿ: il reciproco di aⁿ, con n da 1 a 3.
+function negativePower(random: Random): Expression {
+  return power(zeroNegativeBase(random), -random.int(1n, 3n))
+}
+
+// Un quoziente o un prodotto con la stessa base che porta a un esponente
+// zero o negativo: 5³ : 5³, 2³ : 2⁵, 3² × 3⁻⁴.
+function toZeroOrNegative(random: Random): Expression {
+  const base = num(random.int(2n, 5n))
+  const m = random.int(2n, 5n)
+  const final = random.int(-2n, 0n)
+  if (random.pick([true, true, false]))
+    return binary(':', power(base, m), power(base, m - final))
+  return binary('×', power(base, m), power(base, final - m))
+}
+
+/**
+ * `pow.zero-negative`: uno o due blocchi, ognuno con un esponente zero o
+ * negativo, scritto o in arrivo da una proprietà, a volte con una frazione
+ * accanto. Ogni blocco fa vedere il suo errore tipico.
+ */
+export function zeroAndNegativePowers(random: Random): Expression {
+  const block = (): Expression => {
+    for (;;) {
+      const expression = random.pick([
+        zeroPower,
+        negativePower,
+        negativePower,
+        toZeroOrNegative,
+        toZeroOrNegative,
+      ])(random)
+      const ids: MisconceptionId[] = [
+        'zero-exponent-is-zero',
+        'negative-exponent-is-negative',
+      ]
+      if (ids.some((id) => showsIn(expression, id))) return expression
+    }
+  }
+  // Un blocco da solo una volta su sei, più o meno.
+  const blocks = [block()]
+  const companion = random.pick([
+    block,
+    block,
+    block,
+    smallRational,
+    smallRational,
+    null,
+  ])
+  if (companion) blocks.push(companion(random))
+  const [first, ...rest] = blocks
+  if (!first) throw new RangeError('Nessun blocco')
+  return rest.reduce(
+    (tree, b) => binary(random.pick(['+', '-'] as const), tree, b),
+    first,
+  )
+}
+
+function showsIn(expression: Expression, id: MisconceptionId): boolean {
+  try {
+    return isVisible(id, expression, solve(expression).result)
+  } catch (error) {
+    if (error instanceof RangeError) return false
+    throw error
+  }
+}
+
+// Una potenza di Q: base intera piccola o frazione, esponente da −2 a 3.
+function qPower(random: Random): Expression {
+  const base = random.pick([true, true, false])
+    ? smallFraction(random)
+    : num(random.int(2n, 3n) * random.pick([1n, -1n]))
+  return power(base, random.pick([2n, 2n, 3n, -1n, -2n]))
+}
+
+// Una parentesi tonda con una somma algebrica dentro, elevata: (1/2 − 1)².
+function qGroupPower(random: Random): Expression {
+  const inner = binary(
+    random.pick(['+', '-'] as const),
+    smallRational(random),
+    smallRational(random),
+  )
+  return power(group('round', inner), random.pick([2n, 2n, 3n, -1n]))
+}
+
+// Una quadra con una potenza e un numero, a volte per un numero:
+// [(1/2)² + 3/4] : 1/2.
+function qBracket(random: Random): Expression {
+  const raised = random.pick([qPower, qGroupPower])(random)
+  const inner = binary(
+    random.pick(['+', '-'] as const),
+    raised,
+    smallRational(random),
+  )
+  // Con una parentesi dentro, anche solo quella di (−2) o di (1/2), la
+  // parentesi fuori è una quadra.
+  const plainBase =
+    raised.kind === 'binary' &&
+    raised.left.kind === 'number' &&
+    raised.left.value.den === 1n &&
+    raised.left.value.num > 0n
+  const bracketed = group(plainBase ? 'round' : 'square', inner)
+  return random.pick([true, false])
+    ? bracketed
+    : binary(random.pick(['×', ':'] as const), bracketed, smallRational(random))
+}
+
+// Un termine di un'espressione con le potenze in Q.
+function qPowerTerm(random: Random): Expression {
+  return random.pick([
+    qPower,
+    qGroupPower,
+    qBracket,
+    (r: Random) =>
+      binary(random.pick(['×', ':'] as const), qPower(r), smallRational(r)),
+  ])(random)
+}
+
+/**
+ * `pow.expressions`: due o tre termini con potenze di frazioni, basi
+ * negative, esponenti negativi e parentesi, sommati o sottratti.
+ */
+export function powerExpressions(random: Random): Expression {
+  const count = random.pick([2, 2, 3])
+  let tree = qPowerTerm(random)
+  for (let i = 1; i < count; i++)
+    tree = binary(
+      random.pick(['+', '-'] as const),
+      tree,
+      random.pick([true, true, false])
+        ? qPowerTerm(random)
+        : smallRational(random),
+    )
+  return tree
 }
 
 function min(a: bigint, b: bigint): bigint {

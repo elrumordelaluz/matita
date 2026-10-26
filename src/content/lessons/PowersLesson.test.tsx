@@ -66,7 +66,7 @@ test('una proprietà si legge come passaggio, con la sua regola', () => {
 
 test('una domanda di controllo riconosce base per esponente', () => {
   lesson()
-  const question = screen.getByRole('group', { name: 'Domanda: 2⁶' })
+  const question = screen.getByRole('group', { name: 'Domanda: 4³' })
   const input = within(question).getByLabelText('Risposta')
   const check = within(question).getByRole('button', { name: 'Controlla' })
 

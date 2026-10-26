@@ -21,7 +21,7 @@ const parts: readonly LessonPart[] = [
       </p>
     ),
     example: generate('pow.basics', 1), // 6² : 3 + 15
-    question: generate('pow.basics', 7), // 2⁶
+    question: generate('pow.basics', 66), // 4³
   },
   {
     id: 'lezione-prima-le-potenze',
@@ -35,7 +35,7 @@ const parts: readonly LessonPart[] = [
       </p>
     ),
     example: generate('pow.basics', 58), // 9 + (9 − 5)² × 6
-    question: generate('pow.basics', 16), // 8² + (9 − 5)²
+    question: generate('pow.basics', 11), // (10 − 6)³ − 13
   },
   {
     id: 'lezione-stessa-base',
