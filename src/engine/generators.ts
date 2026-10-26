@@ -1,6 +1,7 @@
 import {
   binary,
   group,
+  isMulDiv,
   literal as numberOf,
   num,
   type Bracket,
@@ -323,6 +324,91 @@ function withNegatives(solution: Solution, expression: Expression): boolean {
 const inZ = (solution: Solution, expression: Expression) =>
   cleanInZ(solution) && withNegatives(solution, expression)
 
+// In Q i denominatori scritti sono piccoli, i più comuni più spesso. Una
+// frazione scritta è già ridotta, a volte impropria, negativa una volta su
+// tre. Gli intermedi restano frazioni da calcolo mentale: denominatore fino
+// a 36, minimo comune multiplo di una somma fino a 24, numeratore fino a 60.
+// Il risultato ha denominatore fino a 12 e numeratore fino a 30.
+const qDenominators = [2n, 2n, 3n, 3n, 4n, 4n, 5n, 6n, 6n, 8n, 9n, 10n, 12n]
+
+function gcd(a: bigint, b: bigint): bigint {
+  while (b !== 0n) [a, b] = [b, a % b]
+  return abs(a)
+}
+
+const qFraction: Atom = (random, plus) => {
+  const den = random.pick(qDenominators)
+  const numerators: bigint[] = []
+  for (let n = 1n; n < 2n * den; n++)
+    if (n !== den && gcd(n, den) === 1n) numerators.push(n)
+  const magnitude = random.pick(numerators)
+  const negative = random.pick([true, false, false])
+  return numberOf(rational(negative ? -magnitude : magnitude, den), { plus })
+}
+
+// Un termine di una somma in Q: quasi sempre una frazione, a volte un intero.
+const qTerm: Atom = (random, plus) =>
+  random.pick([true, true, true, true, false])
+    ? qFraction(random, plus)
+    : relative(random, 1n, 5n, plus)
+
+function lcm(a: bigint, b: bigint): bigint {
+  return (a * b) / gcd(a, b)
+}
+
+function cleanInQ(solution: Solution): boolean {
+  const all = stepsOf(solution)
+  const { result } = solution
+  return (
+    result.den <= 12n &&
+    abs(result.num) <= 30n &&
+    all.every(
+      (s, i) =>
+        s.result.den <= 36n &&
+        abs(s.result.num) <= 60n &&
+        (s.result.num !== 0n || i === all.length - 1) &&
+        (isMulDiv(s.op) || lcm(s.left.den, s.right.den) <= 24n) &&
+        !(
+          s.op === ':' &&
+          abs(s.left.num) === abs(s.right.num) &&
+          s.left.den === s.right.den
+        ),
+    )
+  )
+}
+
+// Nel prodotto, o nel prodotto per il reciproco, un numeratore e un
+// denominatore hanno un fattore in comune: c'è da semplificare in croce.
+function crossSimplifies(solution: Solution): boolean {
+  return stepsOf(solution).some(({ op, left, right }) => {
+    if (op === '×')
+      return gcd(left.num, right.den) > 1n || gcd(right.num, left.den) > 1n
+    if (op === ':')
+      return gcd(left.num, right.num) > 1n || gcd(left.den, right.den) > 1n
+    return false
+  })
+}
+
+// Un esercizio di Q lavora con le frazioni: almeno un'operazione ne ha una.
+function withFractions(solution: Solution): boolean {
+  return stepsOf(solution).some((s) => s.left.den > 1n || s.right.den > 1n)
+}
+
+const inQ = (solution: Solution) =>
+  cleanInQ(solution) && withFractions(solution)
+
+// Una catena di × e : fra frazioni.
+function fractionChain(random: Random, count: number, plus: boolean) {
+  let tree = qFraction(random, plus)
+  for (let i = 1; i < count; i++)
+    tree = binary(
+      random.pick(['×', ':'] as const),
+      tree,
+      qFraction(random, plus),
+    )
+  return tree
+}
+
 const generators = {
   'n.add-sub': {
     version: 1,
@@ -443,6 +529,66 @@ const generators = {
     accepts: (solution, expression) =>
       values(expression).length <= 7 && inZ(solution, expression),
     shows: ['ignored-group', 'minus-group-signs-kept'],
+  },
+  'q.add-sub': {
+    version: 1,
+    build(random) {
+      const plus = random.pick([true, false])
+      return algebraicSum(random, qTerm, Number(random.int(3n, 4n)), plus)
+    },
+    accepts: inQ,
+    shows: ['added-numerators-denominators'],
+  },
+  'q.mul-div': {
+    version: 1,
+    build(random) {
+      const plus = random.pick([true, false])
+      return fractionChain(random, Number(random.int(2n, 3n)), plus)
+    },
+    // Sempre qualcosa da semplificare in croce. Il reciproco dimenticato
+    // deve vedersi solo se c'è una divisione: con soli × non c'è niente da
+    // sbagliare, e `shows` lo pretenderebbe sempre.
+    accepts: (solution, expression) =>
+      inQ(solution) &&
+      crossSimplifies(solution) &&
+      (stepsOf(solution).every((s) => s.op !== ':') ||
+        isVisible('divided-without-reciprocal', expression, solution.result)),
+  },
+  'q.order': {
+    version: 1,
+    build(random) {
+      const plus = random.pick([true, false])
+      const count = Number(random.int(2n, 3n))
+      const product = Number(random.int(0n, BigInt(count - 1)))
+      let tree: Expression | null = null
+      for (let i = 0; i < count; i++) {
+        const term =
+          i === product
+            ? binary(
+                random.pick(['×', ':'] as const),
+                qTerm(random, plus),
+                qFraction(random, plus),
+              )
+            : qTerm(random, plus)
+        tree = tree ? binary(random.pick(addSub), tree, term) : term
+      }
+      if (!tree) throw new RangeError('Nessun termine')
+      return tree
+    },
+    accepts: inQ,
+    shows: ['add-before-mul'],
+  },
+  'q.brackets': {
+    version: 1,
+    build(random) {
+      const plus = random.pick([true, false])
+      const height = Number(random.int(0n, 1n))
+      return sumWithRelativeGroups(random, qTerm, height, plus, true)
+    },
+    // Al massimo sei numeri: con le frazioni ogni numero pesa di più.
+    accepts: (solution, expression) =>
+      values(expression).length <= 6 && inQ(solution),
+    shows: ['ignored-group'],
   },
 } satisfies Record<string, Generator>
 

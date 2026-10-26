@@ -77,3 +77,33 @@ describe('la regola dei segni', () => {
     expect(visible('sign-rule-in-sum', '−3 + 4')).toBe(false)
   })
 })
+
+describe('le frazioni', () => {
+  test('sommati numeratori e denominatori', () => {
+    // (1 + 1)/(2 + 3) invece di 5/6.
+    expect(recognised('1/2 + 1/3', 2n, 5n)).toBe(
+      'added-numerators-denominators',
+    )
+    // (3 − 1)/(4 − 2) = 1 invece di 1/4.
+    expect(recognised('3/4 − 1/2', 1n)).toBe('added-numerators-denominators')
+  })
+
+  test('con un intero non si confonde', () => {
+    expect(visible('added-numerators-denominators', '2 + 1/3')).toBe(false)
+  })
+
+  test('un denominatore che si annulla non dà un valore', () => {
+    // (2 − 1)/(3 − 3): nessuna risposta lo spiega.
+    expect(visible('added-numerators-denominators', '2/3 − 1/3')).toBe(false)
+  })
+
+  test('diviso senza prendere il reciproco', () => {
+    // 2/5 × 4/3 invece di 2/5 × 3/4.
+    expect(recognised('2/5 : 4/3', 8n, 15n)).toBe('divided-without-reciprocal')
+    expect(recognised('3/4 : 3', 9n, 4n)).toBe('divided-without-reciprocal')
+  })
+
+  test('fra interi la divisione resta una divisione', () => {
+    expect(visible('divided-without-reciprocal', '12 : 4')).toBe(false)
+  })
+})

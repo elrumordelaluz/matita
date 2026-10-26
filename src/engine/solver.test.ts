@@ -240,3 +240,35 @@ describe('in Z', () => {
     expect(rationalText(solution.result)).toBe('7')
   })
 })
+
+describe('in Q', () => {
+  test('ogni conto fra frazioni è un passaggio, con il risultato ridotto', () => {
+    expect(notebook('1/4 + 1/6 − 1/3')).toEqual([
+      { line: '1/12', steps: ['1/4 + 1/6 = 5/12', '5/12 − 1/3 = 1/12'] },
+    ])
+  })
+
+  test('prodotto e divisione prima della somma, il reciproco a mente', () => {
+    expect(notebook('1/2 + 4/9 × 9/8 − 9/8 : 3/2')).toEqual([
+      {
+        line: '1/2 + 1/2 − 3/4',
+        steps: ['4/9 × 9/8 = 1/2', '9/8 : 3/2 = 3/4'],
+      },
+      { line: '1/4', steps: ['1/2 + 1/2 = 1', '1 − 3/4 = 1/4'] },
+    ])
+  })
+
+  test('un gruppo che dà una frazione negativa la lascia fra tonde', () => {
+    expect(notebook('3 − (2/3 − 5/6) × 2').map((l) => l.line)).toEqual([
+      '3 − (−1/6) × 2',
+      '3 − (−1/3)',
+      '10/3',
+    ])
+  })
+
+  test('il risultato può essere un intero', () => {
+    expect(rationalText(solve(parseExpression('5/4 : (−1/4)')).result)).toBe(
+      '-5',
+    )
+  })
+})

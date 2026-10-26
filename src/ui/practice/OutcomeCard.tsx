@@ -9,8 +9,21 @@ type Tone = 'ok' | 'err' | 'warn'
 
 function toneOf(outcome: Outcome): Tone {
   if (outcome.kind === 'correct') return 'ok'
-  if (outcome.kind === 'invalid') return 'warn'
+  if (outcome.kind === 'invalid' || outcome.kind === 'rewrite') return 'warn'
   return 'err'
+}
+
+function titleOf(outcome: Outcome, result: string): string {
+  switch (outcome.kind) {
+    case 'correct':
+      return 'Corretto!'
+    case 'invalid':
+    case 'rewrite':
+      return outcome.message
+    case 'misconception':
+    case 'wrong':
+      return `Non è corretto: il risultato è ${result}.`
+  }
 }
 
 const cards: Record<Tone, string> = {
@@ -44,11 +57,7 @@ export function OutcomeCard({
       <Icon aria-hidden="true" strokeWidth={2.4} className="size-6 shrink-0" />
       <div className="space-y-0.5">
         <p className="font-display text-lg leading-snug font-bold text-pretty">
-          {outcome.kind === 'correct'
-            ? 'Corretto!'
-            : outcome.kind === 'invalid'
-              ? outcome.message
-              : `Non è corretto: il risultato è ${result}.`}
+          {titleOf(outcome, result)}
         </p>
         <Detail outcome={outcome} hints={hints} />
       </div>
@@ -60,6 +69,8 @@ function Detail({ outcome, hints }: { outcome: Outcome; hints: number }) {
   let text: string | null = null
   if (outcome.kind === 'correct' && hints > 0)
     text = `Con ${hints} ${hints === 1 ? 'suggerimento' : 'suggerimenti'}.`
+  if (outcome.kind === 'rewrite')
+    text = 'Il valore è giusto: riscrivi il risultato e verifica di nuovo.'
   if (outcome.kind === 'misconception')
     text = 'È un errore tipico: leggi la nota sul quaderno.'
   if (outcome.kind === 'wrong')

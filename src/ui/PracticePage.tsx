@@ -35,8 +35,11 @@ export interface PracticeAttempt {
   readonly durationMs: number
 }
 
+// Una risposta illeggibile o da riscrivere lascia l'esercizio aperto.
 function closes(outcome: Outcome | null): boolean {
-  return outcome !== null && outcome.kind !== 'invalid'
+  return (
+    outcome !== null && outcome.kind !== 'invalid' && outcome.kind !== 'rewrite'
+  )
 }
 
 export function PracticePage({
@@ -53,6 +56,8 @@ export function PracticePage({
   const [answer, setAnswer] = useState('')
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [hints, setHints] = useState(0)
+  // Le risposte col valore giusto da riscrivere: rendono il tentativo aiutato.
+  const [rewrites, setRewrites] = useState(0)
   const [startedAt, setStartedAt] = useState(() => Date.now())
   // Conta le risposte date: rifà comparire la scheda dell'esito ogni volta.
   const [tries, setTries] = useState(0)
@@ -76,14 +81,14 @@ export function PracticePage({
     const result = verify(answer, exercise)
     setOutcome(result)
     setTries((t) => t + 1)
+    if (result.kind === 'rewrite') setRewrites((r) => r + 1)
     if (closes(result))
       onAttempt?.({
         exercise,
         answer,
         outcome: result,
         hints,
-        // Le riscritture arrivano con l'esito `rewrite`, nel capitolo su Q.
-        rewrites: 0,
+        rewrites,
         durationMs: Date.now() - startedAt,
       })
   }
@@ -93,6 +98,7 @@ export function PracticePage({
     setAnswer('')
     setOutcome(null)
     setHints(0)
+    setRewrites(0)
     setTries(0)
     setStartedAt(Date.now())
     input.current?.focus()
@@ -164,7 +170,7 @@ export function PracticePage({
                   'border-ok bg-ok-soft text-ok focus:border-ok focus:ring-ok/20',
                 wrong &&
                   'animate-shake border-err bg-err-soft text-err focus:border-err focus:ring-err/20',
-                outcome?.kind === 'invalid' &&
+                (outcome?.kind === 'invalid' || outcome?.kind === 'rewrite') &&
                   'border-warn focus:border-warn focus:ring-warn/20',
               )}
             />

@@ -132,6 +132,14 @@ lezione può mostrare la riga intera o aprirla operazione per operazione. Il
 risolutore calcola la parentesi prima del meno che la precede; togliere le
 parentesi cambiando i segni è l'altra strada, e la spiega la lezione.
 
+In Q ogni operazione fra due frazioni resta un passaggio solo, con il
+risultato già ridotto: 1/4 + 1/6 = 5/12, 9/8 : 3/2 = 3/4. Il minimo comune
+multiplo, la semplificazione in croce e il prodotto per il reciproco sono il
+modo di fare quel conto, non un'operazione in più: non cambiano l'ordine delle
+operazioni né la riga. Li spiega la lezione, che lo dice, e il quaderno non
+finge di mostrarli. Una riga che riscrive 9/8 : 3/2 come 9/8 × 2/3 sarebbe un
+passaggio senza conto, e il risolutore ne ha solo con il conto.
+
 **Generatore.** Per ogni abilità, un generatore parametrico che riceve un seme
 e una difficoltà e restituisce un esercizio. Stesso seme, stesso esercizio:
 il tentativo salva il seme e la versione del generatore, e l'esercizio si può
@@ -140,7 +148,12 @@ intermedio appartiene all'insieme del capitolo, i numeri restano nel calcolo
 mentale (fino a 20 per i fattori in N, denominatori piccoli in Q), il
 risultato finale è "pulito". In Z i numeri scritti vanno fino a 15 in valore
 assoluto, i fattori fino a 10, e ogni risultato intermedio è un intero fino a
-100; solo il risultato finale può valere zero. Quando la costruzione da sola
+100; solo il risultato finale può valere zero. In Q i denominatori scritti
+vanno fino a 12 e una frazione scritta è già ridotta; ogni intermedio ha
+denominatore fino a 36 e numeratore fino a 60, il minimo comune multiplo di
+una somma resta entro 24, il risultato ha denominatore fino a 12 e numeratore
+fino a 30. Prodotti e quozienti hanno sempre qualcosa da semplificare in
+croce. Quando la costruzione da sola
 non garantisce un vincolo, il generatore scarta l'esercizio guardando la sua
 soluzione e ne costruisce un altro: lo stesso seme scarta sempre gli stessi.
 
@@ -153,7 +166,11 @@ coincidono, lo studente riceve la spiegazione di quell'errore e non un
 generico "sbagliato". Il catalogo cresce per capitolo. In Z: togliere una
 parentesi preceduta dal meno senza cambiare i segni dentro, perdere il meno
 davanti a una parentesi (5 − (−4) come 5 − 4), meno per meno preso come meno,
-la regola dei segni usata in una somma (−3 − 4 come +7). Quando due errori
+la regola dei segni usata in una somma (−3 − 4 come +7). In Q: sommare
+numeratori e denominatori, dividere moltiplicando senza prendere il
+reciproco. Ciascuno vale solo dove ha senso: fra due frazioni il primo, con
+almeno una frazione il secondo, così 12 : 4 resta una divisione fra interi.
+Quando due errori
 spiegano la stessa risposta vince il più preciso: la parentesi preceduta dal
 meno viene prima della parentesi ignorata, anche in N.
 
@@ -173,16 +190,23 @@ studente vede il motivo e la riscrive, e l'esercizio si chiude quando la forma
 è giusta. Il tentativo conta come aiutato (vedi
 [Ripasso e tracking](#ripasso-e-tracking)).
 
-| caso                             | esempio         | esito           | messaggio                          |
-| -------------------------------- | --------------- | --------------- | ---------------------------------- |
-| intero con segno più             | `+5`            | `corretto`      |                                    |
-| frazione non ridotta             | `4/6`           | `da-riscrivere` | Riduci ai minimi termini.          |
-| intero scritto come frazione     | `6/3`, `4/1`    | `da-riscrivere` | Il risultato è un numero intero.   |
-| segno al denominatore            | `2/-3`, `-2/-3` | `da-riscrivere` | Il segno va davanti alla frazione. |
-| decimale al posto della frazione | `0,5`, `0.5`    | `da-riscrivere` | Scrivi il risultato come frazione. |
-| frazione impropria               | `7/3`           | `corretto`      |                                    |
-| numero misto                     | `2 1/3`         | `non-valido`    | Scrivi il risultato come frazione. |
-| doppio segno                     | `--5`           | `non-valido`    | Scrivi un solo segno.              |
+| caso                             | esempio         | esito           | messaggio                            |
+| -------------------------------- | --------------- | --------------- | ------------------------------------ |
+| intero con segno più             | `+5`            | `corretto`      |                                      |
+| frazione non ridotta             | `4/6`           | `da-riscrivere` | Riduci ai minimi termini.            |
+| intero scritto come frazione     | `6/3`, `4/1`    | `da-riscrivere` | Il risultato è un numero intero.     |
+| segno al denominatore            | `2/-3`, `-2/-3` | `da-riscrivere` | Il segno va davanti alla frazione.   |
+| decimale al posto della frazione | `0,5`, `0.5`    | `da-riscrivere` | Scrivi il risultato come frazione.   |
+| frazione impropria               | `7/3`           | `corretto`      |                                      |
+| numero misto                     | `2 1/3`         | `non-valido`    | Scrivi il risultato come frazione.   |
+| doppio segno                     | `--5`           | `non-valido`    | Scrivi un solo segno.                |
+| decimale che vale un intero      | `2,0`           | `da-riscrivere` | Il risultato è un numero intero.     |
+| denominatore zero                | `2/0`           | `non-valido`    | Il denominatore non può essere zero. |
+
+Una risposta con più di un motivo mostra il primo, nell'ordine in cui lo si
+corregge: il segno, poi l'intero, poi i minimi termini. Una risposta in forma
+non canonica con il valore sbagliato si giudica dal valore: sbagliata, o
+errore tipico.
 
 L'input accetta `·`, `×`, `*` per il prodotto, `:`, `÷` per la divisione, la
 virgola e il punto come separatore decimale. La barra `/` è la linea di

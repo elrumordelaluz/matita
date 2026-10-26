@@ -172,3 +172,58 @@ test('in Z il risultato e i conti hanno il meno tipografico', () => {
   expect(within(solution).getByText('3 − (−6) = 9')).toBeInTheDocument()
   expect(within(solution).getByText('−8 − 9 = −17')).toBeInTheDocument()
 })
+
+test('una risposta da riscrivere mostra il motivo e lascia aperto l’esercizio', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('1/2 + 1/6')}
+      onAttempt={onAttempt}
+    />,
+  )
+  answer('4/6')
+  const status = screen.getByRole('status')
+  expect(status).toHaveTextContent('Riduci ai minimi termini.')
+  expect(status).toHaveTextContent('Il valore è giusto')
+  expect(screen.queryByRole('region', { name: 'Soluzione' })).toBeNull()
+  expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
+  expect(onAttempt).not.toHaveBeenCalled()
+})
+
+test('dopo una riscrittura il tentativo conta le riscritture', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('1/2 + 1/6')}
+      onAttempt={onAttempt}
+    />,
+  )
+  answer('4/6')
+  answer('-2/-3')
+  answer('2/3')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      answer: '2/3',
+      outcome: { kind: 'correct' },
+      rewrites: 2,
+    }),
+  )
+})
+
+test('le riscritture ripartono con l’esercizio successivo', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('1/2 + 1/6')}
+      onAttempt={onAttempt}
+    />,
+  )
+  answer('-2/-3')
+  answer('2/3')
+  fireEvent.click(screen.getByRole('button', { name: 'Esercizio successivo' }))
+  answer('2/3')
+  expect(onAttempt).toHaveBeenLastCalledWith(
+    expect.objectContaining({ rewrites: 0 }),
+  )
+})

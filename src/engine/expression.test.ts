@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   binary,
+  frac,
   group,
   literal,
   num,
@@ -197,6 +198,38 @@ describe('il meno davanti a un gruppo', () => {
   })
 })
 
+describe('frazioni', () => {
+  test('la barra è la linea di frazione', () => {
+    expect(parseExpression('1/2 + 2/3')).toEqual(
+      binary('+', frac(1n, 2n), frac(2n, 3n)),
+    )
+  })
+
+  test('una frazione letta è ridotta', () => {
+    expect(parseExpression('4/6')).toEqual(frac(2n, 3n))
+  })
+
+  test('in testo semplice e in KaTeX, i negativi come in Z', () => {
+    const e = parseExpression('−1/2 + (−2/3) × 3/4')
+    expect(toText(e)).toBe('−1/2 + (−2/3) × 3/4')
+    expect(toKatex(e)).toBe(
+      '-\\frac{1}{2} + \\left(-\\frac{2}{3}\\right) \\times \\frac{3}{4}',
+    )
+  })
+
+  test('le parentesi intorno alle frazioni crescono con loro', () => {
+    expect(toKatex(parseExpression('[1/2 − (1/3 + 1)] : 2'))).toBe(
+      '\\left[\\frac{1}{2} - \\left(\\frac{1}{3} + 1\\right)\\right] \\mathbin{:} 2',
+    )
+  })
+
+  test('rifiuta il denominatore zero e la barra senza numeri', () => {
+    expect(() => parseExpression('1/0 + 2')).toThrow()
+    expect(() => parseExpression('1/ + 2')).toThrow()
+    expect(() => parseExpression('(1 + 2)/3')).toThrow()
+  })
+})
+
 describe('parseExpression legge quello che scrive toText', () => {
   test.each([
     '−14 − (+10) − (−9)',
@@ -204,6 +237,8 @@ describe('parseExpression legge quello che scrive toText', () => {
     '−(−3 + (+5)) + (+5)',
     '−{+6 − (−3) × [(+5 + (−8)) × (+5) − (−4)]} + (+9)',
     '−[−(+3 + (−9)) − (+5)] + (−8)',
+    '+1/2 − (−5/4) + (+3)',
+    '−[+1 − (+4/3 + (+3/2))] − (−1/4)',
   ])('%s', (source) => {
     const e = parseExpression(source)
     expect(toText(e)).toBe(source)

@@ -42,6 +42,12 @@ function feedback(
         title: 'Non è corretto.',
         detail: `Il risultato è ${toText(literal(solve(exercise.expression).result))}.`,
       }
+    case 'rewrite':
+      return {
+        tone: 'warn',
+        title: outcome.message,
+        detail: 'Il valore è giusto: riscrivilo e controlla di nuovo.',
+      }
     case 'invalid':
       return { tone: 'warn', title: outcome.message }
   }

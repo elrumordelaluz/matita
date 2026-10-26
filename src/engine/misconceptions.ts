@@ -1,5 +1,12 @@
 import { isMulDiv, type Expression, type Operator } from './expression.ts'
-import { equals, rational, sub, type Rational } from './rational.ts'
+import {
+  equals,
+  isInteger,
+  mul,
+  rational,
+  sub,
+  type Rational,
+} from './rational.ts'
 import { apply } from './solver.ts'
 
 // Gli errori tipici. Ognuno è una variante sbagliata di una regola del
@@ -15,6 +22,8 @@ export type MisconceptionId =
   | 'minus-sign-dropped'
   | 'negatives-multiply-to-negative'
   | 'sign-rule-in-sum'
+  | 'added-numerators-denominators'
+  | 'divided-without-reciprocal'
 
 export interface Misconception {
   readonly id: MisconceptionId
@@ -170,6 +179,29 @@ function signRuleInSum(
     : result
 }
 
+// a/b + c/d come (a + c)/(b + d), solo fra due frazioni.
+function numeratorsAndDenominators(
+  op: Operator,
+  left: Rational,
+  right: Rational,
+): Rational {
+  if (isMulDiv(op) || isInteger(left) || isInteger(right))
+    return apply(op, left, right)
+  const sign = op === '+' ? 1n : -1n
+  return rational(left.num + sign * right.num, left.den + sign * right.den)
+}
+
+// a/b : c/d come a/b × c/d, quando c'è una frazione.
+function withoutReciprocal(
+  op: Operator,
+  left: Rational,
+  right: Rational,
+): Rational {
+  return op === ':' && !(isInteger(left) && isInteger(right))
+    ? mul(left, right)
+    : apply(op, left, right)
+}
+
 export const misconceptions: readonly Misconception[] = [
   {
     id: 'add-before-mul',
@@ -231,6 +263,20 @@ export const misconceptions: readonly Misconception[] = [
     explanation:
       'Hai usato la regola dei segni in una somma. Due termini negativi si sommano e il risultato resta negativo: −3 − 4 = −7. La regola dei segni vale per × e :.',
     wrongResults: (e) => attempt(e, { ...correctRules, apply: signRuleInSum }),
+  },
+  {
+    id: 'added-numerators-denominators',
+    explanation:
+      'Hai sommato numeratori con numeratori e denominatori con denominatori. Per sommare due frazioni si portano allo stesso denominatore, il minimo comune multiplo, e poi si sommano i numeratori.',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, apply: numeratorsAndDenominators }),
+  },
+  {
+    id: 'divided-without-reciprocal',
+    explanation:
+      'Hai moltiplicato invece di dividere. Dividere per una frazione vuol dire moltiplicare per il suo reciproco: si scambiano numeratore e denominatore del divisore.',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, apply: withoutReciprocal }),
   },
 ]
 
