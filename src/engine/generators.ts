@@ -1,6 +1,7 @@
 import {
   binary,
   group,
+  isAddSub,
   isMulDiv,
   literal as numberOf,
   num,
@@ -9,6 +10,12 @@ import {
   type Operator,
 } from './expression.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
+import {
+  basicPowers,
+  powerExpressions,
+  powerProperties,
+  zeroAndNegativePowers,
+} from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
 import { solve, type Solution } from './solver.ts'
@@ -397,6 +404,32 @@ function withFractions(solution: Solution): boolean {
 const inQ = (solution: Solution) =>
   cleanInQ(solution) && withFractions(solution)
 
+// Le potenze in Q seguono gli stessi limiti, ma un quoziente fra potenze
+// uguali qui è il punto: 5³ : 5³ porta all'esponente zero.
+function cleanPowersInQ(solution: Solution): boolean {
+  const all = stepsOf(solution)
+  const { result } = solution
+  return (
+    result.den <= 12n &&
+    abs(result.num) <= 30n &&
+    all.every(
+      (s, i) =>
+        s.result.den <= 36n &&
+        abs(s.result.num) <= 60n &&
+        (s.result.num !== 0n || i === all.length - 1) &&
+        (!isAddSub(s.op) || lcm(s.left.den, s.right.den) <= 24n),
+    )
+  )
+}
+
+// Un'espressione con le potenze in Q ne ha almeno una con la base frazione
+// o con l'esponente negativo: altrimenti è un esercizio di Z.
+function powersInQ(solution: Solution): boolean {
+  return stepsOf(solution).some(
+    (s) => s.rule === 'power' && (s.left.den > 1n || s.right.num < 0n),
+  )
+}
+
 // Una catena di × e : fra frazioni.
 function fractionChain(random: Random, count: number, plus: boolean) {
   let tree = qFraction(random, plus)
@@ -589,6 +622,33 @@ const generators = {
     accepts: (solution, expression) =>
       values(expression).length <= 6 && inQ(solution),
     shows: ['ignored-group'],
+  },
+  'pow.basics': {
+    version: 2,
+    build: basicPowers,
+    shows: ['power-as-product'],
+  },
+  'pow.properties': {
+    version: 1,
+    build: powerProperties,
+    shows: ['power-as-product'],
+  },
+  'pow.zero-negative': {
+    version: 1,
+    build: zeroAndNegativePowers,
+    // Due blocchi possono annullarsi, 2⁰ − 4⁰: almeno uno dei due errori
+    // deve vedersi sull'esercizio intero.
+    accepts: (solution, expression) =>
+      cleanPowersInQ(solution) &&
+      (
+        ['zero-exponent-is-zero', 'negative-exponent-is-negative'] as const
+      ).some((id) => isVisible(id, expression, solution.result)),
+  },
+  'pow.expressions': {
+    version: 1,
+    build: powerExpressions,
+    accepts: (solution) => cleanPowersInQ(solution) && powersInQ(solution),
+    shows: ['power-as-product'],
   },
 } satisfies Record<string, Generator>
 

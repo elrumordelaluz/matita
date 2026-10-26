@@ -2,37 +2,55 @@ import {
   binary,
   group,
   isMulDiv,
+  isNegatedPower,
+  isPower,
   isSignChange,
   literal,
   type Expression,
   type Operator,
 } from './expression.ts'
+import {
+  applyFirstProperty,
+  numericPower,
+  powerOfPower,
+  raise,
+  type PropertyRule,
+} from './power.ts'
 import { add, div, mul, rational, sub, type Rational } from './rational.ts'
 
 // Il risolutore produce la soluzione come sul quaderno: una riga per livello,
 // ogni riga fatta di passaggi atomici. Si lavora dentro i gruppi più interni
-// (o sull'intera espressione, se non ci sono gruppi): al loro interno prima ×
-// e : da sinistra a destra, poi + e − da sinistra a destra. Quando un gruppo
-// si riduce a un numero le sue parentesi cadono; se il gruppo era preceduto
-// dal meno resta −(−4), e il cambio di segno è un passaggio del giro di × e
-// :, perché è la regola dei segni. Vedi SPEC.md, "Risolutore".
+// (o sull'intera espressione, se non ci sono gruppi): al loro interno prima
+// le proprietà delle potenze, poi le potenze, poi × e : da sinistra a
+// destra, poi + e − da sinistra a destra. Quando un gruppo si riduce a un
+// numero le sue parentesi cadono; se il gruppo era preceduto dal meno resta
+// −(−4), e il cambio di segno è un passaggio del giro di × e :, perché è la
+// regola dei segni. Vedi SPEC.md, "Risolutore".
 
 export type Rule =
   | 'mul-div-left-to-right'
   | 'add-sub-left-to-right'
   /** Il meno davanti a un numero fra parentesi: −(−4) = 4. */
   | 'change-sign'
+  /** Il meno davanti a una potenza: −3² = −9, il meno resta fuori. */
+  | 'minus-power'
+  | 'power'
+  | PropertyRule
 
 export interface Step {
   readonly rule: Rule
-  /** Nel cambio di segno −x si legge 0 − x: `left` è 0 e `op` è −. */
+  /**
+   * I valori del passaggio. Nel cambio di segno −x si legge 0 − x: `left` è
+   * 0 e `op` è −; così anche −3², con `right` il valore della potenza. Per
+   * una proprietà sono i valori delle due potenze.
+   */
   readonly left: Rational
   readonly op: Operator
   readonly right: Rational
   readonly result: Rational
-  /** Il pezzo svolto, com'era scritto: 3 × (−4), −(−4). */
+  /** Il pezzo svolto, com'era scritto: 3 × (−4), −(−4), 2³, 2⁵ × 2³. */
   readonly operation: Expression
-  /** Quello che il pezzo è diventato. */
+  /** Quello che il pezzo è diventato: un numero, o una potenza se si applica una proprietà. */
   readonly outcome: Expression
   /** L'espressione dopo questo passaggio. */
   readonly expression: Expression
@@ -59,20 +77,30 @@ export function apply(op: Operator, left: Rational, right: Rational): Rational {
       return mul(left, right)
     case ':':
       return div(left, right)
+    case '^':
+      if (right.den !== 1n) throw new RangeError('Esponente non intero')
+      return raise(left, right.num)
   }
 }
 
-// Il giro di un livello: prima × e : (con i cambi di segno), poi + e −.
-type Level = 'mul-div' | 'add-sub'
+// Il giro di un livello: prima le potenze, poi × e : (con i cambi di segno),
+// poi + e −.
+type Level = 'power' | 'mul-div' | 'add-sub'
 
-const levelOf = (op: Operator): Level => (isMulDiv(op) ? 'mul-div' : 'add-sub')
+const levelOf = (op: Operator): Level => {
+  if (isPower(op)) return 'power'
+  return isMulDiv(op) ? 'mul-div' : 'add-sub'
+}
 
-const ruleOf = (op: Operator): Rule =>
-  isMulDiv(op) ? 'mul-div-left-to-right' : 'add-sub-left-to-right'
+const ruleOf = (op: Operator): Rule => {
+  if (isPower(op)) return 'power'
+  return isMulDiv(op) ? 'mul-div-left-to-right' : 'add-sub-left-to-right'
+}
 
 // Cerca un'operazione del livello fuori dai gruppi.
 function contains(e: Expression, level: Level): boolean {
   if (isSignChange(e)) return level === 'mul-div'
+  if (isNegatedPower(e) && e.kind === 'group') return contains(e.inner, level)
   if (e.kind !== 'binary') return false
   return (
     levelOf(e.op) === level ||
@@ -110,6 +138,15 @@ function reduceFirst(e: Expression, level: Level): Reduction | null {
     const { value } = e.inner
     const zero = rational(0n)
     return reduced(e, 'change-sign', zero, '-', value, sub(zero, value))
+  }
+  // −3² si svolge in un passaggio solo, nel giro delle potenze: la potenza
+  // e il meno che resta davanti.
+  if (isNegatedPower(e) && e.kind === 'group') {
+    const p = numericPower(e.inner)
+    if (level !== 'power' || !p) return null
+    const value = raise(p.base, p.exponent)
+    const zero = rational(0n)
+    return reduced(e, 'minus-power', zero, '-', value, sub(zero, value))
   }
   if (e.kind !== 'binary') return null
   const left = reduceFirst(e.left, level)
@@ -156,19 +193,27 @@ function replace(e: Expression, path: Path, node: Expression): Expression {
   throw new Error('Percorso non valido')
 }
 
-// Un gruppo da svolgere: −(−4) non lo è più, è un numero da cambiare di segno.
+// Un gruppo da svolgere: −(−4) non lo è più, è un numero da cambiare di
+// segno; −3² non lo è mai, è un meno davanti a una potenza.
 function isOpenGroup(e: Expression): boolean {
-  return e.kind === 'group' && !isSignChange(e)
+  return e.kind === 'group' && !isSignChange(e) && !isNegatedPower(e)
 }
 
+// Una potenza di potenza, (3²)³, non conta come gruppo: le sue parentesi
+// cadono con la proprietà, non svolgendo il dentro. Il meno davanti a una
+// potenza è trasparente: conta quello che ha dentro.
 function hasGroup(e: Expression): boolean {
+  if (isNegatedPower(e) && e.kind === 'group') return hasGroup(e.inner)
   if (e.kind === 'group') return isOpenGroup(e)
+  if (powerOfPower(e)) return false
   return e.kind === 'binary' && (hasGroup(e.left) || hasGroup(e.right))
 }
 
 // I gruppi che non contengono altri gruppi, da sinistra a destra.
 function innermostGroups(e: Expression, path: Path = []): Path[] {
-  if (e.kind === 'number') return []
+  if (e.kind === 'number' || powerOfPower(e)) return []
+  if (isNegatedPower(e))
+    return innermostGroups(at(e, ['inner']), [...path, 'inner'])
   if (e.kind === 'group') {
     if (!isOpenGroup(e)) return []
     return hasGroup(e.inner)
@@ -190,17 +235,26 @@ function settle(e: Expression, target: Path): Expression {
     : e
 }
 
+// Il livello da svolgere in un ambito: le proprietà finché si possono
+// applicare, poi le potenze, poi × e :, poi + e −.
+function nextLevel(scope: Expression): (e: Expression) => Reduction | null {
+  if (applyFirstProperty(scope)) return applyFirstProperty
+  const levels: readonly Level[] = ['power', 'mul-div']
+  const level = levels.find((l) => contains(scope, l)) ?? 'add-sub'
+  return (e) => reduceFirst(e, level)
+}
+
 // Svolge un livello dentro un ambito: un gruppo più interno o l'intera
 // espressione senza gruppi.
 function solveScope(e: Expression, target: Path, steps: Step[]): Expression {
   const inGroup = isOpenGroup(at(e, target))
   const scope = inGroup ? [...target, 'inner' as const] : target
-  const level = contains(at(e, scope), 'mul-div') ? 'mul-div' : 'add-sub'
+  const reduce = nextLevel(at(e, scope))
   let current = settle(e, target)
   for (;;) {
     // Il gruppo è caduto o si è ridotto a −(n): l'ambito non c'è più.
     if (inGroup && !isOpenGroup(at(current, target))) return current
-    const reduction = reduceFirst(at(current, scope), level)
+    const reduction = reduce(at(current, scope))
     if (!reduction) return current
     current = settle(replace(current, scope, reduction.expression), target)
     steps.push({ ...reduction.step, expression: current })

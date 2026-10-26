@@ -2,7 +2,9 @@ import {
   binary,
   equals,
   group,
+  isNegatedPower,
   num,
+  powerOfPower,
   toKatex,
   type Bracket,
   type Expression,
@@ -45,6 +47,9 @@ function changed(a: Expression, b: Expression): Direction[] | null {
   if (a.kind === 'number' && b.kind === 'number')
     return equals(a.value, b.value) ? null : []
   if (a.kind === 'binary' && b.kind === 'binary' && a.op === b.op) {
+    // Una potenza di potenza che diventa una potenza cambia tutta: (3²)³ è
+    // diventata 3⁶, non è cambiata solo la base.
+    if (powerOfPower(a) && !powerOfPower(b)) return []
     const left = changed(a.left, b.left)
     if (left) return ['left', ...left]
     const right = changed(a.right, b.right)
@@ -92,13 +97,18 @@ function mark(before: Expression, step: Step): MarkedStep {
   // negativo va fra parentesi.
   let leading = true
   for (const d of path) {
-    if (target.kind === 'group') bracket = target.bracket
+    // Il meno davanti a una potenza non disegna parentesi.
+    if (target.kind === 'group' && !isNegatedPower(target))
+      bracket = target.bracket
     target = child(target, d)
     if (d !== 'left') leading = d === 'inner'
   }
   // Nel cambio di segno, −(−4), le parentesi spariscono con il meno: non si
-  // lavora dentro di loro.
-  const settles = target.kind === 'group' && step.rule !== 'change-sign'
+  // lavora dentro di loro. In −3² le parentesi non ci sono.
+  const settles =
+    target.kind === 'group' &&
+    step.rule !== 'change-sign' &&
+    step.rule !== 'minus-power'
   if (settles && target.kind === 'group') bracket = target.bracket
   const tex = toKatex(put(before, path, hole)).replace(
     toKatex(hole),
