@@ -6,19 +6,23 @@ import {
   PencilLine,
   type LucideIcon,
 } from 'lucide-react'
-import { useState } from 'react'
-import { NExpressionsLesson } from './content/lessons/NExpressionsLesson.tsx'
+import { useMemo, useState } from 'react'
+import type { ChapterId } from './content/chapters.ts'
 import { skills } from './content/skills.ts'
 import { generate, type GeneratedSkill } from './engine/index.ts'
 import { cn } from './lib/cn.ts'
 import { attemptFromPractice } from './progress/record.ts'
 import type { SessionItem } from './progress/session.ts'
+import { skillStates } from './progress/skillState.ts'
 import { createMemoryStore, type ProgressStore } from './progress/store.ts'
 import { randomSeed } from './ui/exercises.ts'
+import { practiceSkill, workingChapter } from './ui/home/chapterProgress.ts'
 import { HomePage } from './ui/HomePage.tsx'
+import { LessonPage } from './ui/LessonPage.tsx'
 import { PracticePage, type PracticeAttempt } from './ui/PracticePage.tsx'
 import { ProgressPage } from './ui/ProgressPage.tsx'
 import { SessionPage } from './ui/SessionPage.tsx'
+import { useProgress } from './ui/useProgress.ts'
 
 type View = 'home' | 'lesson' | 'practice' | 'progress'
 
@@ -35,15 +39,33 @@ export default function App({ store: given }: { store?: ProgressStore }) {
   const [store] = useState(() => given ?? createMemoryStore())
   const [view, setView] = useState<View>('home')
   const [session, setSession] = useState<SessionItem[] | null>(null)
-  const [practised, setPractised] = useState<GeneratedSkill>('n.add-sub')
+  // A che punto è lo studente, per scegliere il capitolo della lezione e
+  // l'abilità della pratica quando arriva dalla barra. Si rilegge dopo ogni
+  // scrittura; finché non è letto, si parte dal primo capitolo.
+  const { progress, reload } = useProgress(store)
+  const states = useMemo(
+    () => progress && skillStates(skills, progress.attempts, progress.known),
+    [progress],
+  )
+  // Si fissano quando si apre la vista, così non cambiano sotto gli occhi
+  // mentre lo studente ci lavora.
+  const [practised, setPractised] = useState<GeneratedSkill>(() =>
+    practiceSkill(skills, null, []),
+  )
+  const [lessonChapter, setLessonChapter] = useState<ChapterId | null>(null)
+  const [mapChapter, setMapChapter] = useState<ChapterId | undefined>()
+
+  const refresh = () => void reload()
 
   function save(result: PracticeAttempt) {
-    void store.addAttempt(
-      attemptFromPractice(result, {
-        id: crypto.randomUUID(),
-        answeredAt: Date.now(),
-      }),
-    )
+    void store
+      .addAttempt(
+        attemptFromPractice(result, {
+          id: crypto.randomUUID(),
+          answeredAt: Date.now(),
+        }),
+      )
+      .then(reload)
   }
 
   function practise(skill: GeneratedSkill) {
@@ -51,8 +73,26 @@ export default function App({ store: given }: { store?: ProgressStore }) {
     setView('practice')
   }
 
+  function openLesson(chapter: ChapterId) {
+    setSession(null)
+    setLessonChapter(chapter)
+    setView('lesson')
+  }
+
+  function openProgress(chapter: ChapterId) {
+    setSession(null)
+    setMapChapter(chapter)
+    setView('progress')
+  }
+
+  // Dalla barra: la lezione del capitolo su cui si lavora, la pratica
+  // dell'abilità in corso, la mappa dello stesso capitolo.
   function show(v: View) {
     setSession(null)
+    if (v === 'lesson') setLessonChapter(states && workingChapter(states).id)
+    if (v === 'practice')
+      setPractised(practiceSkill(skills, states, progress?.attempts ?? []))
+    if (v === 'progress') setMapChapter(undefined)
     setView(v)
   }
 
@@ -120,11 +160,23 @@ export default function App({ store: given }: { store?: ProgressStore }) {
                 store={store}
                 skills={skills}
                 onStart={setSession}
-                onOpenLesson={() => show('lesson')}
-                onOpenProgress={() => show('progress')}
+                onOpenLesson={openLesson}
+                onOpenProgress={openProgress}
+                onChange={refresh}
               />
             ))}
-          {view === 'lesson' && <NExpressionsLesson onPractise={practise} />}
+          {view === 'lesson' && (
+            <LessonPage
+              store={store}
+              skills={skills}
+              chapter={
+                lessonChapter ?? (states ? workingChapter(states).id : 'n')
+              }
+              onChapter={setLessonChapter}
+              onPractise={practise}
+              onChange={refresh}
+            />
+          )}
           {view === 'practice' && (
             <PracticePage
               key={practised}
@@ -134,7 +186,12 @@ export default function App({ store: given }: { store?: ProgressStore }) {
             />
           )}
           {view === 'progress' && (
-            <ProgressPage store={store} skills={skills} onPractise={practise} />
+            <ProgressPage
+              store={store}
+              skills={skills}
+              chapter={mapChapter}
+              onPractise={practise}
+            />
           )}
         </div>
       </div>

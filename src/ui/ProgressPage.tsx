@@ -6,26 +6,37 @@ import {
   PencilLine,
   Upload,
 } from 'lucide-react'
-import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react'
+import { useId, useMemo, useState, type ChangeEvent } from 'react'
+import {
+  chapterById,
+  chapterOf,
+  chapters,
+  type ChapterId,
+} from '../content/chapters.ts'
 import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import type { Attempt } from '../progress/attempt.ts'
 import { exportBackup, importBackup } from '../progress/backup.ts'
 import { reviewCards } from '../progress/review.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
+import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
-import { firstChapter } from './home/chapters.ts'
+import {
+  chapterStatus,
+  summarize,
+  workingChapter,
+} from './home/chapterProgress.ts'
 import {
   attemptStats,
   currentStreaks,
   masteryStreak,
 } from './home/skillProgress.ts'
 import { Button, Eyebrow, Note, Panel, Ring, Sheet } from './kit.tsx'
+import { useProgress } from './useProgress.ts'
 
-// "I miei progressi": la mappa delle abilità del capitolo, qualche conto sui
-// tentativi e il backup.
+// "I miei progressi": la mappa delle abilità di un capitolo alla volta, con
+// la fila dei capitoli sopra, qualche conto sui tentativi e il backup.
 
 const stateLabel: Record<SkillState, string> = {
   locked: 'bloccata',
@@ -78,9 +89,11 @@ type Notice =
   | { readonly ok: true; readonly text: string }
   | { readonly ok: false; readonly text: string }
 
-// Il livello di ogni abilità nel grafo: zero senza prerequisiti, poi uno in
-// più del prerequisito più profondo. Le abilità dello stesso livello stanno
-// sulla stessa riga della mappa.
+// Il livello di ogni abilità nel grafo del capitolo: zero senza prerequisiti
+// nel capitolo, poi uno in più del prerequisito più profondo. I prerequisiti
+// di altri capitoli non contano qui: la mappa li nomina sotto la scheda
+// ("Prima: …") e non disegna tratti fra capitoli. Le abilità dello stesso
+// livello stanno sulla stessa riga della mappa.
 function levels(skills: readonly Skill[]): Skill[][] {
   const depth = new Map<string, number>()
   const of = (skill: Skill): number => {
@@ -96,6 +109,13 @@ function levels(skills: readonly Skill[]): Skill[][] {
   return rows.filter(Boolean)
 }
 
+function datePhrase(at: number): string {
+  return new Date(at).toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
 function reviewText(due: Date, now: Date): string {
   const days = Math.ceil((due.getTime() - now.getTime()) / day)
   if (days <= 0) return 'da ripassare'
@@ -106,25 +126,19 @@ function reviewText(due: Date, now: Date): string {
 export function ProgressPage({
   store,
   skills,
+  chapter: initialChapter,
   onPractise,
 }: {
   store: ProgressStore
   skills: readonly Skill[]
+  /** Il capitolo da mostrare; senza, quello su cui si lavora. */
+  chapter?: ChapterId | undefined
   onPractise?: (skill: GeneratedSkill) => void
 }) {
-  const [attempts, setAttempts] = useState<Attempt[] | null>(null)
+  const { progress: stored, reload } = useProgress(store)
+  const [chosen, setChosen] = useState<ChapterId | null>(initialChapter ?? null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const id = useId()
-
-  useEffect(() => {
-    let live = true
-    void store.attempts().then((a) => {
-      if (live) setAttempts(a)
-    })
-    return () => {
-      live = false
-    }
-  }, [store])
 
   async function download() {
     const text = await exportBackup(store)
@@ -147,34 +161,53 @@ export function ProgressPage({
       setNotice({ ok: false, text: result.message })
       return
     }
-    setAttempts(await store.attempts())
-    setNotice({
-      ok: true,
-      text:
-        result.count === 1
-          ? 'Importato 1 tentativo.'
-          : `Importati ${result.count} tentativi.`,
-    })
+    await reload()
+    const attempts =
+      result.count === 1
+        ? 'Importato 1 tentativo'
+        : `Importati ${result.count} tentativi`
+    const known =
+      result.known === undefined
+        ? ''
+        : result.known === 1
+          ? ' e 1 abilità già saputa'
+          : ` e ${result.known} abilità già sapute`
+    setNotice({ ok: true, text: `${attempts}${known}.` })
   }
 
   const progress = useMemo(
     () =>
-      attempts && {
-        states: skillStates(skills, attempts),
-        streaks: currentStreaks(attempts),
-        cards: reviewCards(attempts),
-        stats: attemptStats(attempts),
+      stored && {
+        states: skillStates(skills, stored.attempts, stored.known),
+        streaks: currentStreaks(stored.attempts),
+        cards: reviewCards(stored.attempts, stored.known),
+        stats: attemptStats(stored.attempts),
       },
-    [attempts, skills],
+    [stored, skills],
   )
-  const rows = useMemo(() => levels(skills), [skills])
-  const width = Math.min(3, Math.max(...rows.map((r) => r.length)))
+  const chapter = chosen
+    ? chapterById(chosen)
+    : progress
+      ? workingChapter(progress.states)
+      : undefined
+  const rows = useMemo(() => levels(chapter?.skills ?? []), [chapter])
+  const width = Math.min(3, Math.max(1, ...rows.map((r) => r.length)))
   const mastered = progress
     ? skills.filter((s) => progress.states[s.id] === 'mastered').length
     : 0
+  const summary =
+    chapter && progress && stored
+      ? summarize(chapter, progress.states, stored.known)
+      : undefined
   const now = new Date()
-  const titleOf = (sid: string) =>
-    skills.find((s) => s.id === sid)?.title ?? sid
+  // Un prerequisito di un altro capitolo porta il numero del suo capitolo.
+  const titleOf = (sid: string) => {
+    const title = skills.find((s) => s.id === sid)?.title ?? sid
+    const other = chapterOf(sid)
+    return other && other.id !== chapter?.id
+      ? `${title} (cap. ${other.number})`
+      : title
+  }
 
   return (
     <section aria-labelledby={`${id}-title`} className="space-y-6">
@@ -189,7 +222,7 @@ export function ProgressPage({
           {progress && (
             <p className="mt-1 text-dim">
               {mastered === skills.length
-                ? 'Capitolo completo: ora lo tiene vivo il ripasso.'
+                ? 'Percorso completo: ora lo tiene vivo il ripasso.'
                 : `${mastered} abilità su ${skills.length} acquisite.`}
             </p>
           )}
@@ -197,150 +230,167 @@ export function ProgressPage({
       </div>
 
       <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
-        {progress && (
-          <Sheet className="animate-rise p-4 sm:p-8 lg:col-span-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Eyebrow>Capitolo {firstChapter.number}</Eyebrow>
-                <p className="mt-1 font-display text-2xl leading-tight font-bold">
-                  {firstChapter.title}
-                </p>
-              </div>
-              <Ring value={mastered / skills.length} className="size-14">
-                {mastered}/{skills.length}
-              </Ring>
-            </div>
-            <Note className="mt-2 inline-block -rotate-1">
-              {masteryStreak} corretti di fila senza aiuti, ed è acquisita
-            </Note>
-
-            <ul
-              className={cn(
-                'mx-auto mt-8 grid max-w-2xl gap-y-12',
-                columns[width],
+        {progress && chapter && summary && (
+          <div className="space-y-4 lg:col-span-8">
+            <ChapterPicker
+              label="Capitoli"
+              value={chapter.id}
+              onChange={setChosen}
+              status={Object.fromEntries(
+                chapters.map((c) => [c.id, chapterStatus(c, progress.states)]),
               )}
-            >
-              {rows.flatMap((row, level) =>
-                row.map((skill) => {
-                  const state = progress.states[skill.id] ?? 'locked'
-                  const streak = Math.min(
-                    masteryStreak,
-                    progress.streaks.get(skill.id) ?? 0,
-                  )
-                  const card = progress.cards.get(skill.id)
-                  const alone = row.length === 1
-                  const merge =
-                    level > 0 && alone && (rows[level - 1]?.length ?? 0) > 1
-                  const titleId = `${id}-${skill.id}`
-                  return (
-                    <li
-                      key={skill.id}
-                      aria-labelledby={titleId}
-                      className={cn(
-                        'relative animate-rise px-1.5 sm:px-4',
-                        riseDelay[Math.min(level, riseDelay.length - 1)],
-                        alone && 'col-span-full',
-                        level > 0 &&
-                          'before:absolute before:-ml-px after:absolute after:-ml-px',
-                        level > 0 &&
-                          !merge &&
-                          'before:-top-12 before:left-1/2 before:h-12 before:border-l-2',
-                        merge &&
-                          'before:-top-12 before:h-6 before:rounded-b-2xl before:border-2 before:border-t-0 after:-top-6 after:left-1/2 after:h-6 after:border-l-2',
-                        merge && mergeInset[rows[level - 1]?.length ?? 2],
-                        level > 0 &&
-                          (state === 'locked' ? strokeLocked : strokeOpen),
-                      )}
-                    >
-                      <div
+            />
+            <Sheet key={chapter.id} className="animate-rise p-4 sm:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Eyebrow>Capitolo {chapter.number}</Eyebrow>
+                  <p className="mt-1 font-display text-2xl leading-tight font-bold">
+                    {chapter.title}
+                  </p>
+                </div>
+                <Ring
+                  value={summary.total ? summary.mastered / summary.total : 0}
+                  className="size-14"
+                >
+                  {summary.mastered}/{summary.total}
+                </Ring>
+              </div>
+              <Note className="mt-2 inline-block -rotate-1">
+                {summary.knownSince === null
+                  ? `${masteryStreak} corretti di fila senza aiuti, ed è acquisita`
+                  : `segnato come già saputo il ${datePhrase(summary.knownSince)}`}
+              </Note>
+
+              <ul
+                className={cn(
+                  'mx-auto mt-8 grid max-w-2xl gap-y-12',
+                  columns[width],
+                )}
+              >
+                {rows.flatMap((row, level) =>
+                  row.map((skill) => {
+                    const state = progress.states[skill.id] ?? 'locked'
+                    const streak = Math.min(
+                      masteryStreak,
+                      progress.streaks.get(skill.id) ?? 0,
+                    )
+                    const card = progress.cards.get(skill.id)
+                    const alone = row.length === 1
+                    const merge =
+                      level > 0 && alone && (rows[level - 1]?.length ?? 0) > 1
+                    const titleId = `${id}-${skill.id}`
+                    return (
+                      <li
+                        key={skill.id}
+                        aria-labelledby={titleId}
                         className={cn(
-                          'mx-auto flex h-full max-w-xs flex-col items-center gap-2 rounded-2xl border bg-panel p-3 text-center shadow-panel sm:p-4',
-                          stateCard[state],
+                          'relative animate-rise px-1.5 sm:px-4',
+                          riseDelay[Math.min(level, riseDelay.length - 1)],
+                          alone && 'col-span-full',
+                          level > 0 &&
+                            'before:absolute before:-ml-px after:absolute after:-ml-px',
+                          level > 0 &&
+                            !merge &&
+                            'before:-top-12 before:left-1/2 before:h-12 before:border-l-2',
+                          merge &&
+                            'before:-top-12 before:h-6 before:rounded-b-2xl before:border-2 before:border-t-0 after:-top-6 after:left-1/2 after:h-6 after:border-l-2',
+                          merge && mergeInset[rows[level - 1]?.length ?? 2],
+                          level > 0 &&
+                            (state === 'locked' ? strokeLocked : strokeOpen),
                         )}
                       >
-                        {state === 'mastered' && (
-                          <span className="grid size-12 animate-pop place-items-center rounded-full bg-ok text-panel">
-                            <Check
-                              aria-hidden="true"
-                              className="size-6"
-                              strokeWidth={3}
-                            />
-                          </span>
-                        )}
-                        {state === 'learning' && (
-                          <Ring
-                            value={streak / masteryStreak}
-                            className="size-12"
-                          >
-                            <PencilLine
-                              aria-hidden="true"
-                              className="size-4 text-pencil-ink"
-                              strokeWidth={2.4}
-                            />
-                          </Ring>
-                        )}
-                        {state === 'locked' && (
-                          <span className="grid size-12 place-items-center rounded-full border border-dashed border-dim/40 bg-paper text-dim">
-                            <Lock aria-hidden="true" className="size-5" />
-                          </span>
-                        )}
-                        <span
-                          id={titleId}
+                        <div
                           className={cn(
-                            'font-display leading-tight font-bold sm:text-lg',
-                            state === 'locked' && 'text-ink/60',
+                            'mx-auto flex h-full max-w-xs flex-col items-center gap-2 rounded-2xl border bg-panel p-3 text-center shadow-panel sm:p-4',
+                            stateCard[state],
                           )}
                         >
-                          {skill.title}
-                        </span>
-                        <span
-                          className={cn(
-                            'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                            stateTag[state],
+                          {state === 'mastered' && (
+                            <span className="grid size-12 animate-pop place-items-center rounded-full bg-ok text-panel">
+                              <Check
+                                aria-hidden="true"
+                                className="size-6"
+                                strokeWidth={3}
+                              />
+                            </span>
                           )}
-                        >
-                          {stateLabel[state]}
-                        </span>
-                        <span
-                          className={cn(
-                            'text-xs text-dim',
-                            card &&
-                              card.due.getTime() <= now.getTime() &&
-                              'font-semibold text-lead',
-                          )}
-                        >
-                          {state === 'mastered' &&
-                            card &&
-                            reviewText(card.due, now)}
-                          {state === 'learning' &&
-                            `${streak}/${masteryStreak} corretti di fila`}
-                          {state === 'locked' &&
-                            `Prima: ${skill.prerequisites
-                              .filter((p) => progress.states[p] !== 'mastered')
-                              .map(titleOf)
-                              .join(', ')}`}
-                        </span>
-                        {state === 'learning' &&
-                          onPractise &&
-                          canPractise(skill.id) && (
-                            <Button
-                              variant="pencil"
-                              onClick={() =>
-                                onPractise(skill.id as GeneratedSkill)
-                              }
-                              aria-describedby={titleId}
-                              className="mt-auto px-3 py-1.5 text-sm"
+                          {state === 'learning' && (
+                            <Ring
+                              value={streak / masteryStreak}
+                              className="size-12"
                             >
-                              Allena
-                            </Button>
+                              <PencilLine
+                                aria-hidden="true"
+                                className="size-4 text-pencil-ink"
+                                strokeWidth={2.4}
+                              />
+                            </Ring>
                           )}
-                      </div>
-                    </li>
-                  )
-                }),
-              )}
-            </ul>
-          </Sheet>
+                          {state === 'locked' && (
+                            <span className="grid size-12 place-items-center rounded-full border border-dashed border-dim/40 bg-paper text-dim">
+                              <Lock aria-hidden="true" className="size-5" />
+                            </span>
+                          )}
+                          <span
+                            id={titleId}
+                            className={cn(
+                              'font-display leading-tight font-bold sm:text-lg',
+                              state === 'locked' && 'text-ink/60',
+                            )}
+                          >
+                            {skill.title}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                              stateTag[state],
+                            )}
+                          >
+                            {stateLabel[state]}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-xs text-dim',
+                              card &&
+                                card.due.getTime() <= now.getTime() &&
+                                'font-semibold text-lead',
+                            )}
+                          >
+                            {state === 'mastered' &&
+                              card &&
+                              reviewText(card.due, now)}
+                            {state === 'learning' &&
+                              `${streak}/${masteryStreak} corretti di fila`}
+                            {state === 'locked' &&
+                              `Prima: ${skill.prerequisites
+                                .filter(
+                                  (p) => progress.states[p] !== 'mastered',
+                                )
+                                .map(titleOf)
+                                .join(', ')}`}
+                          </span>
+                          {state === 'learning' &&
+                            onPractise &&
+                            canPractise(skill.id) && (
+                              <Button
+                                variant="pencil"
+                                onClick={() =>
+                                  onPractise(skill.id as GeneratedSkill)
+                                }
+                                aria-describedby={titleId}
+                                className="mt-auto px-3 py-1.5 text-sm"
+                              >
+                                Allena
+                              </Button>
+                            )}
+                        </div>
+                      </li>
+                    )
+                  }),
+                )}
+              </ul>
+            </Sheet>
+          </div>
         )}
 
         <div className="space-y-5 lg:col-span-4">
