@@ -3,6 +3,7 @@
 export * from './expression.ts'
 export * from './generators.ts'
 export * from './misconceptions.ts'
+export { powerOfPower, raise, type PropertyRule } from './power.ts'
 export * from './rational.ts'
 export * from './solver.ts'
 export * from './verify.ts'

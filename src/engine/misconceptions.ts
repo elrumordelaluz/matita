@@ -1,5 +1,16 @@
-import { isMulDiv, type Expression, type Operator } from './expression.ts'
-import { equals, type Rational } from './rational.ts'
+import {
+  isAddSub,
+  isMulDiv,
+  isPower,
+  type Expression,
+  type Operator,
+} from './expression.ts'
+import {
+  addExponentsOfPowerOfPower,
+  distributeExponentOverSum,
+  multiplyExponentsOfSameBase,
+} from './power.ts'
+import { equals, mul, type Rational } from './rational.ts'
 import { apply } from './solver.ts'
 
 // Gli errori tipici. Ognuno è una variante sbagliata di una regola del
@@ -11,6 +22,10 @@ export type MisconceptionId =
   | 'add-sub-right-to-left'
   | 'mul-div-right-to-left'
   | 'ignored-group'
+  | 'power-as-product'
+  | 'power-of-power-adds-exponents'
+  | 'same-base-multiplies-exponents'
+  | 'power-of-sum'
 
 export interface Misconception {
   readonly id: MisconceptionId
@@ -20,15 +35,18 @@ export interface Misconception {
   wrongResults(e: Expression): Rational[]
 }
 
-// Le regole con cui si svolge un'espressione: quella giusta è prima × e :,
-// tutte e due le priorità da sinistra a destra, ogni gruppo prima di ciò che
-// lo circonda.
+// Le regole con cui si svolge un'espressione: quella giusta è prima le
+// potenze, poi × e :, tutte e due le priorità da sinistra a destra, ogni
+// gruppo prima di ciò che lo circonda. Le potenze vengono sempre per prime:
+// gli errori sull'ordine riguardano × e : contro + e −.
 interface Rules {
   readonly first: 'mul-div' | 'add-sub'
   readonly mulDiv: 'left-to-right' | 'right-to-left'
   readonly addSub: 'left-to-right' | 'right-to-left'
   /** Un gruppo letto come se le sue parentesi non ci fossero. */
   readonly ignored?: Expression
+  /** La potenza letta come prodotto di base ed esponente: 2³ = 6. */
+  readonly powerAsProduct?: boolean
 }
 
 const correctRules: Rules = {
@@ -63,6 +81,7 @@ function reducePriority(
   { operands, ops }: Chain,
   accepts: (op: Operator) => boolean,
   direction: Rules['addSub'],
+  operate = apply,
 ): void {
   const next = () => {
     if (direction === 'left-to-right') return ops.findIndex(accepts)
@@ -73,14 +92,17 @@ function reducePriority(
     const [left, right] = operands.splice(i, 2)
     if (op === undefined || left === undefined || right === undefined)
       throw new Error('Catena malformata')
-    operands.splice(i, 0, apply(op, left, right))
+    operands.splice(i, 0, operate(op, left, right))
   }
 }
 
 function evaluate(e: Expression, rules: Rules): Rational {
   const chain: Chain = { operands: [], ops: [] }
   flatten(e, rules, chain)
-  const isAddSub = (op: Operator) => !isMulDiv(op)
+  // Una potenza non si concatena: la direzione non conta.
+  reducePriority(chain, isPower, 'left-to-right', (op, left, right) =>
+    rules.powerAsProduct ? mul(left, right) : apply(op, left, right),
+  )
   const levels = [
     () => reducePriority(chain, isMulDiv, rules.mulDiv),
     () => reducePriority(chain, isAddSub, rules.addSub),
@@ -137,6 +159,30 @@ export const misconceptions: readonly Misconception[] = [
     // Un valore per ogni gruppo ignorato, uno alla volta.
     wrongResults: (e) =>
       groups(e).flatMap((ignored) => attempt(e, { ...correctRules, ignored })),
+  },
+  {
+    id: 'power-as-product',
+    explanation:
+      'Hai moltiplicato la base per l’esponente. La potenza è un prodotto di fattori uguali: 2³ = 2 × 2 × 2 = 8, non 2 × 3.',
+    wrongResults: (e) => attempt(e, { ...correctRules, powerAsProduct: true }),
+  },
+  {
+    id: 'power-of-power-adds-exponents',
+    explanation:
+      'Nella potenza di una potenza hai sommato gli esponenti. Gli esponenti si moltiplicano: (3²)³ = 3² × 3² × 3² = 3⁶.',
+    wrongResults: (e) => attempt(addExponentsOfPowerOfPower(e), correctRules),
+  },
+  {
+    id: 'same-base-multiplies-exponents',
+    explanation:
+      'Fra potenze con la stessa base hai moltiplicato (o diviso) gli esponenti. Nel prodotto gli esponenti si sommano, nel quoziente si sottraggono: 2⁵ × 2³ = 2⁸.',
+    wrongResults: (e) => attempt(multiplyExponentsOfSameBase(e), correctRules),
+  },
+  {
+    id: 'power-of-sum',
+    explanation:
+      'Hai elevato ogni termine della parentesi invece della parentesi intera. La potenza non si distribuisce su + e −: prima si calcola la parentesi, (2 + 3)² = 5² = 25, non 2² + 3².',
+    wrongResults: (e) => attempt(distributeExponentOverSum(e), correctRules),
   },
 ]
 

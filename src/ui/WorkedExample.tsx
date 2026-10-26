@@ -1,7 +1,6 @@
 import { ChevronsDown, Eraser, Plus, RotateCcw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
-  rationalToText,
   solve,
   stepExpression,
   toText,
@@ -36,6 +35,12 @@ const delay = (i: number) => delays[Math.min(i, delays.length - 1)]
 const ruleNote: Record<Rule, string> = {
   'mul-div-left-to-right': 'prima × e :',
   'add-sub-left-to-right': 'poi + e −',
+  power: 'prima le potenze',
+  'same-base-product': 'stessa base: si sommano gli esponenti',
+  'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
+  'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
+  'same-exponent-product': 'stesso esponente: si moltiplicano le basi',
+  'same-exponent-quotient': 'stesso esponente: si dividono le basi',
 }
 
 const bracketName: Record<Bracket, string> = {
@@ -233,7 +238,7 @@ function StepRow({ marked }: { marked: MarkedStep }) {
         className="text-base text-lead sm:text-lg"
       />
       <span className="rounded-lg bg-panel px-2 py-0.5 text-sm font-semibold tabular-nums shadow-panel">
-        {`${toText(stepExpression(step))} = ${rationalToText(step.result)}`}
+        {`${toText(stepExpression(step))} = ${toText(step.outcome)}`}
       </span>
       <Note>
         {bracket && `dentro le ${bracketName[bracket]}: `}

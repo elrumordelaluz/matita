@@ -1,26 +1,41 @@
 import {
   binary,
   group,
+  isAddSub,
   isMulDiv,
+  isPower,
   type Expression,
   type Operator,
 } from './expression.ts'
+import {
+  applyFirstProperty,
+  powerOfPower,
+  raise,
+  type PropertyRule,
+} from './power.ts'
 import { add, div, mul, sub, type Rational } from './rational.ts'
 
 // Il risolutore produce la soluzione come sul quaderno: una riga per livello,
 // ogni riga fatta di passaggi atomici. Si lavora dentro i gruppi più interni
-// (o sull'intera espressione, se non ci sono gruppi): al loro interno prima ×
-// e : da sinistra a destra, poi + e − da sinistra a destra. Quando un gruppo
-// si riduce a un numero le sue parentesi cadono. Vedi SPEC.md, "Risolutore".
+// (o sull'intera espressione, se non ci sono gruppi): al loro interno prima
+// le proprietà delle potenze, poi le potenze, poi × e : da sinistra a
+// destra, poi + e − da sinistra a destra. Quando un gruppo si riduce a un
+// numero le sue parentesi cadono. Vedi SPEC.md, "Risolutore".
 
-export type Rule = 'mul-div-left-to-right' | 'add-sub-left-to-right'
+export type Rule =
+  'mul-div-left-to-right' | 'add-sub-left-to-right' | 'power' | PropertyRule
 
 export interface Step {
   readonly rule: Rule
+  // I valori del passaggio: per una proprietà, i valori delle due potenze.
   readonly left: Rational
   readonly op: Operator
   readonly right: Rational
   readonly result: Rational
+  /** Il pezzo svolto, scritto a parte: `3 × 4`, `2³`, `2⁵ × 2³`. */
+  readonly operation: Expression
+  /** Che cosa diventa: un numero, o una potenza se si applica una proprietà. */
+  readonly outcome: Expression
   /** L'espressione dopo questo passaggio. */
   readonly expression: Expression
 }
@@ -46,11 +61,16 @@ export function apply(op: Operator, left: Rational, right: Rational): Rational {
       return mul(left, right)
     case ':':
       return div(left, right)
+    case '^':
+      if (right.den !== 1n) throw new RangeError('Esponente non intero')
+      return raise(left, right.num)
   }
 }
 
-const ruleOf = (op: Operator): Rule =>
-  isMulDiv(op) ? 'mul-div-left-to-right' : 'add-sub-left-to-right'
+const ruleOf = (op: Operator): Rule => {
+  if (isPower(op)) return 'power'
+  return isMulDiv(op) ? 'mul-div-left-to-right' : 'add-sub-left-to-right'
+}
 
 // Cerca un operatore fuori dai gruppi.
 function contains(e: Expression, accepts: (op: Operator) => boolean): boolean {
@@ -78,14 +98,17 @@ function reduceFirst(
     return { ...left, expression: binary(e.op, left.expression, e.right) }
   if (accepts(e.op) && e.left.kind === 'number' && e.right.kind === 'number') {
     const result = apply(e.op, e.left.value, e.right.value)
+    const outcome: Expression = { kind: 'number', value: result }
     return {
-      expression: { kind: 'number', value: result },
+      expression: outcome,
       step: {
         rule: ruleOf(e.op),
         left: e.left.value,
         op: e.op,
         right: e.right.value,
         result,
+        operation: e,
+        outcome,
       },
     }
   }
@@ -120,14 +143,17 @@ function replace(e: Expression, path: Path, node: Expression): Expression {
   throw new Error('Percorso non valido')
 }
 
+// Una potenza di potenza, (3²)³, non conta come gruppo: le sue parentesi
+// cadono con la proprietà, non svolgendo il dentro.
 function hasGroup(e: Expression): boolean {
   if (e.kind === 'group') return true
+  if (powerOfPower(e)) return false
   return e.kind === 'binary' && (hasGroup(e.left) || hasGroup(e.right))
 }
 
 // I gruppi che non contengono altri gruppi, da sinistra a destra.
 function innermostGroups(e: Expression, path: Path = []): Path[] {
-  if (e.kind === 'number') return []
+  if (e.kind === 'number' || powerOfPower(e)) return []
   if (e.kind === 'group')
     return hasGroup(e.inner)
       ? innermostGroups(e.inner, [...path, 'inner'])
@@ -146,19 +172,25 @@ function settle(e: Expression, target: Path): Expression {
     : e
 }
 
+// Il livello da svolgere in un ambito: le proprietà finché si possono
+// applicare, poi le potenze, poi × e :, poi + e −.
+function nextLevel(scope: Expression): (e: Expression) => Reduction | null {
+  if (applyFirstProperty(scope)) return applyFirstProperty
+  const accepts = [isPower, isMulDiv].find((a) => contains(scope, a))
+  return (e) => reduceFirst(e, accepts ?? isAddSub)
+}
+
 // Svolge un livello dentro un ambito: un gruppo più interno o l'intera
 // espressione senza gruppi.
 function solveScope(e: Expression, target: Path, steps: Step[]): Expression {
   const node = at(e, target)
   const scope = node.kind === 'group' ? [...target, 'inner' as const] : target
-  const accepts = contains(at(e, scope), isMulDiv)
-    ? isMulDiv
-    : (op: Operator) => !isMulDiv(op)
+  const reduce = nextLevel(at(e, scope))
   let current = settle(e, target)
   for (;;) {
     // Il gruppo è caduto: l'ambito non c'è più.
     if (at(current, target).kind !== node.kind) return current
-    const reduction = reduceFirst(at(current, scope), accepts)
+    const reduction = reduce(at(current, scope))
     if (!reduction) return current
     current = settle(replace(current, scope, reduction.expression), target)
     steps.push({ ...reduction.step, expression: current })
@@ -188,9 +220,5 @@ export function solve(e: Expression): Solution {
 
 /** L'operazione svolta in un passaggio, come espressione da rendere. */
 export function stepExpression(step: Step): Expression {
-  return binary(
-    step.op,
-    { kind: 'number', value: step.left },
-    { kind: 'number', value: step.right },
-  )
+  return step.operation
 }

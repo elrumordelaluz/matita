@@ -101,8 +101,12 @@ giudicarla (vedi [Politica delle risposte](#politica-delle-risposte)).
 
 **Espressioni.** Un albero con numeri, operazioni binarie (`+ − × :`), meno
 unario e gruppi. Il gruppo ricorda il suo tipo (tonda, quadra, graffa) perché
-lo studente lo vede e lo deve rispettare. Le potenze entrano con il capitolo 4.
-Ogni albero si rende in KaTeX e in testo semplice.
+lo studente lo vede e lo deve rispettare. La potenza è un'operazione binaria
+`^` che lega più di × e di :. A sinistra la base (un numero o un gruppo), a
+destra l'esponente, un numero intero. Non si concatena: una potenza di
+potenza ha la base fra parentesi, `(3²)³`. Ogni albero si rende in KaTeX e in
+testo semplice; nel testo l'esponente va in cifre ad apice (`2³`,
+`(2 + 1)²`), così il testo si legge come sul libro e fa da nome accessibile.
 
 **Risolutore.** Dato un albero, produce la soluzione come sequenza di righe,
 nello stile del quaderno. Ogni riga è l'espressione dopo aver svolto un
@@ -112,18 +116,44 @@ un solo numero le sue parentesi cadono. Ogni riga è composta di passaggi
 atomici (una sola operazione ciascuno) con la regola applicata, così la
 lezione può mostrare la riga intera o aprirla operazione per operazione.
 
+Le proprietà delle potenze vengono prima del calcolo, come sul libro:
+`2⁵ × 2³ : 2⁶ = 2² = 4`, non `32 × 8 : 64`. Dentro un ambito, finché una
+proprietà si può applicare, la riga è fatta di proprietà; poi una riga
+calcola le potenze, poi si prosegue con × e : e con + e −. Ogni proprietà è
+un passaggio che trasforma potenze in una potenza:
+
+| regola                   | passaggio          |
+| ------------------------ | ------------------ |
+| `same-base-product`      | `2⁵ × 2³ = 2⁸`     |
+| `same-base-quotient`     | `2⁸ : 2⁶ = 2²`     |
+| `power-of-power`         | `(3²)³ = 3⁶`       |
+| `same-exponent-product`  | `2² × 5² = 10²`    |
+| `same-exponent-quotient` | `6³ : 2³ = 3³`     |
+| `power`                  | `2³ = 8` (calcolo) |
+
+Le proprietà valgono fra due potenze vicine nella stessa catena di × e :,
+da sinistra a destra: in `2³ × 3 × 2²` non si applicano, perché in mezzo c'è
+un 3. Con la stessa base e lo stesso esponente vince la stessa base
+(`2³ × 2³ = 2⁶`). Una potenza di potenza non è un gruppo da svolgere: le sue
+parentesi cadono con la proprietà. Ogni passaggio porta anche i valori
+(per una proprietà, i valori delle due potenze e il risultato), così chi
+legge solo i numeri trova sempre un conto giusto.
+
 **Generatore.** Per ogni abilità, un generatore parametrico che riceve un seme
 e una difficoltà e restituisce un esercizio. Stesso seme, stesso esercizio:
 il tentativo salva il seme e la versione del generatore, e l'esercizio si può
 sempre ricostruire. I vincoli sono parte del generatore: ogni risultato
 intermedio appartiene all'insieme del capitolo, i numeri restano nel calcolo
-mentale (fino a 20 per i fattori in N, denominatori piccoli in Q), il
-risultato finale è "pulito".
+mentale (fino a 20 per i fattori in N, denominatori piccoli in Q, potenze da
+calcolare fino a 125 con base fino a 10), il risultato finale è "pulito".
 
 **Errori tipici.** Ogni errore tipico è una variante sbagliata di una regola
 del risolutore: sommare prima di moltiplicare, svolgere 10 − 4 + 2 da destra,
 ignorare una parentesi, sommare numeratori e denominatori, dimenticare il
-segno davanti a una parentesi. Per riconoscerlo il motore valuta l'esercizio
+segno davanti a una parentesi, moltiplicare base ed esponente (`2³ = 6`),
+sommare gli esponenti in una potenza di potenza (`(3²)³ = 3⁵`), moltiplicarli
+nel prodotto con la stessa base (`2⁵ × 2³ = 2¹⁵`), distribuire la potenza su
+una somma (`(2 + 3)² = 2² + 3²`). Per riconoscerlo il motore valuta l'esercizio
 con la regola sbagliata e confronta il risultato con la risposta. Se
 coincidono, lo studente riceve la spiegazione di quell'errore e non un
 generico "sbagliato". Il catalogo cresce per capitolo.

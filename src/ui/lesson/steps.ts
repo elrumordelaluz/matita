@@ -3,6 +3,7 @@ import {
   equals,
   group,
   num,
+  powerOfPower,
   toKatex,
   type Bracket,
   type Expression,
@@ -45,6 +46,9 @@ function changed(a: Expression, b: Expression): Direction[] | null {
   if (a.kind === 'number' && b.kind === 'number')
     return equals(a.value, b.value) ? null : []
   if (a.kind === 'binary' && b.kind === 'binary' && a.op === b.op) {
+    // Una potenza di potenza che diventa una potenza cambia tutta: (3²)³ è
+    // diventata 3⁶, non è cambiata solo la base.
+    if (powerOfPower(a) && !powerOfPower(b)) return []
     const left = changed(a.left, b.left)
     if (left) return ['left', ...left]
     const right = changed(a.right, b.right)
