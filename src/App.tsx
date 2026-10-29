@@ -33,22 +33,21 @@ const views: readonly { view: View; label: string; icon: LucideIcon }[] = [
   { view: 'progress', label: 'I miei progressi', icon: ChartNoAxesColumn },
 ]
 
-// Senza `store` i progressi vivono solo in memoria: main.tsx passa quello su
-// IndexedDB.
+// Without `store`, progress lives in memory only: main.tsx passes the
+// IndexedDB one.
 export default function App({ store: given }: { store?: ProgressStore }) {
   const [store] = useState(() => given ?? createMemoryStore())
   const [view, setView] = useState<View>('home')
   const [session, setSession] = useState<SessionItem[] | null>(null)
-  // A che punto è lo studente, per scegliere il capitolo della lezione e
-  // l'abilità della pratica quando arriva dalla barra. Si rilegge dopo ogni
-  // scrittura; finché non è letto, si parte dal primo capitolo.
+  // Re-read after every write; until the first read, the app starts from
+  // the first chapter.
   const { progress, reload } = useProgress(store)
   const states = useMemo(
     () => progress && skillStates(skills, progress.attempts, progress.known),
     [progress],
   )
-  // Si fissano quando si apre la vista, così non cambiano sotto gli occhi
-  // mentre lo studente ci lavora.
+  // Fixed when the view opens, so they don't shift while the student
+  // works.
   const [practised, setPractised] = useState<GeneratedSkill>(() =>
     practiceSkill(skills, null, []),
   )
@@ -85,8 +84,6 @@ export default function App({ store: given }: { store?: ProgressStore }) {
     setView('progress')
   }
 
-  // Dalla barra: la lezione del capitolo su cui si lavora, la pratica
-  // dell'abilità in corso, la mappa dello stesso capitolo.
   function show(v: View) {
     setSession(null)
     if (v === 'lesson') setLessonChapter(states && workingChapter(states).id)
@@ -96,8 +93,6 @@ export default function App({ store: given }: { store?: ProgressStore }) {
     setView(v)
   }
 
-  // Il banco di lavoro: la barra delle viste a sinistra (in basso sul
-  // telefono), la testata, e la pagina sulla scrivania.
   return (
     <div className="min-h-dvh pb-28 lg:pb-0 lg:pl-28">
       <nav
