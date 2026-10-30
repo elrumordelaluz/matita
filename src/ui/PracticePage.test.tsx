@@ -279,3 +279,142 @@ test('le riscritture ripartono con l’esercizio successivo', () => {
     expect.objectContaining({ rewrites: 0 }),
   )
 })
+
+// "Passo passo": lo studente scrive ogni riga e il motore la controlla.
+
+function exerciseOf(skill: Exercise['skill'], source: string): Exercise {
+  return {
+    skill,
+    seed: 1,
+    generatorVersion: 1,
+    expression: parseExpression(source),
+  }
+}
+
+function turnOnStepByStep() {
+  fireEvent.click(screen.getByRole('switch', { name: 'Passo passo' }))
+}
+
+function typeLine(text: string) {
+  fireEvent.change(screen.getByLabelText('Riga'), { target: { value: text } })
+}
+
+function submitLine(text: string) {
+  typeLine(text)
+  fireEvent.click(screen.getByRole('button', { name: 'Verifica' }))
+}
+
+test('l’interruttore Passo passo è spento e cambia la modalità', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 4 × 5')} />)
+  const step = screen.getByRole('switch', { name: 'Passo passo' })
+  expect(step).not.toBeChecked()
+  expect(screen.getByLabelText('Risultato')).toBeInTheDocument()
+  expect(screen.queryByLabelText('Riga')).toBeNull()
+  fireEvent.click(step)
+  expect(step).toBeChecked()
+  expect(screen.getByLabelText('Riga')).toBeInTheDocument()
+})
+
+test('niente Passo passo per le abilità fuori dal capitolo 1', () => {
+  render(
+    <PracticePage createExercise={() => exerciseOf('z.add-sub', '−8 − 3')} />,
+  )
+  expect(screen.queryByRole('switch', { name: 'Passo passo' })).toBeNull()
+})
+
+test('accetta una riga alla volta e la scrive sul quaderno', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 4 × 5')} />)
+  turnOnStepByStep()
+  submitLine('2 × 3 + 20')
+  expect(screen.getByRole('math', { name: '2 × 3 + 20' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Riga')).toHaveValue('')
+  expect(screen.queryByRole('status')).toBeNull()
+  submitLine('6 + 20')
+  expect(screen.getByRole('math', { name: '6 + 20' })).toBeInTheDocument()
+})
+
+test('una riga rifiutata dice ordine o valore e lascia l’esercizio aperto', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('2 + 3 × 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  turnOnStepByStep()
+  submitLine('2 + 11')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    /Valore sbagliato: controlla 3 × 4\./,
+  )
+  expect(screen.getByLabelText('Riga')).not.toHaveAttribute('readonly')
+  expect(onAttempt).not.toHaveBeenCalled()
+  submitLine('5 × 4')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    /Ordine sbagliato: svolgi prima 3 × 4\./,
+  )
+  // Le righe rifiutate contano come aiutate.
+  submitLine('2 + 12')
+  submitLine('14')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ outcome: { kind: 'correct' }, rewrites: 2 }),
+  )
+})
+
+test('una riga illeggibile non è una riscrittura', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 4 × 5')} />)
+  turnOnStepByStep()
+  submitLine('due per tre')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Scrivi la riga come espressione.',
+  )
+  submitLine('26')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+})
+
+test('la riga finale va alla verifica così com’è scritta', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('12 − 5 + 3 − 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  turnOnStepByStep()
+  submitLine('6/1')
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Il risultato è un numero intero.',
+  )
+  expect(screen.getByLabelText('Riga')).not.toHaveAttribute('readonly')
+  submitLine('6')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      answer: '6',
+      outcome: { kind: 'correct' },
+      rewrites: 1,
+    }),
+  )
+})
+
+test('il suggerimento mostra il prossimo passaggio, senza il risultato finale', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 4 × 5')} />)
+  turnOnStepByStep()
+  fireEvent.click(screen.getByRole('button', { name: 'Suggerimento' }))
+  expect(screen.getByRole('status')).toHaveTextContent('2 × 3 = 6')
+  submitLine('6 + 20')
+  fireEvent.click(screen.getByRole('button', { name: 'Suggerimento' }))
+  expect(screen.getByRole('status')).toHaveTextContent('6 + 20')
+  expect(screen.queryByText('6 + 20 = 26')).toBeNull()
+})
+
+test('l’esercizio chiuso mostra la soluzione come nel modo Risultato', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 4 × 5')} />)
+  turnOnStepByStep()
+  submitLine('6 + 20')
+  submitLine('26')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+  const solution = screen.getByRole('region', { name: 'Soluzione' })
+  expect(
+    within(solution).getByRole('math', { name: '6 + 20' }),
+  ).toBeInTheDocument()
+  expect(within(solution).getByText('2 × 3 = 6')).toBeInTheDocument()
+})

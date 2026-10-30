@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { toText, type Line } from '../../engine/index.ts'
+import { toText, type Expression, type Line } from '../../engine/index.ts'
 import { cn } from '../../lib/cn.ts'
 import { ExpressionFormula } from '../Formula.tsx'
 import { Note } from '../kit.tsx'
@@ -112,6 +112,45 @@ export function SolutionLines({
             </li>
           )
         })}
+      </ol>
+    </section>
+  )
+}
+
+// Le righe dello studente in "Passo passo", accettate una alla volta.
+export function StudentLines({
+  lines,
+  titleId,
+}: {
+  lines: readonly Expression[]
+  titleId: string
+}) {
+  if (lines.length === 0) return null
+  return (
+    <section aria-labelledby={titleId}>
+      <h3
+        id={titleId}
+        className="text-xs font-semibold tracking-[0.14em] text-dim uppercase"
+      >
+        Le tue righe
+      </h3>
+      <ol className="mt-3 space-y-4">
+        {lines.map((line, i) => (
+          <li
+            key={i}
+            className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3"
+          >
+            <Note aria-hidden="true" className="text-5xl text-pencil-ink">
+              =
+            </Note>
+            <span className="max-w-full overflow-x-auto py-1">
+              <ExpressionFormula
+                expression={line}
+                className="text-2xl sm:text-3xl"
+              />
+            </span>
+          </li>
+        ))}
       </ol>
     </section>
   )

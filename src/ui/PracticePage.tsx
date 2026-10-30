@@ -2,11 +2,15 @@ import { ArrowRight, Check, Lightbulb } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
   answerForm,
+  checkLine,
   literal,
+  nextStepHint,
+  parseExpression,
   solve,
   toText,
   verify,
   type Exercise,
+  type Expression,
   type Outcome,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
@@ -16,6 +20,7 @@ import {
   MisconceptionNote,
   NextLine,
   SolutionLines,
+  StudentLines,
 } from './practice/Notebook.tsx'
 import { OutcomeCard, RunState } from './practice/OutcomeCard.tsx'
 
@@ -56,6 +61,14 @@ export function PracticePage({
   const [exercise, setExercise] = useState(createExercise)
   const [answer, setAnswer] = useState('')
   const [outcome, setOutcome] = useState<Outcome | null>(null)
+  // La modalità "Passo passo": le righe scritte dallo studente, l'ultima è
+  // quella da cui partire; il messaggio di una riga rifiutata.
+  const [step, setStep] = useState(false)
+  const [lines, setLines] = useState<readonly Expression[]>([])
+  const [lineMessage, setLineMessage] = useState<string | null>(null)
+  // Il suggerimento di "Passo passo": il prossimo passaggio sulla riga dello
+  // studente.
+  const [hintText, setHintText] = useState<string | null>(null)
   const [hints, setHints] = useState(0)
   // Le risposte col valore giusto da riscrivere: rendono il tentativo aiutato.
   const [rewrites, setRewrites] = useState(0)
@@ -71,7 +84,10 @@ export function PracticePage({
   const form = answerForm(answer)
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
+  const stepByStep = step && exercise.skill.startsWith('n.')
+  const currentLine = lines[lines.length - 1] ?? exercise.expression
   const shownLines = done ? solution.lines : solution.lines.slice(0, hints)
+  const stepHint = stepByStep && !done ? nextStepHint(currentLine) : null
 
   // A esercizio chiuso, Invio porta al successivo.
   useEffect(() => {
@@ -81,6 +97,42 @@ export function PracticePage({
   function submit(event: FormEvent) {
     event.preventDefault()
     if (done) return
+    if (!stepByStep) return judge()
+    setLineMessage(null)
+    setHintText(null)
+    let parsed: Expression
+    try {
+      parsed = parseExpression(answer)
+    } catch {
+      setOutcome({
+        kind: 'invalid',
+        message: 'Scrivi la riga come espressione.',
+      })
+      setTries((t) => t + 1)
+      return
+    }
+    // Una riga che è un solo numero è la risposta finale: va alla verifica
+    // così com'è scritta.
+    if (parsed.kind === 'number') return judge()
+    const check = checkLine(currentLine, parsed)
+    setTries((t) => t + 1)
+    if (check.accepted) {
+      setLines((l) => [...l, parsed])
+      setAnswer('')
+      setOutcome(null)
+      return
+    }
+    setOutcome(null)
+    // La riga rifiutata lascia l'esercizio aperto e conta come aiutata.
+    setRewrites((r) => r + 1)
+    setLineMessage(
+      check.wrong === 'order'
+        ? `Ordine sbagliato: svolgi prima ${check.operation}.`
+        : `Valore sbagliato: controlla ${check.operation}.`,
+    )
+  }
+
+  function judge() {
     const result = verify(answer, exercise)
     setOutcome(result)
     setTries((t) => t + 1)
@@ -100,6 +152,9 @@ export function PracticePage({
     setExercise(createExercise())
     setAnswer('')
     setOutcome(null)
+    setLines([])
+    setLineMessage(null)
+    setHintText(null)
     setHints(0)
     setRewrites(0)
     setTries(0)
@@ -127,15 +182,20 @@ export function PracticePage({
         {outcome?.kind === 'misconception' && (
           <MisconceptionNote explanation={outcome.explanation} />
         )}
-        <SolutionLines
-          lines={shownLines}
-          total={solution.lines.length}
-          written={hints}
-          pause={outcome?.kind === 'misconception' ? 1 : 0}
-          checked={outcome?.kind === 'correct'}
-          titleId={`${answerId}-solution`}
-        />
-        {!done && hints < solution.lines.length && <NextLine />}
+        {stepByStep && !done && (
+          <StudentLines lines={lines} titleId={`${answerId}-lines`} />
+        )}
+        {(!stepByStep || done) && (
+          <SolutionLines
+            lines={shownLines}
+            total={solution.lines.length}
+            written={hints}
+            pause={outcome?.kind === 'misconception' ? 1 : 0}
+            checked={outcome?.kind === 'correct'}
+            titleId={`${answerId}-solution`}
+          />
+        )}
+        {!done && (stepByStep || hints < solution.lines.length) && <NextLine />}
       </Sheet>
 
       <Panel
@@ -146,6 +206,18 @@ export function PracticePage({
           <h3 id={`${answerId}-try`} className="font-display text-xl font-bold">
             Prova tu
           </h3>
+          {exercise.skill.startsWith('n.') && (
+            <label className="flex items-center gap-2 text-sm font-semibold text-dim">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={step}
+                onChange={(e) => setStep(e.target.checked)}
+                className="size-4 accent-pencil"
+              />
+              Passo passo
+            </label>
+          )}
           <RunState outcome={outcome} />
         </div>
 
@@ -155,7 +227,7 @@ export function PracticePage({
               htmlFor={answerId}
               className="block text-sm font-semibold text-dim"
             >
-              Risultato
+              {stepByStep ? 'Riga' : 'Risultato'}
             </label>
             <input
               ref={input}
@@ -188,6 +260,26 @@ export function PracticePage({
             )}
           </div>
 
+          {lineMessage && (
+            <div
+              role="status"
+              className="animate-pop rounded-2xl border border-warn/25 bg-warn-soft px-4 py-3 text-warn"
+            >
+              <p className="font-display text-lg leading-snug font-bold text-pretty">
+                {lineMessage}
+              </p>
+            </div>
+          )}
+
+          {hintText && (
+            <p
+              role="status"
+              className="animate-pop rounded-2xl border border-hair bg-paper px-4 py-3 text-sm text-ink"
+            >
+              {hintText}
+            </p>
+          )}
+
           {outcome && (
             <OutcomeCard
               key={tries}
@@ -218,8 +310,18 @@ export function PracticePage({
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => setHints((h) => h + 1)}
-                disabled={hints >= solution.lines.length}
+                onClick={() => {
+                  setHints((h) => h + 1)
+                  if (stepHint)
+                    setHintText(
+                      stepHint.result === null
+                        ? `Ultimo passaggio: svolgi ${stepHint.operation}.`
+                        : `Prossimo passaggio: ${stepHint.operation} = ${stepHint.result}.`,
+                    )
+                }}
+                disabled={
+                  !stepByStep ? hints >= solution.lines.length : !stepHint
+                }
                 icon={<Lightbulb aria-hidden="true" className="size-4" />}
               >
                 Suggerimento
@@ -227,7 +329,7 @@ export function PracticePage({
             </div>
           )}
 
-          {!done && hints > 0 && (
+          {!done && !stepByStep && hints > 0 && (
             <p className="text-center text-sm text-dim">
               {`Righe svelate sul quaderno: ${hints} di ${solution.lines.length}`}
             </p>
