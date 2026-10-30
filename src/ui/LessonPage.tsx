@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react'
 import { useMemo } from 'react'
 import { chapterById, chapters, type ChapterId } from '../content/chapters.ts'
 import { lessons } from '../content/lessons/index.ts'
@@ -13,7 +14,7 @@ import {
   unmarkChapterKnown,
 } from './home/chapterProgress.ts'
 import { KnownChapter } from './KnownChapter.tsx'
-import { Eyebrow, Note, Panel } from './kit.tsx'
+import { Button, Eyebrow, Note, Panel } from './kit.tsx'
 import { useProgress } from './useProgress.ts'
 
 // La vista "Lezione": la fila dei capitoli in alto, con accanto il segno di
@@ -27,6 +28,7 @@ export function LessonPage({
   onChapter,
   onPractise,
   onChange,
+  onBackToSession,
 }: {
   store: ProgressStore
   skills: readonly Skill[]
@@ -35,6 +37,8 @@ export function LessonPage({
   onPractise: (skill: GeneratedSkill) => void
   /** Dopo ogni scrittura nel ProgressStore. */
   onChange?: () => void
+  /** Riporta alla sessione sospesa, quando la lezione si apre da lì. */
+  onBackToSession?: (() => void) | undefined
 }) {
   const { progress, reload } = useProgress(store)
   const chapter = chapterById(chapterId)
@@ -53,6 +57,16 @@ export function LessonPage({
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8">
+      {onBackToSession && (
+        <Button
+          variant="ghost"
+          onClick={onBackToSession}
+          icon={<ArrowLeft aria-hidden="true" className="size-4" />}
+          className="self-start"
+        >
+          Torna alla sessione
+        </Button>
+      )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <ChapterPicker
           label="Capitoli"

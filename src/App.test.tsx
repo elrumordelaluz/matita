@@ -69,8 +69,13 @@ test('una sessione intera: dieci esercizi, tutti salvati', async () => {
   ).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la sessione' }))
 
+  // Le due abilità nuove della sessione aprono il loro cancello.
   for (let i = 1; i <= 10; i++) {
     expect(screen.getByText(`Esercizio ${i} di 10`)).toBeInTheDocument()
+    if (i === 1 || i === 7)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Inizia l’esercizio' }),
+      )
     answerCorrectly()
     if (i < 10)
       fireEvent.click(
@@ -84,6 +89,62 @@ test('una sessione intera: dieci esercizi, tutti salvati', async () => {
   expect(
     await screen.findByRole('button', { name: 'Inizia la sessione' }),
   ).toBeInTheDocument()
+})
+
+test('dalla sessione si legge la lezione di un’abilità nuova, e si torna al punto', async () => {
+  const store = createMemoryStore()
+  await store.addAttempt(attempt({ skill: 'n.mul-div', outcome: 'wrong' }))
+  render(<App store={store} />)
+  expect(
+    await screen.findByText('Nessun ripasso in attesa.'),
+  ).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Inizia la sessione' }))
+
+  // Sei esercizi sull'abilità in apprendimento, poi il cancello della nuova.
+  for (let i = 1; i <= 6; i++) {
+    expect(screen.getByText(`Esercizio ${i} di 10`)).toBeInTheDocument()
+    answerCorrectly()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Esercizio successivo' }),
+    )
+  }
+  expect(screen.getByText('Esercizio 7 di 10')).toBeInTheDocument()
+  expect(
+    screen.getByRole('heading', { name: 'Addizioni e sottrazioni' }),
+  ).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Leggi la lezione' }))
+  expect(
+    screen.getByRole('heading', { name: 'Espressioni in N' }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('button', { name: 'Torna alla sessione' }),
+  ).toBeInTheDocument()
+  // La sessione resta sospesa, non chiusa: niente esercizio in lezione.
+  expect(screen.queryByLabelText('Risultato')).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Torna alla sessione' }))
+  expect(screen.getByText('Esercizio 7 di 10')).toBeInTheDocument()
+  expect(
+    screen.getByRole('progressbar', { name: 'Esercizi della sessione' }),
+  ).toHaveAttribute('aria-valuenow', '6')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Inizia l’esercizio' }))
+  for (let i = 7; i <= 10; i++) {
+    expect(screen.getByText(`Esercizio ${i} di 10`)).toBeInTheDocument()
+    answerCorrectly()
+    if (i < 10)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Esercizio successivo' }),
+      )
+  }
+  expect(screen.getByText('Sessione completata.')).toBeInTheDocument()
+  // I sei esercizi prima della lezione contano ancora.
+  expect(
+    screen.getByText('Tutti corretti, senza suggerimenti.'),
+  ).toBeInTheDocument()
+  // Il tentativo di semina più i dieci della sessione.
+  expect(await store.attempts()).toHaveLength(11)
 })
 
 test('dalla lezione si passa alla pratica', () => {
