@@ -16,12 +16,15 @@ import {
 import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
+import type { AttemptOutcome } from '../progress/attempt.ts'
 import { exportBackup, importBackup } from '../progress/backup.ts'
+import { latestAttempts, type AttemptEntry } from '../progress/history.ts'
 import { reviewCards } from '../progress/review.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
+import { ExpressionFormula } from './Formula.tsx'
 import {
   chapterStatus,
   summarize,
@@ -42,6 +45,14 @@ const stateLabel: Record<SkillState, string> = {
   locked: 'bloccata',
   learning: 'in apprendimento',
   mastered: 'acquisita',
+}
+
+// L'esito di un tentativo, con i nomi del glossario.
+const outcomeLabel: Record<AttemptOutcome, string> = {
+  correct: 'corretto',
+  misconception: 'errore tipico',
+  wrong: 'sbagliato',
+  invalid: 'non valido',
 }
 
 const stateCard: Record<SkillState, string> = {
@@ -182,6 +193,9 @@ export function ProgressPage({
         streaks: currentStreaks(stored.attempts),
         cards: reviewCards(stored.attempts, stored.known),
         stats: attemptStats(stored.attempts),
+        history: new Map<string, AttemptEntry[]>(
+          skills.map((s) => [s.id, latestAttempts(stored.attempts, s.id)]),
+        ),
       },
     [stored, skills],
   )
@@ -274,6 +288,7 @@ export function ProgressPage({
                       masteryStreak,
                       progress.streaks.get(skill.id) ?? 0,
                     )
+                    const history = progress.history.get(skill.id) ?? []
                     const card = progress.cards.get(skill.id)
                     const alone = row.length === 1
                     const merge =
@@ -369,6 +384,54 @@ export function ProgressPage({
                                 .map(titleOf)
                                 .join(', ')}`}
                           </span>
+                          {history.length > 0 && (
+                            <div className="w-full space-y-1.5 border-t border-hair/60 pt-2">
+                              <Eyebrow>Ultimi tentativi</Eyebrow>
+                              <ul className="space-y-1">
+                                {history.map(
+                                  ({ attempt, expression, explanation }) => (
+                                    <li
+                                      key={attempt.id}
+                                      className="text-xs leading-relaxed text-dim"
+                                    >
+                                      {expression !== null && (
+                                        <>
+                                          <ExpressionFormula
+                                            expression={expression}
+                                            className="text-sm"
+                                          />
+                                          {' · '}
+                                        </>
+                                      )}
+                                      <span className="font-semibold text-ink">
+                                        {attempt.answer}
+                                      </span>
+                                      {' · '}
+                                      <span
+                                        className={cn(
+                                          'font-semibold',
+                                          attempt.outcome === 'correct'
+                                            ? 'text-ok'
+                                            : 'text-err',
+                                        )}
+                                      >
+                                        {outcomeLabel[attempt.outcome]}
+                                      </span>
+                                      {' · '}
+                                      <span>
+                                        {datePhrase(attempt.answeredAt)}
+                                      </span>
+                                      {explanation !== null && (
+                                        <span className="block">
+                                          {explanation}
+                                        </span>
+                                      )}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            </div>
+                          )}
                           {state === 'learning' &&
                             onPractise &&
                             canPractise(skill.id) && (
