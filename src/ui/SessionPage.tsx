@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Check,
   House,
   PencilLine,
@@ -7,6 +8,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { chapterOf, type ChapterId } from '../content/chapters.ts'
+import { lessons } from '../content/lessons/index.ts'
 import type { Skill } from '../content/skills.ts'
 import type { Exercise } from '../engine/index.ts'
 import type { SessionItem } from '../progress/session.ts'
@@ -18,6 +21,7 @@ import {
   SessionTrack,
   type Mark,
 } from './practice/SessionTrack.tsx'
+import { firstNewItems } from './session/newSkillGate.ts'
 
 // Una sessione: gli esercizi in fila, uno per voce del piano. Finita la fila,
 // "Esercizio successivo" continua con l'ultima abilità, fuori sessione.
@@ -38,6 +42,16 @@ interface Progress {
   readonly closed: boolean
 }
 
+/** La sessione a metà, da riprendere al ritorno dalla lezione. */
+export interface SessionSnapshot {
+  readonly index: number
+  readonly closed: boolean
+  /** Com'è andato ogni esercizio chiuso, nell'ordine. */
+  readonly results: readonly Mark[]
+  /** I cancelli già oltrepassati con "Inizia l'esercizio". */
+  readonly dismissed: ReadonlySet<number>
+}
+
 function markOf({ outcome, hints, rewrites }: PracticeAttempt): Mark {
   if (outcome.kind !== 'correct') return 'missed'
   return hints > 0 || rewrites > 0 ? 'helped' : 'clean'
@@ -48,18 +62,30 @@ export function SessionPage({
   skills,
   onAttempt,
   onDone,
+  onOpenLesson,
+  resume,
 }: {
   items: readonly SessionItem[]
   skills: readonly Skill[]
   onAttempt: (attempt: PracticeAttempt) => void
   onDone: () => void
+  /** Apre la lezione del capitolo di un'abilità nuova, senza chiuderla. */
+  onOpenLesson: (chapter: ChapterId, snapshot: SessionSnapshot) => void
+  /** Da dove la sessione riprende, dopo la lezione aperta dal cancello. */
+  resume?: SessionSnapshot | null
 }) {
-  const [progress, setProgress] = useState<Progress>({
-    index: 0,
-    closed: false,
-  })
+  const [progress, setProgress] = useState<Progress>(() => ({
+    index: resume?.index ?? 0,
+    closed: resume?.closed ?? false,
+  }))
   // Com'è andato ogni esercizio della sessione, nell'ordine.
-  const [results, setResults] = useState<Mark[]>([])
+  const [results, setResults] = useState<readonly Mark[]>(
+    () => resume?.results ?? [],
+  )
+  // I cancelli scartati con "Inizia l'esercizio": non tornano.
+  const [dismissed, setDismissed] = useState<ReadonlySet<number>>(
+    () => new Set(resume?.dismissed),
+  )
   // createExercise legge la posizione da un ref: PracticePage lo chiama sia
   // nel primo render sia dal pulsante, e solo il pulsante deve farla avanzare.
   const current = useRef(progress)
@@ -104,6 +130,17 @@ export function SessionPage({
 
   const reason = item && reasons[item.reason]
 
+  // Il cancello dell'abilità nuova: la sua prima voce `new`, se il capitolo
+  // ha una lezione da offrire prima dell'esercizio.
+  const chapter = item && chapterOf(item.skill)
+  const firsts = firstNewItems(items)
+  const gate =
+    item !== undefined &&
+    chapter !== undefined &&
+    lessons[chapter.id] !== undefined &&
+    firsts.get(item.skill) === progress.index &&
+    !dismissed.has(progress.index)
+
   return (
     <section className="space-y-5">
       {finished ? (
@@ -132,12 +169,66 @@ export function SessionPage({
           </Panel>
         )
       )}
-      <PracticePage
-        createExercise={createExercise}
-        onAttempt={record}
-        {...(title === undefined ? {} : { title })}
-      />
+      {gate && chapter && item ? (
+        <NewSkillGate
+          title={title ?? item.skill}
+          onRead={() =>
+            onOpenLesson(chapter.id, {
+              index: progress.index,
+              closed: progress.closed,
+              results,
+              dismissed,
+            })
+          }
+          onStart={() => setDismissed((d) => new Set(d).add(progress.index))}
+        />
+      ) : (
+        <PracticePage
+          createExercise={createExercise}
+          onAttempt={record}
+          {...(title === undefined ? {} : { title })}
+        />
+      )}
     </section>
+  )
+}
+
+// Al posto dell'esercizio, quando un'abilità si incontra per la prima volta:
+// il suo titolo e la scelta fra la lezione del capitolo e l'esercizio.
+function NewSkillGate({
+  title,
+  onRead,
+  onStart,
+}: {
+  title: string
+  onRead: () => void
+  onStart: () => void
+}) {
+  return (
+    <Panel className="flex animate-rise flex-col gap-5 p-6 sm:p-8">
+      <h2 className="font-display text-3xl leading-none font-bold tracking-tight sm:text-4xl">
+        {title}
+      </h2>
+      <p className="max-w-prose text-dim">
+        È un’abilità nuova: la sua lezione la spiega prima dell’esercizio.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="ghost"
+          onClick={onRead}
+          icon={<BookOpen aria-hidden="true" className="size-4" />}
+        >
+          Leggi la lezione
+        </Button>
+        <Button
+          variant="pencil"
+          onClick={onStart}
+          icon={<PencilLine aria-hidden="true" className="size-4" />}
+        >
+          Inizia l’esercizio
+        </Button>
+      </div>
+    </Panel>
   )
 }
 

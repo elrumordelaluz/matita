@@ -21,10 +21,17 @@ import { HomePage } from './ui/HomePage.tsx'
 import { LessonPage } from './ui/LessonPage.tsx'
 import { PracticePage, type PracticeAttempt } from './ui/PracticePage.tsx'
 import { ProgressPage } from './ui/ProgressPage.tsx'
-import { SessionPage } from './ui/SessionPage.tsx'
+import { SessionPage, type SessionSnapshot } from './ui/SessionPage.tsx'
 import { useProgress } from './ui/useProgress.ts'
 
 type View = 'home' | 'lesson' | 'practice' | 'progress'
+
+// La sessione in corso: le sue voci e, quando se n'è aperta la lezione di
+// un'abilità nuova, da dove riprendere al ritorno.
+interface HeldSession {
+  readonly items: readonly SessionItem[]
+  readonly resume: SessionSnapshot | null
+}
 
 const views: readonly { view: View; label: string; icon: LucideIcon }[] = [
   { view: 'home', label: 'Inizio', icon: House },
@@ -38,7 +45,7 @@ const views: readonly { view: View; label: string; icon: LucideIcon }[] = [
 export default function App({ store: given }: { store?: ProgressStore }) {
   const [store] = useState(() => given ?? createMemoryStore())
   const [view, setView] = useState<View>('home')
-  const [session, setSession] = useState<SessionItem[] | null>(null)
+  const [held, setHeld] = useState<HeldSession | null>(null)
   // Re-read after every write; until the first read, the app starts from
   // the first chapter.
   const { progress, reload } = useProgress(store)
@@ -68,24 +75,37 @@ export default function App({ store: given }: { store?: ProgressStore }) {
   }
 
   function practise(skill: GeneratedSkill) {
+    setHeld(null)
     setPractised(skill)
     setView('practice')
   }
 
   function openLesson(chapter: ChapterId) {
-    setSession(null)
+    setHeld(null)
     setLessonChapter(chapter)
     setView('lesson')
   }
 
   function openProgress(chapter: ChapterId) {
-    setSession(null)
+    setHeld(null)
     setMapChapter(chapter)
     setView('progress')
   }
 
+  // La lezione richiesta dal cancello di un'abilità nuova: la sessione resta
+  // sospesa, con lo scatto di dov'era, e riprende al ritorno.
+  function openSessionLesson(chapter: ChapterId, snapshot: SessionSnapshot) {
+    if (held) setHeld({ items: held.items, resume: snapshot })
+    setLessonChapter(chapter)
+    setView('lesson')
+  }
+
+  function backToSession() {
+    setView('home')
+  }
+
   function show(v: View) {
-    setSession(null)
+    setHeld(null)
     if (v === 'lesson') setLessonChapter(states && workingChapter(states).id)
     if (v === 'practice')
       setPractised(practiceSkill(skills, states, progress?.attempts ?? []))
@@ -143,18 +163,20 @@ export default function App({ store: given }: { store?: ProgressStore }) {
         </header>
         <div className="mt-8">
           {view === 'home' &&
-            (session ? (
+            (held ? (
               <SessionPage
-                items={session}
+                items={held.items}
                 skills={skills}
                 onAttempt={save}
-                onDone={() => setSession(null)}
+                onDone={() => setHeld(null)}
+                onOpenLesson={openSessionLesson}
+                resume={held.resume}
               />
             ) : (
               <HomePage
                 store={store}
                 skills={skills}
-                onStart={setSession}
+                onStart={(items) => setHeld({ items, resume: null })}
                 onOpenLesson={openLesson}
                 onOpenProgress={openProgress}
                 onChange={refresh}
@@ -170,6 +192,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
               onChapter={setLessonChapter}
               onPractise={practise}
               onChange={refresh}
+              onBackToSession={held ? backToSession : undefined}
             />
           )}
           {view === 'practice' && (
