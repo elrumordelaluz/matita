@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Check,
   House,
   PencilLine,
@@ -7,17 +8,20 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { chapterOf, type ChapterId } from '../content/chapters.ts'
+import { lessons } from '../content/lessons/index.ts'
 import type { Skill } from '../content/skills.ts'
 import type { Exercise } from '../engine/index.ts'
 import type { SessionItem } from '../progress/session.ts'
 import { exerciseFor, randomSeed } from './exercises.ts'
-import { Button, Panel } from './kit.tsx'
+import { Button, Eyebrow, Panel } from './kit.tsx'
 import { PracticePage, type PracticeAttempt } from './PracticePage.tsx'
 import {
   SessionRecap,
   SessionTrack,
   type Mark,
 } from './practice/SessionTrack.tsx'
+import { firstNewBySkill } from './practice/newSkills.ts'
 
 // Una sessione: gli esercizi in fila, uno per voce del piano. Finita la fila,
 // "Esercizio successivo" continua con l'ultima abilità, fuori sessione.
@@ -48,11 +52,14 @@ export function SessionPage({
   skills,
   onAttempt,
   onDone,
+  onOpenLesson,
 }: {
   items: readonly SessionItem[]
   skills: readonly Skill[]
   onAttempt: (attempt: PracticeAttempt) => void
   onDone: () => void
+  /** Apre la lezione del capitolo senza chiudere la sessione. */
+  onOpenLesson: (chapter: ChapterId) => void
 }) {
   const [progress, setProgress] = useState<Progress>({
     index: 0,
@@ -60,6 +67,8 @@ export function SessionPage({
   })
   // Com'è andato ogni esercizio della sessione, nell'ordine.
   const [results, setResults] = useState<Mark[]>([])
+  // La voce a cui l'abilità nuova è già stata introdotta dalla lezione.
+  const [started, setStarted] = useState<number | null>(null)
   // createExercise legge la posizione da un ref: PracticePage lo chiama sia
   // nel primo render sia dal pulsante, e solo il pulsante deve farla avanzare.
   const current = useRef(progress)
@@ -104,6 +113,17 @@ export function SessionPage({
 
   const reason = item && reasons[item.reason]
 
+  // All'inizio di un'abilità nuova, prima la lezione del suo capitolo:
+  // solo se il capitolo ne ha una.
+  const firstNew = firstNewBySkill(items)
+  const chapter = item && chapterOf(item.skill)
+  const showLessonPanel =
+    item !== undefined &&
+    chapter !== undefined &&
+    lessons[chapter.id] !== undefined &&
+    firstNew.get(item.skill) === progress.index &&
+    started !== progress.index
+
   return (
     <section className="space-y-5">
       {finished ? (
@@ -132,11 +152,33 @@ export function SessionPage({
           </Panel>
         )
       )}
-      <PracticePage
-        createExercise={createExercise}
-        onAttempt={record}
-        {...(title === undefined ? {} : { title })}
-      />
+      {showLessonPanel && title !== undefined && chapter ? (
+        <Panel className="space-y-3 px-5 py-4">
+          <Eyebrow>Capitolo {chapter.number}</Eyebrow>
+          <h2 className="font-display text-2xl font-bold">{title}</h2>
+          <p className="max-w-prose text-dim">
+            {title} è un’abilità nuova: la sua lezione la spiega in pochi
+            passaggi.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              icon={<BookOpen aria-hidden="true" className="size-4" />}
+              onClick={() => onOpenLesson(chapter.id)}
+            >
+              Leggi la lezione
+            </Button>
+            <Button variant="ghost" onClick={() => setStarted(progress.index)}>
+              Inizia l’esercizio
+            </Button>
+          </div>
+        </Panel>
+      ) : (
+        <PracticePage
+          createExercise={createExercise}
+          onAttempt={record}
+          {...(title === undefined ? {} : { title })}
+        />
+      )}
     </section>
   )
 }

@@ -71,6 +71,9 @@ test('una sessione intera: dieci esercizi, tutti salvati', async () => {
 
   for (let i = 1; i <= 10; i++) {
     expect(screen.getByText(`Esercizio ${i} di 10`)).toBeInTheDocument()
+    // All'inizio di ogni abilità nuova, la sessione offre prima la lezione.
+    const begin = screen.queryByRole('button', { name: 'Inizia l’esercizio' })
+    if (begin) fireEvent.click(begin)
     answerCorrectly()
     if (i < 10)
       fireEvent.click(
@@ -191,4 +194,45 @@ test('la lezione si apre sul capitolo su cui si lavora', async () => {
   expect(
     await screen.findByText(/Segnato come già saputo il/),
   ).toBeInTheDocument()
+})
+
+test('durante una sessione, la lezione dell’abilità nuova si apre e si richiude', async () => {
+  const store = createMemoryStore()
+  render(<App store={store} />)
+  expect(
+    await screen.findByText('Nessun ripasso in attesa.'),
+  ).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Inizia la sessione' }))
+
+  for (let i = 1; i <= 10; i++) {
+    if (i === 7) {
+      // A metà sessione, la lezione della seconda abilità nuova: la sessione
+      // resta sospesa, con la sua fila e i suoi risultati.
+      fireEvent.click(screen.getByRole('button', { name: 'Leggi la lezione' }))
+      expect(
+        screen.getByRole('heading', { name: 'Espressioni in N' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Leggi la lezione' }),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Verifica' }),
+      ).not.toBeInTheDocument()
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Torna alla sessione' }),
+      )
+      expect(screen.getByText('Esercizio 7 di 10')).toBeInTheDocument()
+      expect(
+        screen.getByRole('progressbar', { name: 'Esercizi della sessione' }),
+      ).toHaveAttribute('aria-valuenow', '6')
+    }
+    const begin = screen.queryByRole('button', { name: 'Inizia l’esercizio' })
+    if (begin) fireEvent.click(begin)
+    answerCorrectly()
+    if (i < 10)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Esercizio successivo' }),
+      )
+  }
+  expect(screen.getByText('Sessione completata.')).toBeInTheDocument()
 })

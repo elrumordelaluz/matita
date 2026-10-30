@@ -78,6 +78,16 @@ export default function App({ store: given }: { store?: ProgressStore }) {
     setView('lesson')
   }
 
+  // La lezione di un'abilità nuova sospende la sessione senza chiuderla.
+  function openLessonFromSession(chapter: ChapterId) {
+    setLessonChapter(chapter)
+    setView('lesson')
+  }
+
+  function backToSession() {
+    setView('home')
+  }
+
   function openProgress(chapter: ChapterId) {
     setSession(null)
     setMapChapter(chapter)
@@ -142,15 +152,20 @@ export default function App({ store: given }: { store?: ProgressStore }) {
           </div>
         </header>
         <div className="mt-8">
-          {view === 'home' &&
-            (session ? (
+          {session ? (
+            // Resta montata anche durante la lezione, così la sessione
+            // riprende dal punto dove era.
+            <div style={view === 'home' ? undefined : { display: 'none' }}>
               <SessionPage
                 items={session}
                 skills={skills}
                 onAttempt={save}
                 onDone={() => setSession(null)}
+                onOpenLesson={openLessonFromSession}
               />
-            ) : (
+            </div>
+          ) : (
+            view === 'home' && (
               <HomePage
                 store={store}
                 skills={skills}
@@ -159,7 +174,8 @@ export default function App({ store: given }: { store?: ProgressStore }) {
                 onOpenProgress={openProgress}
                 onChange={refresh}
               />
-            ))}
+            )
+          )}
           {view === 'lesson' && (
             <LessonPage
               store={store}
@@ -170,6 +186,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
               onChapter={setLessonChapter}
               onPractise={practise}
               onChange={refresh}
+              onBack={session ? backToSession : undefined}
             />
           )}
           {view === 'practice' && (
