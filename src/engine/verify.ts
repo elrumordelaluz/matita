@@ -11,6 +11,14 @@ import { solve } from './solver.ts'
 export type RewriteReason =
   'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
 
+/** La risposta come l'ha scritta lo studente, senza normalizzarla. */
+export interface AnswerForm {
+  /** Il TeX dell'anteprima, con i glifi di `toKatex`. */
+  readonly tex: string
+  /** Il nome accessibile dell'anteprima, con i glifi di `toText`. */
+  readonly text: string
+}
+
 export type Outcome =
   | { readonly kind: 'correct' }
   | {
@@ -32,19 +40,27 @@ type Reading =
       readonly value: Rational
       /** Il motivo per riscriverla, se la forma non è canonica. */
       readonly rewrite: RewriteReason | null
+      /** La risposta come scritta, per l'anteprima. */
+      readonly form: AnswerForm
     }
   | { readonly ok: false; readonly message: string }
 
 const sign = '([+\\-−]?)'
 const integerPattern = new RegExp(`^${sign}(\\d+)$`)
 const fractionPattern = new RegExp(`^${sign}(\\d+)\\s*/\\s*${sign}(\\d+)$`)
-const decimalPattern = new RegExp(`^${sign}(\\d+)[.,](\\d+)$`)
+const decimalPattern = new RegExp(`^${sign}(\\d+)([.,])(\\d+)$`)
 const mixedPattern = new RegExp(`^${sign}\\d+\\s+\\d+\\s*/\\s*\\d+$`)
 
 const isMinus = (s: string | undefined) => s === '-' || s === '−'
 
 function signed(magnitude: bigint, s: string | undefined): bigint {
   return isMinus(s) ? -magnitude : magnitude
+}
+
+// Il segno scritto ricompare nell'anteprima: il meno con i glifi delle
+// formule, trattino in TeX (`toKatex`) e meno tipografico nel testo (`toText`).
+function writtenSign(s: string | undefined, minus: string): string {
+  return !s ? '' : isMinus(s) ? minus : '+'
 }
 
 function gcd(a: bigint, b: bigint): bigint {
@@ -60,42 +76,73 @@ export function readAnswer(answer: string): Reading {
 
   const integer = integerPattern.exec(text)
   if (integer) {
-    const value = rational(signed(BigInt(integer[2] ?? ''), integer[1]))
-    return { ok: true, value, rewrite: null }
+    const [, s, digits = ''] = integer
+    const value = rational(signed(BigInt(digits), s))
+    return {
+      ok: true,
+      value,
+      rewrite: null,
+      form: {
+        tex: `${writtenSign(s, '-')}${digits}`,
+        text: `${writtenSign(s, '−')}${digits}`,
+      },
+    }
   }
 
   const fraction = fractionPattern.exec(text)
   if (fraction) {
-    const num = BigInt(fraction[2] ?? '')
-    const den = BigInt(fraction[4] ?? '')
+    const [, s, numDigits = '', denS, denDigits = ''] = fraction
+    const num = BigInt(numDigits)
+    const den = BigInt(denDigits)
     if (den === 0n)
       return { ok: false, message: 'Il denominatore non può essere zero.' }
-    const value = rational(signed(num, fraction[1]), signed(den, fraction[3]))
+    const value = rational(signed(num, s), signed(den, denS))
     // Il primo motivo che si vede, nell'ordine in cui lo si corregge.
-    const rewrite: RewriteReason | null = fraction[3]
+    const rewrite: RewriteReason | null = denS
       ? 'sign-at-denominator'
       : num % den === 0n
         ? 'integer-as-fraction'
         : gcd(num, den) > 1n
           ? 'not-reduced'
           : null
-    return { ok: true, value, rewrite }
+    return {
+      ok: true,
+      value,
+      rewrite,
+      form: {
+        // Il segno del numeratore davanti, quello del denominatore resta lì.
+        tex: `${writtenSign(s, '-')}\\frac{${numDigits}}{${writtenSign(denS, '-')}${denDigits}}`,
+        text: `${writtenSign(s, '−')}${numDigits}/${writtenSign(denS, '−')}${denDigits}`,
+      },
+    }
   }
 
   const decimal = decimalPattern.exec(text)
   if (decimal) {
-    const digits = decimal[3] ?? ''
-    const magnitude = BigInt(`${decimal[2] ?? ''}${digits}`)
-    const value = rational(
-      signed(magnitude, decimal[1]),
-      10n ** BigInt(digits.length),
-    )
-    return { ok: true, value, rewrite: 'decimal' }
+    const [, s, digits = '', separator = '', decimals = ''] = decimal
+    const magnitude = BigInt(`${digits}${decimals}`)
+    const value = rational(signed(magnitude, s), 10n ** BigInt(decimals.length))
+    return {
+      ok: true,
+      value,
+      rewrite: 'decimal',
+      form: {
+        // Il separatore resta quello scritto: la virgola vuole le graffe.
+        tex: `${writtenSign(s, '-')}${digits}${separator === ',' ? '{,}' : '.'}${decimals}`,
+        text: `${writtenSign(s, '−')}${digits}${separator}${decimals}`,
+      },
+    }
   }
 
   if (mixedPattern.test(text))
     return { ok: false, message: 'Scrivi il risultato come frazione.' }
   return { ok: false, message: 'Scrivi il risultato come numero.' }
+}
+
+/** La forma scritta della risposta, o nulla quando non si legge. */
+export function answerForm(answer: string): AnswerForm | null {
+  const reading = readAnswer(answer)
+  return reading.ok ? reading.form : null
 }
 
 function rewriteMessage(reason: RewriteReason, value: Rational): string {

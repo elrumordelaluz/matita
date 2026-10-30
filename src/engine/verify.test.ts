@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { parseExpression } from './expression.ts'
 import type { Exercise } from './generators.ts'
-import { verify } from './verify.ts'
+import { answerForm, readAnswer, verify } from './verify.ts'
 
 // 12 − 5 + 3 − 4 = 6
 const exercise: Exercise = {
@@ -248,5 +248,51 @@ describe('politica delle risposte', () => {
         kind: 'misconception',
         misconception: 'added-numerators-denominators',
       })
+  })
+})
+
+describe('forma scritta', () => {
+  test('una lettura sola dà il valore da giudicare e la forma da mostrare', () => {
+    expect(readAnswer('4/6')).toEqual({
+      ok: true,
+      value: { num: 2n, den: 3n },
+      rewrite: 'not-reduced',
+      form: { tex: '\\frac{4}{6}', text: '4/6' },
+    })
+  })
+
+  // I 13 casi che si leggono: l'anteprima mostra la forma scritta, non quella
+  // canonica.
+  test.each([
+    ['6', '6', '6'],
+    ['0', '0', '0'],
+    ['-6', '-6', '−6'],
+    ['−6', '-6', '−6'],
+    ['+5', '+5', '+5'],
+    ['2/3', '\\frac{2}{3}', '2/3'],
+    [' 2 / 3 ', '\\frac{2}{3}', '2/3'],
+    ['-2/3', '-\\frac{2}{3}', '−2/3'],
+    ['4/6', '\\frac{4}{6}', '4/6'],
+    ['6/3', '\\frac{6}{3}', '6/3'],
+    ['2/-3', '\\frac{2}{-3}', '2/−3'],
+    ['-2/-3', '-\\frac{2}{-3}', '−2/−3'],
+    ['0,5', '0{,}5', '0,5'],
+    ['-0.5', '-0.5', '−0.5'],
+  ])('%s si mostra com’è scritta', (answer, tex, text) => {
+    expect(answerForm(answer)).toEqual({ tex, text })
+  })
+
+  // Gli 8 casi che non si leggono: niente anteprima, il giudizio è a Verifica.
+  test.each([
+    ['il campo vuoto', ['', '   ']],
+    ['un segno da solo', ['-']],
+    ['la frazione senza denominatore', ['2/']],
+    ['il decimale senza cifre', ['0,']],
+    ['un testo', ['sei']],
+    ['il doppio segno', ['--5']],
+    ['il numero misto', ['2 1/3']],
+    ['il denominatore zero', ['2/0']],
+  ])('%s non si legge: niente anteprima', (_, answers) => {
+    for (const answer of answers) expect(answerForm(answer)).toBeNull()
   })
 })

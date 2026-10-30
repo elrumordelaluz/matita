@@ -16,10 +16,14 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function answer(text: string) {
+function type(text: string) {
   fireEvent.change(screen.getByLabelText('Risultato'), {
     target: { value: text },
   })
+}
+
+function answer(text: string) {
+  type(text)
   fireEvent.click(screen.getByRole('button', { name: 'Verifica' }))
 }
 
@@ -28,6 +32,54 @@ test('mostra l’espressione da calcolare', () => {
   expect(
     screen.getByRole('math', { name: '12 − 5 + 3 − 4' }),
   ).toBeInTheDocument()
+})
+
+test('l’anteprima mostra la risposta scritta, sotto il campo', () => {
+  render(<PracticePage createExercise={() => exercise('1/2 + 1/6')} />)
+  type('4/6')
+  const preview = screen.getByRole('math', { name: '4/6' })
+  expect(
+    screen.getByLabelText('Risultato').compareDocumentPosition(preview) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy()
+})
+
+test('l’anteprima mostra il segno davanti all’intero', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  type('-6')
+  expect(screen.getByRole('math', { name: '−6' })).toBeInTheDocument()
+  type('+5')
+  expect(screen.getByRole('math', { name: '+5' })).toBeInTheDocument()
+})
+
+test('l’anteprima tiene il segno al denominatore', () => {
+  render(<PracticePage createExercise={() => exercise('1/2 + 1/6')} />)
+  type('2/-3')
+  expect(screen.getByRole('math', { name: '2/−3' })).toBeInTheDocument()
+})
+
+test('l’anteprima mostra il decimale con il separatore scritto', () => {
+  render(<PracticePage createExercise={() => exercise('1/2 + 1/6')} />)
+  type('0,5')
+  expect(screen.getByRole('math', { name: '0,5' })).toBeInTheDocument()
+})
+
+test('ciò che non si legge non ha anteprima né messaggio', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  type('sei')
+  // Resta solo la formula dell'espressione.
+  expect(screen.getAllByRole('math')).toHaveLength(1)
+  expect(screen.queryByRole('status')).toBeNull()
+})
+
+test('l’anteprima non giudica: il verdetto arriva a Verifica', () => {
+  render(<PracticePage createExercise={() => exercise('1/2 + 1/6')} />)
+  type('4/6')
+  expect(screen.queryByRole('status')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Verifica' }))
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Riduci ai minimi termini.',
+  )
 })
 
 test('risposta giusta', () => {
