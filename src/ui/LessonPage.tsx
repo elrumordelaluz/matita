@@ -38,7 +38,7 @@ export function LessonPage({
   /** Dopo ogni scrittura nel ProgressStore. */
   onChange?: () => void
   /** Torna alla sessione sospesa, quando c'è. */
-  onBack?: () => void
+  onBack?: (() => void) | undefined
 }) {
   const { progress, reload } = useProgress(store)
   const chapter = chapterById(chapterId)
