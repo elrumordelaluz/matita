@@ -279,3 +279,61 @@ test('le riscritture ripartono con l’esercizio successivo', () => {
     expect.objectContaining({ rewrites: 0 }),
   )
 })
+
+test('ogni tasto scrive il suo simbolo al cursore nel campo', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  const field = screen.getByLabelText('Risultato') as HTMLInputElement
+  for (const [label, symbol] of [
+    ['meno', '−'],
+    ['linea di frazione', '/'],
+    ['elevato a', '^'],
+    ['apri tonda', '('],
+    ['chiudi tonda', ')'],
+  ] as const) {
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    expect(field.value?.endsWith(symbol)).toBe(true)
+  }
+  expect(field).toHaveValue('−/^()')
+})
+
+test('la riga sostituisce la selezione con il simbolo', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  type('4/6')
+  const field = screen.getByLabelText('Risultato') as HTMLInputElement
+  fireEvent.select(field, { target: { selectionStart: 1, selectionEnd: 3 } })
+  fireEvent.click(screen.getByRole('button', { name: 'linea di frazione' }))
+  expect(field).toHaveValue('4/')
+})
+
+test('dopo il tocco il campo è di nuovo focalizzato, cursore dopo il simbolo', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  type('4')
+  const field = screen.getByLabelText('Risultato') as HTMLInputElement
+  fireEvent.select(field, { target: { selectionStart: 1, selectionEnd: 1 } })
+  fireEvent.click(screen.getByRole('button', { name: 'meno' }))
+  expect(document.activeElement).toBe(field)
+  expect(field.selectionStart).toBe(2)
+  expect(field.selectionEnd).toBe(2)
+})
+
+test('la riga sta solo sul telefono: da sm in su non c’è', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  const row = screen.getByRole('button', { name: 'meno' }).closest('div')
+  expect(row?.className).toContain('sm:hidden')
+})
+
+test('a esercizio chiuso la riga sparisce, poi torna col successivo', () => {
+  render(<PracticePage createExercise={() => exercise('12 − 5 + 3 − 4')} />)
+  answer('6')
+  for (const label of [
+    'meno',
+    'linea di frazione',
+    'elevato a',
+    'apri tonda',
+    'chiudi tonda',
+  ]) {
+    expect(screen.queryByRole('button', { name: label })).toBeNull()
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Esercizio successivo' }))
+  expect(screen.getByRole('button', { name: 'meno' })).toBeInTheDocument()
+})

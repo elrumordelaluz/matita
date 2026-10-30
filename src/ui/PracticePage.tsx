@@ -18,6 +18,7 @@ import {
   SolutionLines,
 } from './practice/Notebook.tsx'
 import { OutcomeCard, RunState } from './practice/OutcomeCard.tsx'
+import { insertAtCursor, symbolKeys } from './symbolRow.ts'
 
 // La pagina di pratica: espressione, risposta, esito, soluzione per righe.
 // La pagina non salva nulla: quando un esercizio si chiude lo riferisce con
@@ -94,6 +95,24 @@ export function PracticePage({
         rewrites,
         durationMs: Date.now() - startedAt,
       })
+  }
+
+  // Un tasto della riga simboli: scrive nel campo e ci riporta il cursore.
+  function insertSymbol(symbol: string) {
+    const field = input.current
+    if (!field) return
+    const next = insertAtCursor(
+      answer,
+      symbol,
+      field.selectionStart,
+      field.selectionEnd,
+    )
+    setAnswer(next.value)
+    // Il valore si scrive subito sul campo: la selezione che segue non deve
+    // aspettare il rendering.
+    field.value = next.value
+    field.focus()
+    field.setSelectionRange(next.caret, next.caret)
   }
 
   function next() {
@@ -178,6 +197,24 @@ export function PracticePage({
               )}
             />
           </div>
+
+          {/* Sul telefono, sotto il campo: i simboli che la tastiera di
+              sistema nasconde. Da sm in su la riga non c'è. */}
+          {!done && (
+            <div className="flex justify-center gap-2 sm:hidden">
+              {symbolKeys.map(({ symbol, label }) => (
+                <button
+                  key={symbol}
+                  type="button"
+                  aria-label={label}
+                  onClick={() => insertSymbol(symbol)}
+                  className="h-12 w-12 rounded-xl border border-hair bg-panel font-display text-lg font-bold text-ink hover:bg-paper"
+                >
+                  {symbol}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* L'anteprima della risposta: la forma scritta, senza giudizio.
               Il posto è fisso, così il pannello non si sposta mentre si
