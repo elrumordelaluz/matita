@@ -1,6 +1,7 @@
 import { ArrowRight, Check, Lightbulb } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
+  answerForm,
   literal,
   solve,
   toText,
@@ -9,7 +10,7 @@ import {
   type Outcome,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import { ExpressionFormula } from './Formula.tsx'
+import { ExpressionFormula, Formula } from './Formula.tsx'
 import { Button, Eyebrow, Panel, Sheet } from './kit.tsx'
 import {
   MisconceptionNote,
@@ -66,6 +67,8 @@ export function PracticePage({
   const nextButton = useRef<HTMLButtonElement>(null)
 
   const solution = solve(exercise.expression)
+  // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
+  const form = answerForm(answer)
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const shownLines = done ? solution.lines : solution.lines.slice(0, hints)
@@ -174,6 +177,15 @@ export function PracticePage({
                   'border-warn focus:border-warn focus:ring-warn/20',
               )}
             />
+          </div>
+
+          {/* L'anteprima della risposta: la forma scritta, senza giudizio.
+              Il posto è fisso, così il pannello non si sposta mentre si
+              scrive; ciò che non si legge non mostra niente. */}
+          <div className="flex h-24 items-center justify-center">
+            {form && (
+              <Formula tex={form.tex} text={form.text} className="text-3xl" />
+            )}
           </div>
 
           {outcome && (
