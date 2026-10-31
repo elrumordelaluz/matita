@@ -17,7 +17,7 @@ import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import type { AttemptOutcome } from '../progress/attempt.ts'
-import { exportBackup, importBackup } from '../progress/backup.ts'
+import { exportBackup, importBackup, importNotice } from '../progress/backup.ts'
 import { latestAttempts, type AttemptEntry } from '../progress/history.ts'
 import { reviewCards } from '../progress/review.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
@@ -169,21 +169,11 @@ export function ProgressPage({
     if (!file) return
     const result = await importBackup(store, await file.text())
     if (!result.ok) {
-      setNotice({ ok: false, text: result.message })
+      setNotice({ ok: false, text: importNotice(result) })
       return
     }
     await reload()
-    const attempts =
-      result.count === 1
-        ? 'Importato 1 tentativo'
-        : `Importati ${result.count} tentativi`
-    const known =
-      result.known === undefined
-        ? ''
-        : result.known === 1
-          ? ' e 1 abilità già saputa'
-          : ` e ${result.known} abilità già sapute`
-    setNotice({ ok: true, text: `${attempts}${known}.` })
+    setNotice({ ok: true, text: importNotice(result) })
   }
 
   const progress = useMemo(

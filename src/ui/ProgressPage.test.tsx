@@ -61,6 +61,17 @@ test('importa un backup e aggiorna lo stato', async () => {
   ).toBeInTheDocument()
 })
 
+test('un backup senza tentativi né segni dice che non contiene progressi', async () => {
+  const store = createMemoryStore()
+  render(<ProgressPage store={store} skills={skills} />)
+
+  chooseFile(await exportBackup(createMemoryStore()))
+
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Il backup non contiene progressi.',
+  )
+})
+
 test('un file non valido si rifiuta e i progressi restano', async () => {
   const store = createMemoryStore()
   await store.addAttempt(attempt({ id: 'kept' }))

@@ -47,6 +47,26 @@ export async function importBackup(
     : { ok: true, count }
 }
 
+// Il testo dell’avviso dopo l’importazione: il messaggio quando il file non
+// va, il conto di ciò che è entrato quando va. Un file valido ma senza niente
+// dentro non è un errore: lo dice chiaro, senza contare zero tentativi.
+export function importNotice(result: ImportResult): string {
+  if (!result.ok) return result.message
+  if (result.count === 0 && result.known === undefined)
+    return 'Il backup non contiene progressi.'
+  const attempts =
+    result.count === 1
+      ? 'Importato 1 tentativo'
+      : `Importati ${result.count} tentativi`
+  const known =
+    result.known === undefined
+      ? ''
+      : result.known === 1
+        ? ' e 1 abilità già saputa'
+        : ` e ${result.known} abilità già sapute`
+  return `${attempts}${known}.`
+}
+
 type Parsed =
   | {
       readonly ok: true
