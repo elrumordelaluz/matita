@@ -308,10 +308,19 @@ l'esito. Dopo l'esito vede sempre la soluzione per righe; se l'esito è un
 errore tipico, vede prima la spiegazione dell'errore. Un pulsante
 "suggerimento" mostra la prossima riga e rende il tentativo aiutato.
 
-**Passo passo** (dopo la prima slice). Lo studente scrive ogni riga. Il motore
-controlla che la riga abbia lo stesso valore della precedente e che rispetti
-l'ordine delle operazioni, e indica dove ha sbagliato. È qui che gli errori di
-precedenza si vedono meglio.
+**Passo passo.** Nelle abilità del capitolo 1 lo studente può scrivere ogni
+riga della soluzione, con l'interruttore "Passo passo" nel pannello "Prova
+tu". Una riga va bene quando si ottiene dalla precedente sostituendo uno o
+più conti, i cui operandi sono già numeri, con il loro risultato, nell'ordine
+delle operazioni: 2 × 3 + 4 × 5 può diventare 2 × 3 + 20, ma 2 + 3 + 4 non può
+diventare 2 + 7 e 2 + 3 × 1 non può diventare 5 × 1. Il tipo di parentesi non
+conta. Una riga rifiutata dice se l'ordine o il valore è sbagliato e quale
+conto controllare, resta da scrivere e rende il tentativo aiutato. Oltre alla
+riga intera si può scrivere un conto solo, come 3 × 7 = 21 o 3*7=21: la prima
+occorrenza del conto diventa il risultato scritto. Una riga che si legge come
+un numero, anche fra parentesi, è la risposta finale e va alla verifica così
+com'è stata scritta. Il suggerimento scrive il prossimo passo della riga dello
+studente, tranne quello che dà il risultato.
 
 ## Ripasso e tracking
 
