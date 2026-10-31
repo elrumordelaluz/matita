@@ -1,5 +1,10 @@
 import { expect, test } from 'vitest'
-import { exportBackup, importBackup } from './backup.ts'
+import {
+  exportBackup,
+  importBackup,
+  importNotice,
+  type ImportResult,
+} from './backup.ts'
 import { attempt } from './fixtures.ts'
 import { skillStates } from './skillState.ts'
 import { createMemoryStore } from './store.ts'
@@ -144,6 +149,28 @@ test.each([
     expect(await store.known()).toEqual([])
   },
 )
+
+const noticeCases: [ImportResult, string][] = [
+  [{ ok: true, count: 0 }, 'Il backup non contiene progressi.'],
+  [{ ok: true, count: 1 }, 'Importato 1 tentativo.'],
+  [{ ok: true, count: 3 }, 'Importati 3 tentativi.'],
+  [
+    { ok: true, count: 1, known: 1 },
+    'Importato 1 tentativo e 1 abilità già saputa.',
+  ],
+  [
+    { ok: true, count: 2, known: 4 },
+    'Importati 2 tentativi e 4 abilità già sapute.',
+  ],
+  [
+    { ok: false, message: 'Il file non è un backup di Matita.' },
+    'Il file non è un backup di Matita.',
+  ],
+]
+
+test.each(noticeCases)('l’avviso di importazione di %s', (result, expected) => {
+  expect(importNotice(result)).toBe(expected)
+})
 
 test('rifiuta tutto il file se anche un solo tentativo non è valido', async () => {
   const store = createMemoryStore()
