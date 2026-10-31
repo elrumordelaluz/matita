@@ -308,10 +308,21 @@ l'esito. Dopo l'esito vede sempre la soluzione per righe; se l'esito è un
 errore tipico, vede prima la spiegazione dell'errore. Un pulsante
 "suggerimento" mostra la prossima riga e rende il tentativo aiutato.
 
-**Passo passo** (dopo la prima slice). Lo studente scrive ogni riga. Il motore
-controlla che la riga abbia lo stesso valore della precedente e che rispetti
-l'ordine delle operazioni, e indica dove ha sbagliato. È qui che gli errori di
-precedenza si vedono meglio.
+**Passo passo.** Per le abilità del primo capitolo lo studente può scegliere,
+con l'interruttore "Passo passo", di scrivere ogni riga della soluzione invece
+del solo risultato. Una riga è accettata quando si ottiene dalla precedente
+sostituendo con il loro risultato, una o più alla volta, le operazioni i cui
+operandi sono già numeri, nell'ordine del quaderno: prima il dentro delle
+parentesi, poi le potenze, poi × e :, poi + e −, da sinistra a destra. Il tipo
+di parentesi non conta. Accanto alla riga intera il campo accetta anche un
+conto solo, nella forma `3 × 4 = 12`: la riga nuova è quella di prima con
+quell'operazione svolta. Una riga rifiutata dice se è sbagliato l'ordine
+oppure il valore, nomina l'operazione da controllare, lascia l'esercizio
+aperto e conta come aiutata; la riga copiata è rifiutata e non conta. Una riga
+che si legge come un numero, anche fra parentesi, è la risposta finale: va
+alla verifica così com'è scritta. "Suggerimento" scrive il prossimo passaggio
+del risolutore a partire dalla riga dello studente, tranne il risultato
+dell'ultimo passaggio, e non svela le righe della soluzione sul quaderno.
 
 ## Ripasso e tracking
 
