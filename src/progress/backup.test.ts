@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { exportBackup, importBackup } from './backup.ts'
+import { exportBackup, importBackup, importNotice } from './backup.ts'
 import { attempt } from './fixtures.ts'
 import { skillStates } from './skillState.ts'
 import { createMemoryStore } from './store.ts'
@@ -15,6 +15,26 @@ async function storeWith(attempts: ReturnType<typeof attempt>[]) {
   for (const a of attempts) await store.addAttempt(a)
   return store
 }
+
+test.each([
+  [{ ok: true, count: 0 }, 'Il backup non contiene progressi.'],
+  [{ ok: true, count: 1 }, 'Importato 1 tentativo.'],
+  [{ ok: true, count: 3 }, 'Importati 3 tentativi.'],
+  [
+    { ok: true, count: 1, known: 1 },
+    'Importato 1 tentativo e 1 abilità già saputa.',
+  ],
+  [
+    { ok: true, count: 3, known: 2 },
+    'Importati 3 tentativi e 2 abilità già sapute.',
+  ],
+  [
+    { ok: false, message: 'Il file non è un backup di Matita.' },
+    'Il file non è un backup di Matita.',
+  ],
+])('il risultato dell’importazione dice: %s', (result, notice) => {
+  expect(importNotice(result)).toBe(notice)
+})
 
 test('esportazione e reimportazione: stessi tentativi, stesso stato', async () => {
   const original = await storeWith([

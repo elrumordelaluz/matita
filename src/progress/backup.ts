@@ -47,6 +47,23 @@ export async function importBackup(
     : { ok: true, count }
 }
 
+export function importNotice(result: ImportResult): string {
+  if (!result.ok) return result.message
+  if (result.count === 0 && result.known === undefined)
+    return 'Il backup non contiene progressi.'
+  const attempts =
+    result.count === 1
+      ? 'Importato 1 tentativo'
+      : `Importati ${result.count} tentativi`
+  const known =
+    result.known === undefined
+      ? ''
+      : result.known === 1
+        ? ' e 1 abilità già saputa'
+        : ` e ${result.known} abilità già sapute`
+  return `${attempts}${known}.`
+}
+
 type Parsed =
   | {
       readonly ok: true
