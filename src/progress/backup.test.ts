@@ -1,5 +1,10 @@
 import { expect, test } from 'vitest'
-import { exportBackup, importBackup } from './backup.ts'
+import {
+  exportBackup,
+  importBackup,
+  importNotice,
+  type ImportResult,
+} from './backup.ts'
 import { attempt } from './fixtures.ts'
 import { skillStates } from './skillState.ts'
 import { createMemoryStore } from './store.ts'
@@ -144,6 +149,46 @@ test.each([
     expect(await store.known()).toEqual([])
   },
 )
+
+// L’avviso che la pagina mostra dopo l’importazione, parola per parola.
+const noticeCases: [string, ImportResult, string][] = [
+  [
+    'un backup vuoto',
+    { ok: true, count: 0 },
+    'Il backup non contiene progressi.',
+  ],
+  ['un solo tentativo', { ok: true, count: 1 }, 'Importato 1 tentativo.'],
+  ['solo tentativi', { ok: true, count: 3 }, 'Importati 3 tentativi.'],
+  [
+    'un tentativo e un segno',
+    { ok: true, count: 1, known: 1 },
+    'Importato 1 tentativo e 1 abilità già saputa.',
+  ],
+  [
+    'più tentativi e un segno',
+    { ok: true, count: 2, known: 1 },
+    'Importati 2 tentativi e 1 abilità già saputa.',
+  ],
+  [
+    'più tentativi e più segni',
+    { ok: true, count: 2, known: 3 },
+    'Importati 2 tentativi e 3 abilità già sapute.',
+  ],
+  [
+    'solo segni',
+    { ok: true, count: 0, known: 2 },
+    'Importati 0 tentativi e 2 abilità già sapute.',
+  ],
+  [
+    'un file che non è un backup',
+    { ok: false, message: 'Il file non è un backup di Matita.' },
+    'Il file non è un backup di Matita.',
+  ],
+]
+
+test.each(noticeCases)('l’avviso per %s è esatto', (_, result, notice) => {
+  expect(importNotice(result)).toBe(notice)
+})
 
 test('rifiuta tutto il file se anche un solo tentativo non è valido', async () => {
   const store = createMemoryStore()
