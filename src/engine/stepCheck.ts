@@ -106,11 +106,11 @@ function replace(
 }
 
 // Un gruppo senza meno intorno a un solo numero è solo il modo di scrivere
-// quel numero: (7) è 7.
+// quel numero: (7) è 7, e ((7)) pure.
 function unwrapped(e: Expression): Expression {
-  return e.kind === 'group' && !e.negated && e.inner.kind === 'number'
-    ? unwrapped(e.inner)
-    : e
+  if (e.kind !== 'group' || e.negated) return e
+  const inner = unwrapped(e.inner)
+  return inner.kind === 'number' ? inner : e
 }
 
 // Il confronto strutturale fra espressioni: i numeri per valore, i gruppi
