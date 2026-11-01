@@ -1,5 +1,10 @@
 import { expect, test } from 'vitest'
-import { exportBackup, importBackup } from './backup.ts'
+import {
+  exportBackup,
+  importBackup,
+  importNotice,
+  type ImportResult,
+} from './backup.ts'
 import { attempt } from './fixtures.ts'
 import { skillStates } from './skillState.ts'
 import { createMemoryStore } from './store.ts'
@@ -154,4 +159,62 @@ test('rifiuta tutto il file se anche un solo tentativo non è valido', async () 
   })
   expect((await importBackup(store, text)).ok).toBe(false)
   expect(await store.attempts()).toEqual([])
+})
+
+// Ogni esito che l’importazione può restituire e l’avviso che ne viene.
+const notices: [string, ImportResult, string][] = [
+  [
+    'un backup senza tentativi né segni',
+    { ok: true, count: 0 },
+    'Il backup non contiene progressi.',
+  ],
+  [
+    'un backup con un segno e nessun tentativo',
+    { ok: true, count: 0, known: 1 },
+    'Importati 0 tentativi e 1 abilità già saputa.',
+  ],
+  [
+    'un backup con più segni e nessun tentativo',
+    { ok: true, count: 0, known: 2 },
+    'Importati 0 tentativi e 2 abilità già sapute.',
+  ],
+  [
+    'un backup con un tentativo e nessun segno',
+    { ok: true, count: 1 },
+    'Importato 1 tentativo.',
+  ],
+  [
+    'un backup con un tentativo e un segno',
+    { ok: true, count: 1, known: 1 },
+    'Importato 1 tentativo e 1 abilità già saputa.',
+  ],
+  [
+    'un backup con un tentativo e più segni',
+    { ok: true, count: 1, known: 2 },
+    'Importato 1 tentativo e 2 abilità già sapute.',
+  ],
+  [
+    'un backup con più tentativi e nessun segno',
+    { ok: true, count: 2 },
+    'Importati 2 tentativi.',
+  ],
+  [
+    'un backup con più tentativi e un segno',
+    { ok: true, count: 2, known: 1 },
+    'Importati 2 tentativi e 1 abilità già saputa.',
+  ],
+  [
+    'un backup con più tentativi e più segni',
+    { ok: true, count: 2, known: 2 },
+    'Importati 2 tentativi e 2 abilità già sapute.',
+  ],
+  [
+    'un file rifiutato',
+    { ok: false, message: 'Il file non è un backup di Matita.' },
+    'Il file non è un backup di Matita.',
+  ],
+]
+
+test.each(notices)('l’avviso di %s', (_, result, text) => {
+  expect(importNotice(result)).toBe(text)
 })
