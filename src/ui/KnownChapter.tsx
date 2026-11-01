@@ -1,5 +1,5 @@
 import { CheckCheck, Undo2 } from 'lucide-react'
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { cn } from '../lib/cn.ts'
 import type { ChapterSummary } from './home/chapterProgress.ts'
 import { Button } from './kit.tsx'
@@ -44,9 +44,10 @@ export function KnownChapter({
   const undo = useRef<HTMLButtonElement>(null)
   // Ogni passo toglie il bottone premuto: il fuoco va su quello del passo
   // dopo, appena compare. Il segno si salva in modo asincrono, quindi
-  // "Annulla" può arrivare qualche render più tardi.
+  // "Annulla" può arrivare qualche render più tardi. L'effetto è di layout
+  // perché il bottone non esista mai, nemmeno per un attimo, senza il fuoco.
   const focusNext = useRef<RefObject<HTMLButtonElement | null> | null>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const target = focusNext.current?.current
     if (!target) return
     target.focus()
