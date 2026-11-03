@@ -17,32 +17,72 @@ import { isInteger, rational, type Rational } from './rational.ts'
 // numero o un gruppo, a destra l'esponente, sempre un numero intero. Lega più
 // di × e :, e non si concatena: una potenza di potenza ha la base fra
 // parentesi, come sul libro.
+//
+// Nel calcolo letterale si aggiunge il monomio scritto: un coefficiente e le
+// lettere con i loro esponenti, nell'ordine in cui sono scritte, ripetizioni
+// comprese (`2ab² · 3b³a²`). È una foglia: lega più di × e :, come sul libro
+// (`4a²b³ : 2b²`). Il coefficiente 1 o −1 non si scrive, e il meno davanti
+// al monomio è il segno del coefficiente: `−a²` vale −(a²). Vedi SPEC.md,
+// "Calcolo letterale".
 
 export type Operator = '+' | '-' | '×' | ':' | '^'
 
 /** Il tipo di parentesi di un gruppo: tonda, quadra o graffa. */
 export type Bracket = 'round' | 'square' | 'curly'
 
-export type Expression =
-  | {
-      readonly kind: 'number'
-      readonly value: Rational
-      /** Un positivo scritto con il suo segno, come numero relativo: (+4). */
-      readonly plus?: true
-    }
-  | {
-      readonly kind: 'binary'
-      readonly op: Operator
-      readonly left: Expression
-      readonly right: Expression
-    }
-  | {
-      readonly kind: 'group'
-      readonly bracket: Bracket
-      readonly inner: Expression
-      /** Il gruppo è preceduto dal meno: −(3 − 7). */
-      readonly negated?: true
-    }
+/** Una lettera con il suo esponente dentro un monomio scritto: `b²`. */
+export interface LetterPower {
+  readonly letter: string
+  /** Un naturale positivo; 1 non si scrive. */
+  readonly exponent: bigint
+}
+
+interface NumberNode {
+  readonly kind: 'number'
+  readonly value: Rational
+  /** Un positivo scritto con il suo segno, come numero relativo: (+4). */
+  readonly plus?: true
+  /**
+   * La lettera di cui il numero ha preso il posto, nella riga della
+   * sostituzione: a = −2 in `2a²` dà `2 × (−2)²`.
+   */
+  readonly letter?: string
+}
+
+/** Il monomio scritto, la foglia del calcolo letterale. */
+export interface MonomialNode {
+  readonly kind: 'monomial'
+  /** Mai zero. 1 e −1 non si scrivono. */
+  readonly coefficient: Rational
+  /** Le lettere nell'ordine scritto, almeno una. */
+  readonly letters: readonly LetterPower[]
+}
+
+interface BinaryNode<Leaf> {
+  readonly kind: 'binary'
+  readonly op: Operator
+  readonly left: Tree<Leaf>
+  readonly right: Tree<Leaf>
+}
+
+interface GroupNode<Leaf> {
+  readonly kind: 'group'
+  readonly bracket: Bracket
+  readonly inner: Tree<Leaf>
+  /** Il gruppo è preceduto dal meno: −(3 − 7). */
+  readonly negated?: true
+}
+
+type Tree<Leaf> = NumberNode | Leaf | BinaryNode<Leaf> | GroupNode<Leaf>
+
+/** Un'espressione di numeri, l'albero dei capitoli 1-4. */
+export type Expression = Tree<never>
+
+/**
+ * Un'espressione letterale: gli stessi nodi, più il monomio scritto. Ogni
+ * espressione di numeri è anche un'espressione letterale.
+ */
+export type LiteralExpression = Tree<MonomialNode>
 
 /**
  * La posizione di un nodo nell'albero: il percorso dalla radice, un passo per
@@ -68,26 +108,86 @@ export function literal(
     : { kind: 'number', value }
 }
 
+/**
+ * Un monomio scritto: il coefficiente e le lettere con gli esponenti, come
+ * coppie `[lettera, esponente]` nell'ordine scritto.
+ */
+export function monomial(
+  coefficient: Rational,
+  letters: readonly (readonly [string, bigint])[],
+): MonomialNode {
+  if (coefficient.num === 0n) throw new RangeError('Monomio nullo')
+  if (letters.length === 0) throw new RangeError('Monomio senza lettere')
+  return {
+    kind: 'monomial',
+    coefficient,
+    letters: letters.map(([letter, exponent]) => {
+      if (exponent < 1n) throw new RangeError('Esponente non positivo')
+      return { letter, exponent }
+    }),
+  }
+}
+
+/** Vero se nell'albero c'è almeno una lettera. */
+export function hasLetters(e: LiteralExpression): boolean {
+  if (e.kind === 'monomial') return true
+  if (e.kind === 'number') return false
+  if (e.kind === 'group') return hasLetters(e.inner)
+  return hasLetters(e.left) || hasLetters(e.right)
+}
+
 export function binary(
   op: Operator,
   left: Expression,
   right: Expression,
-): Expression {
+): Expression
+export function binary(
+  op: Operator,
+  left: LiteralExpression,
+  right: LiteralExpression,
+): LiteralExpression
+export function binary(
+  op: Operator,
+  left: LiteralExpression,
+  right: LiteralExpression,
+): LiteralExpression {
   return { kind: 'binary', op, left, right }
+}
+
+interface GroupOptions {
+  negated?: boolean
 }
 
 export function group(
   bracket: Bracket,
   inner: Expression,
-  { negated = false }: { negated?: boolean } = {},
-): Expression {
+  options?: GroupOptions,
+): Expression
+export function group(
+  bracket: Bracket,
+  inner: LiteralExpression,
+  options?: GroupOptions,
+): LiteralExpression
+export function group(
+  bracket: Bracket,
+  inner: LiteralExpression,
+  { negated = false }: GroupOptions = {},
+): LiteralExpression {
   return negated
     ? { kind: 'group', bracket, inner, negated: true }
     : { kind: 'group', bracket, inner }
 }
 
 /** La potenza `base^exponent`. L'esponente può essere negativo. */
-export function power(base: Expression, exponent: bigint): Expression {
+export function power(base: Expression, exponent: bigint): Expression
+export function power(
+  base: LiteralExpression,
+  exponent: bigint,
+): LiteralExpression
+export function power(
+  base: LiteralExpression,
+  exponent: bigint,
+): LiteralExpression {
   return binary('^', base, num(exponent))
 }
 
@@ -104,34 +204,35 @@ export function isPower(op: Operator): boolean {
 }
 
 // L'esponente di una potenza: un numero intero, per costruzione.
-function exponentOf(e: Expression): bigint {
+function exponentOf(e: LiteralExpression): bigint {
   if (e.kind !== 'number' || e.value.den !== 1n)
     throw new RangeError('Esponente non intero')
   return e.value.num
 }
 
 /** Il nodo in posizione `path`. */
-export function nodeAt(e: Expression, path: Path): Expression {
-  let node = e
+export function nodeAt<E extends LiteralExpression>(e: E, path: Path): E {
+  let node: LiteralExpression = e
   for (const step of path) {
     if (step === 'inner' && node.kind === 'group') node = node.inner
     else if (step !== 'inner' && node.kind === 'binary') node = node[step]
     else throw new Error('Percorso non valido')
   }
-  return node
+  // I figli di un albero sono dello stesso albero.
+  return node as E
 }
 
 /** Un'operazione da svolgere: un nodo binario che non è una potenza. */
-export function isOperation(
-  e: Expression,
-): e is Extract<Expression, { kind: 'binary' }> {
+export function isOperation<E extends LiteralExpression>(
+  e: E,
+): e is Extract<E, { kind: 'binary' }> {
   return e.kind === 'binary' && !isPower(e.op)
 }
 
 // L'operatore in `path` e le posizioni del numero o del gruppo scritto subito
 // alla sua sinistra e subito alla sua destra.
 function visibleSides(
-  e: Expression,
+  e: LiteralExpression,
   path: Path,
 ): { readonly op: Operator; readonly left: Path; readonly right: Path } {
   const node = nodeAt(e, path)
@@ -148,7 +249,15 @@ function visibleSides(
  * il numero o il gruppo scritto a ciascun lato. In 2 + 3 × 4 il + mostra
  * 2 + 3, non i suoi operandi nell'albero.
  */
-export function visibleOperation(e: Expression, path: Path): Expression {
+export function visibleOperation(e: Expression, path: Path): Expression
+export function visibleOperation(
+  e: LiteralExpression,
+  path: Path,
+): LiteralExpression
+export function visibleOperation(
+  e: LiteralExpression,
+  path: Path,
+): LiteralExpression {
   const { op, left, right } = visibleSides(e, path)
   return binary(op, nodeAt(e, left), nodeAt(e, right))
 }
@@ -173,7 +282,9 @@ function fromSuperscript(text: string): bigint {
 }
 
 /** Il meno davanti alla potenza `p`: −3², −(2 + 1)². */
-export function negatedPower(p: Expression): Expression {
+export function negatedPower(p: Expression): Expression
+export function negatedPower(p: LiteralExpression): LiteralExpression
+export function negatedPower(p: LiteralExpression): LiteralExpression {
   return group('round', p, { negated: true })
 }
 
@@ -182,7 +293,7 @@ export function negatedPower(p: Expression): Expression {
  * potenza. Si scrive senza parentesi e non è un gruppo da svolgere: il meno
  * resta fuori mentre si calcola la potenza.
  */
-export function isNegatedPower(e: Expression): boolean {
+export function isNegatedPower(e: LiteralExpression): boolean {
   return (
     e.kind === 'group' &&
     e.negated === true &&
@@ -195,7 +306,7 @@ export function isNegatedPower(e: Expression): boolean {
  * Un gruppo preceduto dal meno con dentro un solo numero, −(−4): non è più
  * un gruppo da svolgere ma un numero a cui cambiare segno.
  */
-export function isSignChange(e: Expression): boolean {
+export function isSignChange(e: LiteralExpression): boolean {
   return e.kind === 'group' && e.negated === true && e.inner.kind === 'number'
 }
 
@@ -213,6 +324,15 @@ interface Symbols {
   readonly enclose: (bracket: Bracket, inner: string, tall: boolean) => string
   /** La base già resa, con l'esponente in alto. */
   readonly power: (base: string, exponent: bigint) => string
+  /** Il coefficiente di un monomio, senza segno: nel testo `1/2 ` con lo spazio. */
+  readonly coefficient: (r: Rational) => string
+  /** Una lettera con il suo esponente, 1 non scritto. */
+  readonly letter: (letter: string, exponent: bigint) => string
+  /**
+   * Un'espressione con le lettere: il prodotto è un punto, e un gruppo o una
+   * potenza fra tonde si attaccano al fattore prima, come sul libro.
+   */
+  readonly literal: boolean
 }
 
 const open = { round: '(', square: '[', curly: '{' }
@@ -224,6 +344,10 @@ const textSymbols: Symbols = {
   magnitude: (r) => (isInteger(r) ? `${r.num}` : `${r.num}/${r.den}`),
   enclose: (bracket, inner) => `${open[bracket]}${inner}${close[bracket]}`,
   power: (base, exponent) => `${base}${superscript(exponent)}`,
+  coefficient: (r) => (isInteger(r) ? `${r.num}` : `${r.num}/${r.den} `),
+  letter: (letter, exponent) =>
+    exponent === 1n ? letter : `${letter}${superscript(exponent)}`,
+  literal: false,
 }
 
 const katexOpen = { round: '(', square: '[', curly: '\\{' }
@@ -241,21 +365,34 @@ const katexSymbols: Symbols = {
   // Le graffe tengono insieme la base: l'apice va sopra tutto il numero o
   // tutta la parentesi.
   power: (base, exponent) => `{${base}}^{${exponent}}`,
+  coefficient: (r) =>
+    isInteger(r) ? `${r.num}` : `\\frac{${r.num}}{${r.den}}`,
+  letter: (letter, exponent) =>
+    exponent === 1n ? letter : `${letter}^{${exponent}}`,
+  literal: false,
 }
+
+// Nelle espressioni letterali il prodotto è il punto del libro.
+const literalSymbols = (symbols: Symbols, dot: string): Symbols => ({
+  ...symbols,
+  op: { ...symbols.op, '×': dot },
+  literal: true,
+})
 
 function abs(r: Rational): Rational {
   return r.num < 0n ? { num: -r.num, den: r.den } : r
 }
 
-function hasFraction(e: Expression): boolean {
+function hasFraction(e: LiteralExpression): boolean {
   if (e.kind === 'number') return !isInteger(e.value)
+  if (e.kind === 'monomial') return !isInteger(e.coefficient)
   if (e.kind === 'group') return hasFraction(e.inner)
   return hasFraction(e.left) || hasFraction(e.right)
 }
 
 // `sign`: il segno si scrive anche per un positivo, come in −(+3).
 function renderNumber(
-  e: Extract<Expression, { kind: 'number' }>,
+  e: NumberNode,
   symbols: Symbols,
   leading: boolean,
   sign = false,
@@ -266,6 +403,39 @@ function renderNumber(
   return prefix && !leading
     ? symbols.enclose('round', text, !isInteger(value))
     : text
+}
+
+// Un monomio scritto: il coefficiente 1 non si scrive. Negativo e lontano
+// dall'inizio va fra tonde, come un numero relativo: 2a² · (−4a⁵b³).
+function renderMonomial(
+  e: MonomialNode,
+  symbols: Symbols,
+  leading: boolean,
+): string {
+  const magnitude = abs(e.coefficient)
+  const negative = e.coefficient.num < 0n
+  const coefficient =
+    magnitude.num === 1n && magnitude.den === 1n
+      ? ''
+      : symbols.coefficient(magnitude)
+  const letters = e.letters
+    .map(({ letter, exponent }) => symbols.letter(letter, exponent))
+    .join('')
+  const text = `${negative ? symbols.minus : ''}${coefficient}${letters}`
+  return negative && !leading
+    ? symbols.enclose('round', text, !isInteger(e.coefficient))
+    : text
+}
+
+// Il fattore a destra di un prodotto letterale che si attacca a quello
+// prima: un gruppo, 2xy(3y + 5x²), o una potenza fra tonde, 2a(3b)².
+function attaches(right: LiteralExpression): boolean {
+  if (right.kind === 'group') return !right.negated
+  return (
+    right.kind === 'binary' &&
+    isPower(right.op) &&
+    (right.left.kind === 'group' || right.left.kind === 'monomial')
+  )
 }
 
 // I segni della riga che lo studente tocca, solo nella resa KaTeX: le
@@ -312,8 +482,8 @@ function marked(text: string, at: Path, marks: Marks): string {
 // Anche una frazione va fra tonde, (2/3)², perché l'esponente è di tutta la
 // frazione.
 function renderPower(
-  base: Expression,
-  exponent: Expression,
+  base: LiteralExpression,
+  exponent: LiteralExpression,
   symbols: Symbols,
   at: Path,
   marks: Marks,
@@ -324,14 +494,18 @@ function renderPower(
     !isInteger(base.value) &&
     base.value.num > 0n &&
     !base.plus
+  // Un monomio alla base va sempre fra tonde: (2a)², (a²)³, (−2a)².
+  const bareMonomial = base.kind === 'monomial' && base.coefficient.num > 0n
   return symbols.power(
-    bareFraction ? symbols.enclose('round', text, true) : text,
+    bareFraction || bareMonomial
+      ? symbols.enclose('round', text, hasFraction(base))
+      : text,
     exponentOf(exponent),
   )
 }
 
 function render(
-  e: Expression,
+  e: LiteralExpression,
   symbols: Symbols,
   leading: boolean,
   at: Path = [],
@@ -340,6 +514,8 @@ function render(
   switch (e.kind) {
     case 'number':
       return marked(renderNumber(e, symbols, leading), at, marks)
+    case 'monomial':
+      return marked(renderMonomial(e, symbols, leading), at, marks)
     case 'binary': {
       if (isPower(e.op))
         return marked(
@@ -352,6 +528,8 @@ function render(
         : symbols.op[e.op]
       const left = render(e.left, symbols, leading, [...at, 'left'], marks)
       const right = render(e.right, symbols, false, [...at, 'right'], marks)
+      if (symbols.literal && e.op === '×' && attaches(e.right))
+        return `${left}${right}`
       return `${left} ${op} ${right}`
     }
     case 'group': {
@@ -403,16 +581,23 @@ export interface KatexOptions extends RenderOptions {
   readonly highlight?: { readonly path: Path; readonly className: string }
 }
 
-export function toText(e: Expression, { leading = true }: RenderOptions = {}) {
-  return render(e, textSymbols, leading)
+export function toText(
+  e: LiteralExpression,
+  { leading = true }: RenderOptions = {},
+) {
+  const symbols = hasLetters(e) ? literalSymbols(textSymbols, '·') : textSymbols
+  return render(e, symbols, leading)
 }
 
 export function toKatex(
-  e: Expression,
+  e: LiteralExpression,
   { leading = true, operatorPaths = false, highlight }: KatexOptions = {},
 ) {
   const sides = highlight && visibleSides(e, highlight.path)
-  return render(e, katexSymbols, leading, [], {
+  const symbols = hasLetters(e)
+    ? literalSymbols(katexSymbols, '\\cdot')
+    : katexSymbols
+  return render(e, symbols, leading, [], {
     operatorPaths,
     highlight: sides && {
       left: pathKey(sides.left),
@@ -426,7 +611,13 @@ export function toKatex(
 // Legge quello che scrive `toText`: un segno davanti a un numero o a un
 // gruppo solo all'inizio, altrove il numero relativo fra tonde; la barra è
 // la linea di frazione. L'esponente si scrive ad apice (2³) o dopo `^` (2^3).
-const tokenPattern = /\s*(?:(\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)|([+\-−×·*:÷/()[\]{}^]))/y
+//
+// Un'espressione letterale legge anche le lettere minuscole. Numero e
+// lettere attaccati sono un monomio scritto, che lega più di × e :; un
+// gruppo attaccato a quello che lo precede, 2(a + b), è un prodotto allo
+// stesso livello di × e :.
+const tokenPattern =
+  /\s*(?:(\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)|([+\-−×·*:÷/()[\]{}^])|([a-z]))/y
 const superscriptToken = /^⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/
 const operatorOf: Partial<Record<string, Operator>> = {
   '+': '+',
@@ -448,14 +639,27 @@ const openBracket: Partial<Record<string, Bracket>> = {
 const isDigits = (t: string | undefined): t is string =>
   t !== undefined && /^\d+$/.test(t)
 
+const isLetter = (t: string | undefined): t is string =>
+  t !== undefined && /^[a-z]$/.test(t)
+
 export function parseExpression(source: string): Expression {
+  // Senza lettere non c'è nessun monomio: l'albero è di soli numeri.
+  return parse(source, false) as Expression
+}
+
+/** Legge un'espressione letterale: numeri, monomi scritti, gruppi. */
+export function parseLiteralExpression(source: string): LiteralExpression {
+  return parse(source, true)
+}
+
+function parse(source: string, letters: boolean): LiteralExpression {
   const fail = () => new SyntaxError(`Espressione non valida: ${source}`)
   const tokens: string[] = []
   tokenPattern.lastIndex = 0
   while (tokenPattern.lastIndex < source.trimEnd().length) {
     const match = tokenPattern.exec(source)
-    if (!match) throw fail()
-    tokens.push(match[1] ?? match[2] ?? match[3] ?? '')
+    if (!match || (match[4] !== undefined && !letters)) throw fail()
+    tokens.push(match[1] ?? match[2] ?? match[3] ?? match[4] ?? '')
   }
 
   let i = 0
@@ -469,10 +673,41 @@ export function parseExpression(source: string): Expression {
     if (!isDigits(den) || BigInt(den) === 0n) throw fail()
     return rational(BigInt(t), BigInt(den))
   }
+  // L'esponente di una lettera: ad apice o dopo `^`, un naturale positivo.
+  const letterExponent = (): bigint => {
+    const t = tokens[i] ?? ''
+    let exponent = 1n
+    if (superscriptToken.test(t)) {
+      i++
+      exponent = fromSuperscript(t)
+    } else if (t === '^') {
+      i++
+      const digits = tokens[i++]
+      if (!isDigits(digits)) throw fail()
+      exponent = BigInt(digits)
+    }
+    if (exponent < 1n) throw fail()
+    return exponent
+  }
+  // Le lettere di un monomio scritto, ciascuna con il suo esponente.
+  const letterPowers = (): [string, bigint][] => {
+    const powers: [string, bigint][] = []
+    for (let t = tokens[i]; isLetter(t); t = tokens[i]) {
+      i++
+      powers.push([t, letterExponent()])
+    }
+    return powers
+  }
+  // Un coefficiente seguito dalle lettere è un monomio; senza, un numero.
+  const withLetters = (coefficient: Rational): LiteralExpression =>
+    isLetter(tokens[i])
+      ? monomial(coefficient, letterPowers())
+      : literal(coefficient)
   // Un gruppo. Le tonde intorno a un solo numero con il segno sono la
   // scrittura del numero relativo, (−3), non un gruppo; lo stesso per le
-  // tonde intorno a un meno davanti a un gruppo.
-  const bracketed = (bracket: Bracket, negated: boolean): Expression => {
+  // tonde intorno a un meno davanti a un gruppo e intorno a un monomio
+  // negativo, (−4a⁵b³).
+  const bracketed = (bracket: Bracket, negated: boolean): LiteralExpression => {
     i++
     let inner = sum()
     if (tokens[i++] !== close[bracket]) throw fail()
@@ -480,21 +715,24 @@ export function parseExpression(source: string): Expression {
     if (bracket === 'round' && !negated) {
       if (inner.kind === 'number' && (inner.plus || inner.value.num < 0n))
         return inner
+      if (inner.kind === 'monomial' && inner.coefficient.num < 0n) return inner
       if (inner.kind === 'group' && inner.negated) return inner
     }
     return group(bracket, inner, { negated })
   }
-  const factor = (): Expression => {
+  const factor = (): LiteralExpression => {
     const bracket = openBracket[tokens[i] ?? '']
     if (bracket) return bracketed(bracket, false)
-    return literal(magnitude())
+    if (isLetter(tokens[i])) return monomial(rational(1n), letterPowers())
+    return withLetters(magnitude())
   }
   const hasExponent = () =>
     tokens[i] === '^' || superscriptToken.test(tokens[i] ?? '')
   // All'inizio di un'espressione o di un gruppo il primo fattore può avere
   // il segno: −3, +4, −(3 − 7). Davanti a una potenza il meno vale per
-  // tutta la potenza, come sul libro: −3² è −(3²), non (−3)².
-  const leadingFactor = (): Expression => {
+  // tutta la potenza, come sul libro: −3² è −(3²), non (−3)². Davanti a un
+  // monomio è il segno del coefficiente: −a² ha coefficiente −1.
+  const leadingFactor = (): LiteralExpression => {
     const sign = operatorOf[tokens[i] ?? '']
     if (sign !== '+' && sign !== '-') return raised(factor())
     i++
@@ -506,30 +744,33 @@ export function parseExpression(source: string): Expression {
       // −(3 − 7)²: la base è la parentesi senza il meno.
       const { inner } = negated
       const base =
-        bracket === 'round' && inner.kind === 'number'
+        bracket === 'round' &&
+        (inner.kind === 'number' || inner.kind === 'monomial')
           ? inner
           : group(bracket, inner)
       return negatedPower(raised(base))
     }
+    const signed = (r: Rational) => (sign === '-' ? rational(-r.num, r.den) : r)
+    if (isLetter(tokens[i]))
+      return monomial(signed(rational(1n)), letterPowers())
     const value = magnitude()
+    if (isLetter(tokens[i])) return monomial(signed(value), letterPowers())
     if (sign === '-' && hasExponent())
       return negatedPower(raised(literal(value)))
     return raised(
-      sign === '-'
-        ? literal(rational(-value.num, value.den))
-        : literal(value, { plus: true }),
+      sign === '-' ? literal(signed(value)) : literal(value, { plus: true }),
     )
   }
   // Una base con il suo esponente, se c'è. Dopo `^` l'esponente può avere
-  // il segno meno. Le tonde intorno a una frazione sono la sua scrittura come
-  // base, (2/3)², non un gruppo.
-  const raised = (written: Expression): Expression => {
+  // il segno meno. Le tonde intorno a una frazione o a un monomio sono la
+  // sua scrittura come base, (2/3)², (2a)², non un gruppo.
+  const raised = (written: LiteralExpression): LiteralExpression => {
     const base =
       written.kind === 'group' &&
       written.bracket === 'round' &&
       !written.negated &&
-      written.inner.kind === 'number' &&
-      !isInteger(written.inner.value) &&
+      ((written.inner.kind === 'number' && !isInteger(written.inner.value)) ||
+        written.inner.kind === 'monomial') &&
       hasExponent()
         ? written.inner
         : written
@@ -546,27 +787,29 @@ export function parseExpression(source: string): Expression {
     if (digits === undefined || !/^\d+$/.test(digits)) throw fail()
     return power(base, negative ? -BigInt(digits) : BigInt(digits))
   }
-  const chain = (
-    first: Expression,
-    operand: () => Expression,
-    accepts: (op: Operator) => boolean,
-  ): Expression => {
-    let tree = first
+  // Una catena di × e :. Nelle espressioni letterali un gruppo attaccato
+  // al fattore prima è un prodotto.
+  const product = (leading: boolean): LiteralExpression => {
+    let tree = leading ? leadingFactor() : raised(factor())
     for (;;) {
-      const op = operatorOf[tokens[i] ?? '']
-      if (op === undefined || !accepts(op)) return tree
-      i++
-      tree = binary(op, tree, operand())
+      const t = tokens[i] ?? ''
+      const op = operatorOf[t]
+      if (op !== undefined && isMulDiv(op)) {
+        i++
+        tree = binary(op, tree, raised(factor()))
+      } else if (letters && openBracket[t]) {
+        tree = binary('×', tree, raised(factor()))
+      } else return tree
     }
   }
-  const product = (leading: boolean) =>
-    chain(
-      leading ? leadingFactor() : raised(factor()),
-      () => raised(factor()),
-      isMulDiv,
-    )
-  function sum(): Expression {
-    return chain(product(true), () => product(false), isAddSub)
+  function sum(): LiteralExpression {
+    let tree = product(true)
+    for (;;) {
+      const op = operatorOf[tokens[i] ?? '']
+      if (op === undefined || !isAddSub(op)) return tree
+      i++
+      tree = binary(op, tree, product(false))
+    }
   }
 
   const tree = sum()

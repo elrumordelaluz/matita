@@ -551,7 +551,10 @@ termini si scrivono con + e − fra monomi positivi, come sul libro,
 `3a − 2b` e mai `3a + (−2b)`. Fra tonde va solo un monomio negativo che sia
 un fattore o una base: `2a² · (−4a⁵b³)`, `(−2a)²`. Il testo semplice scrive i
 coefficienti frazionari con la barra e uno spazio, `1/2 ab²`, e KaTeX con la
-frazione a due piani.
+frazione a due piani. In un'espressione con le lettere il prodotto è il
+punto, `2a² · 3a³`, e un gruppo o una potenza fra tonde si attacca al
+fattore che lo precede, `2xy(3y + 5x²)`, `2a(3b)²`. Un monomio alla base di
+una potenza va sempre fra tonde, anche positivo: `(3a²)²`.
 
 **Risolutore.** L'ordine è quello dei capitoli dei numeri, esteso. Dentro un
 ambito, prima le potenze, poi × e : da sinistra a destra, poi la riduzione
@@ -579,8 +582,11 @@ gruppo si moltiplica con la distributiva nel giro di × e :.
 
 Il quaderno segue il libro anche in due righe che non fanno un conto, e solo
 in queste due. La sostituzione, in `mono.value`: `2a² + 3a` per a = −2
-diventa `2 · (−2)² + 3 · (−2)`. È la riga in cui si mettono le tonde al
-negativo, e il suo passaggio porta la lettera e il valore. E la formula del
+diventa `2 × (−2)² + 3 × (−2)`. È la riga in cui si mettono le tonde al
+negativo, con un passaggio per lettera che porta la lettera e il valore. Da
+lì l'espressione è di numeri e si scrive come nei capitoli dei numeri, con
+×; il coefficiente −1 sottinteso resta un meno davanti, `−a²` diventa
+`−(−2)²`. E la formula del
 prodotto notevole: `(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)²`, con un
 passaggio che porta la formula e i suoi A e B; la riga dopo calcola. In tutte
 e due la riga è proprio ciò che l'abilità allena: senza, il quaderno

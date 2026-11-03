@@ -1,3 +1,4 @@
+import type { LiteralExpression } from './expression.ts'
 import {
   unknownKind,
   type Exercise,
@@ -5,7 +6,7 @@ import {
 } from './generators.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
-import { solve } from './solver.ts'
+import { solveWithValues, substitute } from './value.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
 // risposte": una risposta con il valore giusto in una forma non canonica non
@@ -176,10 +177,17 @@ export function verify(answer: string, exercise: Exercise): Outcome {
   }
 }
 
-function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
+function verifyNumber(
+  answer: string,
+  exercise: NumberExercise<LiteralExpression>,
+): Outcome {
   const reading = readAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
-  const { result } = solve(exercise.expression)
+  // Nel valore numerico gli errori si cercano dopo la sostituzione: è lì che
+  // l'espressione diventa di numeri.
+  const substitution = exercise.substitution ?? []
+  const { result } = solveWithValues(exercise.expression, substitution)
+  const numeric = substitute(exercise.expression, substitution)
   if (equals(reading.value, result)) {
     if (reading.rewrite === null) return { kind: 'correct' }
     return {
@@ -188,7 +196,7 @@ function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
       message: rewriteMessage(reading.rewrite, result),
     }
   }
-  const misconception = recognise(reading.value, exercise.expression, result)
+  const misconception = recognise(reading.value, numeric, result)
   if (misconception)
     return {
       kind: 'misconception',

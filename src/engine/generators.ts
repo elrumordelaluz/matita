@@ -7,8 +7,10 @@ import {
   num,
   type Bracket,
   type Expression,
+  type LiteralExpression,
   type Operator,
 } from './expression.ts'
+import { valueGenerator } from './literalGenerators.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import {
   basicPowers,
@@ -19,6 +21,7 @@ import {
 import { seededRandom, type Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
 import { solve, type Solution } from './solver.ts'
+import type { Assignment } from './value.ts'
 
 // Un generatore per abilità: dal seme all'esercizio, con i vincoli del
 // capitolo dentro. Cambiare cosa produce un seme richiede di alzare la
@@ -30,7 +33,7 @@ import { solve, type Solution } from './solver.ts'
  * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
  * passa inosservato.
  */
-export type Exercise = NumberExercise
+export type Exercise = NumberExercise<LiteralExpression>
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
@@ -43,8 +46,12 @@ export function unknownKind(kind: never): never {
   throw new Error(`Tipo di risposta sconosciuto: ${String(kind)}`)
 }
 
-/** Un'espressione di numeri, da cui si chiede il valore: un razionale. */
-export interface NumberExercise {
+/**
+ * Un'espressione da cui si chiede il valore, un razionale. Nei capitoli 1-4
+ * è un'espressione di numeri; nel valore numerico (`mono.value`) è
+ * un'espressione letterale con i valori delle lettere.
+ */
+export interface NumberExercise<E extends LiteralExpression = Expression> {
   /**
    * Senza tipo un esercizio è di numeri: così erano tutti prima che i tipi
    * esistessero, e così si leggono gli esercizi scritti allora.
@@ -53,7 +60,9 @@ export interface NumberExercise {
   readonly skill: GeneratedSkill
   readonly seed: number
   readonly generatorVersion: number
-  readonly expression: Expression
+  readonly expression: E
+  /** I valori delle lettere, nell'ordine in cui la consegna li dà. */
+  readonly substitution?: readonly Assignment[]
 }
 
 interface Generator {
@@ -680,10 +689,17 @@ const generators = {
 /** Le abilità i cui esercizi chiedono un numero. */
 export type NumberSkill = keyof typeof generators
 
-/** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill
+/** Le abilità che chiedono il valore numerico di un'espressione letterale. */
+export type ValueSkill = 'mono.value'
 
+/** Le abilità con un generatore, di qualunque tipo di risposta. */
+export type GeneratedSkill = NumberSkill | ValueSkill
+
+/** Le abilità dei capitoli 1-4, quelle delle espressioni di numeri. */
 export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
+
+const isNumberSkill = (skill: GeneratedSkill): skill is NumberSkill =>
+  Object.hasOwn(generators, skill)
 
 function min(a: bigint, b: bigint): bigint {
   return a < b ? a : b
@@ -721,9 +737,22 @@ function solvable(expression: Expression): Solution | null {
 // Ogni tipo di risposta ha il suo sovraccarico: chi chiede un'abilità di
 // numeri riceve un esercizio di numeri, senza guardarne il tipo.
 export function generate(skill: NumberSkill, seed: number): NumberExercise
+export function generate(
+  skill: ValueSkill,
+  seed: number,
+): NumberExercise<LiteralExpression>
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
-  return generateNumber(skill, seed)
+  if (isNumberSkill(skill)) return generateNumber(skill, seed)
+  if (skill === 'mono.value')
+    return {
+      kind: 'number',
+      skill,
+      seed,
+      generatorVersion: valueGenerator.version,
+      ...valueGenerator.build(seededRandom(seed)),
+    }
+  throw new RangeError(`Abilità senza generatore: ${String(skill)}`)
 }
 
 function generateNumber(skill: NumberSkill, seed: number): NumberExercise {

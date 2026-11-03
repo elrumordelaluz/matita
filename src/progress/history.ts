@@ -3,7 +3,7 @@ import {
   misconceptions,
   unknownKind,
   type Exercise,
-  type Expression,
+  type LiteralExpression,
   type GeneratedSkill,
 } from '../engine/index.ts'
 import { chronological, type Attempt } from './attempt.ts'
@@ -16,7 +16,7 @@ import { chronological, type Attempt } from './attempt.ts'
 export interface AttemptEntry {
   readonly attempt: Attempt
   /** L’esercizio ricostruito dal seme, se la ricostruzione è fedele. */
-  readonly expression: Expression | null
+  readonly expression: LiteralExpression | null
   /** La spiegazione dell’errore tipico riconosciuto, se il catalogo lo conosce. */
   readonly explanation: string | null
 }
@@ -41,7 +41,7 @@ export function latestAttempts(
 // con un’altra versione l’esercizio ricostruito sarebbe un altro, e non si
 // mostra mai uno sbagliato. Un’abilità senza generatore, arrivata da una
 // versione passata del percorso, non si può ricostruire: non è un errore.
-function rebuild(attempt: Attempt): Expression | null {
+function rebuild(attempt: Attempt): LiteralExpression | null {
   try {
     const exercise = generate(attempt.skill as GeneratedSkill, attempt.seed)
     return exercise.generatorVersion === attempt.generatorVersion
@@ -53,7 +53,7 @@ function rebuild(attempt: Attempt): Expression | null {
 }
 
 // La consegna da mostrare accanto alla risposta, secondo il tipo di risposta.
-function consegnaOf(exercise: Exercise): Expression {
+function consegnaOf(exercise: Exercise): LiteralExpression {
   switch (exercise.kind) {
     case undefined:
     case 'number':

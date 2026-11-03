@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type { ChapterId } from '../chapters.ts'
 import type { LessonProps } from './Lesson.tsx'
+import { MonomialsLesson } from './MonomialsLesson.tsx'
 import { NExpressionsLesson } from './NExpressionsLesson.tsx'
 import { PowersLesson } from './PowersLesson.tsx'
 import { QExpressionsLesson } from './QExpressionsLesson.tsx'
@@ -12,4 +13,5 @@ export const lessons: Partial<Record<ChapterId, ComponentType<LessonProps>>> = {
   z: ZExpressionsLesson,
   q: QExpressionsLesson,
   pow: PowersLesson,
+  mono: MonomialsLesson,
 }

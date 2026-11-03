@@ -6,6 +6,7 @@ import {
   negatedPower,
   power,
   type Expression,
+  type LiteralExpression,
   type Operator,
 } from './expression.ts'
 import { div, equals, mul, rational, sub, type Rational } from './rational.ts'
@@ -28,7 +29,7 @@ export interface NumericPower {
   readonly exponent: bigint
 }
 
-export function numericPower(e: Expression): NumericPower | null {
+export function numericPower(e: LiteralExpression): NumericPower | null {
   if (e.kind !== 'binary' || e.op !== '^') return null
   if (e.left.kind !== 'number' || e.right.kind !== 'number') return null
   if (e.right.value.den !== 1n) return null
@@ -41,7 +42,7 @@ export function numericPower(e: Expression): NumericPower | null {
  * un gruppo da svolgere.
  */
 export function powerOfPower(
-  e: Expression,
+  e: LiteralExpression,
 ): { readonly inner: NumericPower; readonly exponent: bigint } | null {
   if (e.kind !== 'binary' || e.op !== '^') return null
   if (e.left.kind !== 'group' || e.right.kind !== 'number') return null

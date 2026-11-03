@@ -99,4 +99,9 @@ export const skills: readonly Skill[] = [
     title: 'Espressioni con le potenze',
     prerequisites: ['pow.zero-negative', 'q.brackets'],
   },
+  {
+    id: 'mono.value',
+    title: 'Il valore numerico',
+    prerequisites: ['pow.basics', 'q.order'],
+  },
 ]
