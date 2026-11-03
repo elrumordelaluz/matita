@@ -9,6 +9,8 @@ export type SetMisconceptionId =
   | 'bound-inclusion-swapped'
   | 'natural-without-zero'
   | 'zero-not-even'
+  | 'union-intersection-swapped'
+  | 'difference-reversed'
 
 export interface SetMisconception {
   readonly id: SetMisconceptionId
@@ -36,6 +38,16 @@ export const setMisconceptions: readonly SetMisconception[] = [
     id: 'zero-not-even',
     explanation:
       'Hai lasciato fuori lo zero. Lo zero è pari, e multiplo di ogni numero: 0 = 2 × 0.',
+  },
+  {
+    id: 'union-intersection-swapped',
+    explanation:
+      'Hai scambiato l’unione con l’intersezione. A ∪ B ha gli elementi che stanno in A o in B, almeno in uno dei due; A ∩ B solo quelli che stanno in tutti e due.',
+  },
+  {
+    id: 'difference-reversed',
+    explanation:
+      'Hai calcolato B − A al posto di A − B. La differenza non è commutativa: A − B ha gli elementi di A che non stanno in B.',
   },
 ]
 

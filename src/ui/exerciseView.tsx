@@ -1,10 +1,7 @@
 import {
   answerForm,
   literal,
-  propertyToKatex,
-  propertyToText,
   readSetAnswer,
-  setToKatex,
   setToText,
   solve,
   solveSet,
@@ -15,9 +12,14 @@ import {
   type Exercise,
   type Expression,
   type Line,
-  type SetExercise,
 } from '../engine/index.ts'
-import { ExpressionFormula, Formula } from './Formula.tsx'
+import { ExpressionFormula } from './Formula.tsx'
+import {
+  SetConsegna,
+  setConsegnaText,
+  setLines,
+  setWording,
+} from './setView.tsx'
 import { setSymbolKeys, symbolKeys, type SymbolKey } from './symbolRow.ts'
 
 // Ciò che le pagine mostrano di un esercizio, secondo il suo tipo di risposta
@@ -38,10 +40,7 @@ export function wordingOf(exercise: Exercise): {
         question: 'Quanto vale?',
       }
     case 'set':
-      return {
-        task: 'Scrivi l’insieme per elencazione',
-        question: 'Quali elementi ha?',
-      }
+      return setWording(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -70,15 +69,6 @@ export function numberLine(line: Line): ShownLine {
       (step) => `${toText(step.operation)} = ${toText(step.outcome)}`,
     ),
   }
-}
-
-function setLines(exercise: SetExercise): ShownLine[] {
-  return solveSet(exercise).lines.map((line) => ({
-    tex: setToKatex(line.result),
-    text: setToText(line.result),
-    continues: true,
-    notes: [],
-  }))
 }
 
 export function solutionOf(exercise: Exercise): readonly ShownLine[] {
@@ -113,7 +103,7 @@ export function consegnaText(exercise: Exercise): string {
     case 'number':
       return toText(exercise.expression)
     case 'set':
-      return propertyToText(exercise.task.property)
+      return setConsegnaText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -179,13 +169,7 @@ export function Consegna({
     case 'number':
       return <ExpressionFormula expression={exercise.expression} {...size} />
     case 'set':
-      return (
-        <Formula
-          tex={propertyToKatex(exercise.task.property)}
-          text={propertyToText(exercise.task.property)}
-          {...size}
-        />
-      )
+      return <SetConsegna exercise={exercise} {...size} />
     default:
       return unknownKind(exercise)
   }

@@ -9,6 +9,14 @@ import {
   rosterWrongResults,
   type Property,
 } from './setRoster.ts'
+import {
+  acceptsOperations,
+  buildOperations,
+  operationsWrongResults,
+  solveOperations,
+  type SetOperationLine,
+  type OperationsTask,
+} from './setOperations.ts'
 import type { Outcome } from './verify.ts'
 
 // Gli esercizi che chiedono un insieme (SPEC.md, "Insiemi"): la consegna, la
@@ -23,31 +31,49 @@ export interface SetExercise {
   readonly task: SetTask
 }
 
-/** La consegna: la proprietà caratteristica da elencare. */
-export type SetTask = { readonly kind: 'roster'; readonly property: Property }
+/**
+ * La consegna: la proprietà caratteristica da elencare, o un'espressione di
+ * insiemi dati per elencazione.
+ */
+export type SetTask =
+  { readonly kind: 'roster'; readonly property: Property } | OperationsTask
 
 /** Una riga della soluzione di un esercizio di insiemi. */
-export type SetLine = {
-  readonly kind: 'roster'
-  /** L'insieme per elencazione, in ordine crescente. */
-  readonly result: FiniteSet
-}
+export type SetLine =
+  | {
+      readonly kind: 'roster'
+      /** L'insieme per elencazione, in ordine crescente. */
+      readonly result: FiniteSet
+    }
+  | SetOperationLine
 
 export interface SetSolution {
   readonly lines: readonly SetLine[]
   readonly result: FiniteSet
 }
 
-export function solveSet(exercise: SetExercise): SetSolution {
-  const result = rosterOf(exercise.task.property)
-  return { lines: [{ kind: 'roster', result }], result }
+export function solveSet({ task }: SetExercise): SetSolution {
+  switch (task.kind) {
+    case 'roster': {
+      const result = rosterOf(task.property)
+      return { lines: [{ kind: 'roster', result }], result }
+    }
+    case 'operations':
+      return solveOperations(task)
+  }
 }
 
 // Gli insiemi che danno le regole sbagliate sull'esercizio, dal più preciso.
-function wrongResults(
-  exercise: SetExercise,
-): { readonly id: SetMisconceptionId; readonly value: FiniteSet }[] {
-  return rosterWrongResults(exercise.task.property)
+function wrongResults({ task }: SetExercise): {
+  readonly id: SetMisconceptionId
+  readonly value: FiniteSet
+}[] {
+  switch (task.kind) {
+    case 'roster':
+      return rosterWrongResults(task.property)
+    case 'operations':
+      return operationsWrongResults(task)
+  }
 }
 
 export function verifySet(answer: string, exercise: SetExercise): Outcome {
@@ -103,6 +129,16 @@ export const setGenerators = {
     build(random) {
       const property = buildProperty(random)
       return acceptsRoster(property) ? { kind: 'roster', property } : null
+    },
+  },
+  'set.operations': {
+    version: 1,
+    build(random) {
+      const task = buildOperations(random)
+      if (!acceptsOperations(task)) return null
+      // Il vuoto come risultato una volta su tre: allena ∅ senza abusarne.
+      const empty = solveOperations(task).result.elements.length === 0
+      return empty && random.pick([true, true, false]) ? null : task
     },
   },
 } satisfies Record<string, SetGenerator>

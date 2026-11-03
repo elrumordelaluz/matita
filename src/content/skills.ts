@@ -104,4 +104,9 @@ export const skills: readonly Skill[] = [
     title: 'Dalla proprietà all’elencazione',
     prerequisites: ['n.mul-div'],
   },
+  {
+    id: 'set.operations',
+    title: 'Le operazioni fra insiemi',
+    prerequisites: ['set.roster'],
+  },
 ]

@@ -59,6 +59,47 @@ test('lo zero escluso dai pari è un errore tipico', () => {
   expect(check('{0, 2, 4, 6, 8}')).toHaveTextContent('Esatto!')
 })
 
+test('un esempio di operazioni scrive una riga per operazione, con il perché', () => {
+  lesson()
+  const name =
+    'A = {6, 7, 8, 14}, B = {2, 3, 4, 6, 10, 14}, C = {1, 4, 8, 9, 13}: (A ∪ B) ∩ C'
+  expect(rows(name)).toEqual([
+    'A ∪ B = {2, 3, 4, 6, 7, 8, 10, 14}',
+    '(A ∪ B) ∩ C = {4, 8}',
+  ])
+  const example = screen.getByRole('figure', { name: `Esempio: ${name}` })
+  expect(
+    within(example).getByText('in (A ∪ B) e in C: 4, 8'),
+  ).toBeInTheDocument()
+})
+
+test('il complementare si prende rispetto a U', () => {
+  lesson()
+  expect(
+    rows(
+      'A = {2, 4, 7, 8}, B = {2, 3, 6, 9}, U = {1, 2, 3, 4, 5, 6, 7, 8, 9}: Ā ∩ B',
+    ),
+  ).toEqual(['Ā = {1, 3, 5, 6, 9}', 'Ā ∩ B = {3, 6, 9}'])
+})
+
+test('l’unione al posto dell’intersezione è un errore tipico', () => {
+  lesson()
+  const check = question('A = {2, 3, 6, 7, 11}, B = {1, 2, 4, 6, 7, 12}: A ∩ B')
+  expect(check('{1, 2, 3, 4, 6, 7, 11, 12}')).toHaveTextContent(
+    'Hai scambiato l’unione con l’intersezione.',
+  )
+  expect(check('{7, 6, 2}')).toHaveTextContent('Esatto!')
+})
+
+test('B − A al posto di A − B è un errore tipico', () => {
+  lesson()
+  const check = question('A = {4, 11, 13}, B = {2, 5, 9, 10, 11, 15}: A − B')
+  expect(check('{2, 5, 9, 10, 15}')).toHaveTextContent(
+    'La differenza non è commutativa',
+  )
+  expect(check('{4, 13}')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica dell’elencazione', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

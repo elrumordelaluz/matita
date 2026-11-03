@@ -49,6 +49,38 @@ const parts: readonly LessonPart[] = [
     example: generate('set.roster', 12), // {x ∈ N | x ≤ 6 e x è pari}
     question: generate('set.roster', 17), // {x ∈ N | x < 10 e x è pari}
   },
+  {
+    id: 'lezione-unione-intersezione',
+    title: 'Unione e intersezione',
+    note: '∪ in almeno uno, ∩ in tutti e due',
+    text: (
+      <p>
+        L’unione A ∪ B ha gli elementi che stanno in A o in B, almeno in uno dei
+        due, scritti una volta sola. L’intersezione A ∩ B ha solo quelli che
+        stanno in tutti e due; se non ce ne sono è ∅, e A e B si dicono
+        disgiunti. Fra ∪ e ∩ non c’è un ordine delle operazioni: con più di
+        un’operazione le parentesi dicono da dove cominciare, e si parte dalla
+        più interna.
+      </p>
+    ),
+    example: generate('set.operations', 21), // (A ∪ B) ∩ C
+    question: generate('set.operations', 12), // A ∩ B
+  },
+  {
+    id: 'lezione-differenza-complementare',
+    title: 'Differenza e complementare',
+    note: 'A − B: di A, ma non di B',
+    text: (
+      <p>
+        La differenza A − B ha gli elementi di A che non stanno in B. Non è
+        commutativa: B − A è un altro insieme. Quando tutti gli insiemi stanno
+        dentro un universo U, il complementare di A, Ā, ha gli elementi di U che
+        non stanno in A: Ā = U − A. Per questo l’esercizio dice sempre chi è U.
+      </p>
+    ),
+    example: generate('set.operations', 20), // Ā ∩ B
+    question: generate('set.operations', 9), // A − B
+  },
 ]
 
 export function SetsLesson({ onPractise }: LessonProps) {
