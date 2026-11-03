@@ -16,6 +16,10 @@ export type SetMisconceptionId =
   | 'proper-subset-of-equal'
   | 'parts-as-double'
   | 'product-as-sum'
+  | 'intersection-counted-twice'
+  | 'outside-forgotten'
+  | 'only-as-at-least'
+  | 'centre-not-added-back'
 
 export interface SetMisconception {
   readonly id: SetMisconceptionId
@@ -78,6 +82,26 @@ export const setMisconceptions: readonly SetMisconception[] = [
     id: 'product-as-sum',
     explanation:
       'Hai sommato le cardinalità. Ogni elemento di A fa coppia con ogni elemento di B: le coppie sono card(A) × card(B).',
+  },
+  {
+    id: 'intersection-counted-twice',
+    explanation:
+      'Hai contato due volte chi sta in tutti e due gli insiemi. In card(A) + card(B) l’intersezione c’è due volte: card(A ∪ B) = card(A) + card(B) − card(A ∩ B).',
+  },
+  {
+    id: 'outside-forgotten',
+    explanation:
+      'Hai dato chi sta in almeno un insieme, ma la domanda chiede chi resta fuori: la regione esterna del diagramma. Si trova togliendo dal totale chi sta in almeno un insieme.',
+  },
+  {
+    id: 'only-as-at-least',
+    explanation:
+      'Hai letto “solo” come “almeno”. Chi fa almeno una cosa può fare anche le altre: per avere chi fa solo quella si tolgono le parti in comune.',
+  },
+  {
+    id: 'centre-not-added-back',
+    explanation:
+      'Il centro del diagramma, chi sta in tutti e tre, è stato tolto con ciascuna coppia e non è stato riaggiunto. Riempi il diagramma dal centro verso l’esterno, una regione alla volta.',
   },
 ]
 

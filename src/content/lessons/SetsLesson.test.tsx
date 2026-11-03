@@ -147,6 +147,33 @@ test('card(A) + card(B) per il prodotto cartesiano è un errore tipico', () => {
   expect(check('6')).toHaveTextContent('Esatto!')
 })
 
+test('un problema svolto riga per riga, con il diagramma riempito', () => {
+  lesson()
+  const name =
+    'In una classe di 50 studenti, 25 studiano inglese, 31 studiano francese e 9 non studiano nessuna delle due lingue. Quanti studiano solo inglese?'
+  expect(rows(name)).toEqual([
+    'almeno uno = 50 − 9 = 41',
+    'entrambi = 25 + 31 − 41 = 15',
+    'solo inglese = 25 − 15 = 10',
+  ])
+  const example = screen.getByRole('figure', { name: `Esempio: ${name}` })
+  const diagram = within(example).getByRole('group', {
+    name: 'Diagramma di Eulero-Venn',
+  })
+  expect(
+    within(diagram).getByRole('img', { name: 'solo inglese: 10' }),
+  ).toBeInTheDocument()
+})
+
+test('“almeno uno” al posto di “nessuno” è un errore tipico', () => {
+  lesson()
+  const check = question(
+    'In una classe di 39 studenti, 27 studiano inglese, 7 studiano solo francese e 11 studiano entrambe le lingue. Quanti non studiano nessuna delle due lingue?',
+  )
+  expect(check('34')).toHaveTextContent('la regione esterna del diagramma')
+  expect(check('5')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica dell’elencazione', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

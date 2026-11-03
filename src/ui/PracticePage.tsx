@@ -27,6 +27,7 @@ import {
   Consegna,
   keysOf,
   resultText,
+  SolutionFigure,
   solutionOf,
   stepExpression,
   wordingOf,
@@ -442,6 +443,12 @@ export function PracticePage({
           titleId={`${answerId}-solution`}
         />
         {!done && (stepMode || hints < solutionLines.length) && <NextLine />}
+        {/* Dopo l'esito, il disegno che accompagna la soluzione. */}
+        {done && (
+          <div className="mt-6">
+            <SolutionFigure exercise={exercise} shown={shownLines.length} />
+          </div>
+        )}
       </Sheet>
 
       <Panel

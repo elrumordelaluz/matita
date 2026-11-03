@@ -464,7 +464,13 @@ regioni, l'ultima riga fa la somma.
 
 Una riga ha il nome della quantità e un'espressione in N, svolta dal
 risolutore del capitolo 1 con le sue righe e i suoi passaggi: solo A =
-17 − 5 = 12. Il nome è la forma del libro, come "solo A" o "card(A ∪ B)".
+17 − 5 = 12. Il nome è la forma del libro con le parole del testo al posto
+delle lettere: "solo inglese", "entrambi", "nessuno". L'unione si chiama
+"almeno uno" anche quando è un passo verso un'altra domanda, così una
+quantità ha sempre lo stesso nome; "almeno uno" chiesto dalla domanda segue
+la formula come sul libro, e non è la somma delle regioni. Fra le strade
+possibili la soluzione sceglie la più corta, e a pari righe l'ordine del
+quaderno.
 Dopo l'esito l'interfaccia disegna il diagramma con le regioni riempite fino
 alla riga mostrata, con il nome di ogni regione come testo accessibile. I
 numeri restano piccoli: il totale fino a 60, ogni regione fino a 30.

@@ -8,6 +8,7 @@ import { equals, isInteger, rational, type Rational } from './rational.ts'
 import { verifySymbols } from './relations.ts'
 import type { SetRewriteReason } from './setAnswer.ts'
 import { countResult, countWrongResults } from './setCount.ts'
+import { vennAnswer, vennWrongResults } from './venn.ts'
 import { verifySet } from './setExercise.ts'
 import { setExplanation, type SetMisconceptionId } from './setMisconceptions.ts'
 import { solve } from './solver.ts'
@@ -190,6 +191,17 @@ export function verify(answer: string, exercise: Exercise): Outcome {
             equals(rational(w.value), value),
           )?.id,
         ),
+      )
+    case 'problem':
+      return verifyValue(
+        answer,
+        rational(vennAnswer(exercise.problem)),
+        (value) =>
+          setRecognised(
+            vennWrongResults(exercise.problem).find((w) =>
+              equals(rational(w.value), value),
+            )?.id,
+          ),
       )
     default:
       return unknownKind(exercise)

@@ -119,4 +119,9 @@ export const skills: readonly Skill[] = [
     title: 'Insieme delle parti e prodotto cartesiano',
     prerequisites: ['set.operations', 'pow.basics'],
   },
+  {
+    id: 'set.venn2',
+    title: 'Problemi con due insiemi',
+    prerequisites: ['set.operations', 'n.parens'],
+  },
 ]

@@ -35,6 +35,13 @@ import {
   setWording,
 } from './setView.tsx'
 import { setSymbolKeys, symbolKeys, type SymbolKey } from './symbolRow.ts'
+import {
+  ProblemConsegna,
+  problemConsegnaText,
+  problemLines,
+  problemResultText,
+  VennDiagram,
+} from './vennView.tsx'
 
 // Ciò che le pagine mostrano di un esercizio, secondo il suo tipo di risposta
 // (SPEC.md, "Tipi di risposta"): la consegna, le parole che la presentano, la
@@ -62,6 +69,8 @@ export function wordingOf(exercise: Exercise): {
       }
     case 'count':
       return { task: 'Conta gli elementi', question: 'Quanti elementi ha?' }
+    case 'problem':
+      return { task: 'Risolvi il problema', question: 'Quanti sono?' }
     default:
       return unknownKind(exercise)
   }
@@ -103,6 +112,8 @@ export function solutionOf(exercise: Exercise): readonly ShownLine[] {
       return relationLines(exercise)
     case 'count':
       return countLines(exercise)
+    case 'problem':
+      return problemLines(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -120,6 +131,8 @@ export function resultText(exercise: Exercise): string {
       return relationsResultText(exercise)
     case 'count':
       return countResultText(exercise)
+    case 'problem':
+      return problemResultText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -137,6 +150,8 @@ export function consegnaText(exercise: Exercise): string {
       return relationsConsegnaText(exercise)
     case 'count':
       return countConsegnaText(exercise)
+    case 'problem':
+      return problemConsegnaText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -154,6 +169,7 @@ export function stepExpression(exercise: Exercise): Expression | null {
     case 'set':
     case 'symbols':
     case 'count':
+    case 'problem':
       return null
     default:
       return unknownKind(exercise)
@@ -169,6 +185,7 @@ export function answerPreview(
     case undefined:
     case 'number':
     case 'count':
+    case 'problem':
       return answerForm(answer)
     case 'set': {
       const reading = readSetAnswer(answer)
@@ -187,6 +204,7 @@ export function keysOf(exercise: Exercise): readonly SymbolKey[] {
     case undefined:
     case 'number':
     case 'count':
+    case 'problem':
       return symbolKeys
     case 'set':
       return setSymbolKeys
@@ -215,6 +233,9 @@ export function Consegna({
       return <RelationsConsegna exercise={exercise} {...size} />
     case 'count':
       return <CountConsegna exercise={exercise} {...size} />
+    case 'problem':
+      // Il testo ha la sua misura: quella delle formule sarebbe troppa.
+      return <ProblemConsegna exercise={exercise} />
     default:
       return unknownKind(exercise)
   }
@@ -230,6 +251,7 @@ export function answerMode(exercise: Exercise): 'text' | 'symbols' {
     case 'number':
     case 'set':
     case 'count':
+    case 'problem':
       return 'text'
     case 'symbols':
       return 'symbols'
@@ -266,4 +288,19 @@ export function AnswerChoices({
       disabled={disabled}
     />
   )
+}
+
+/**
+ * Ciò che accompagna la soluzione dopo l'esito, se il tipo lo ha: per un
+ * problema il diagramma, con le regioni riempite fino alla riga `shown`.
+ */
+export function SolutionFigure({
+  exercise,
+  shown,
+}: {
+  exercise: Exercise
+  shown: number
+}) {
+  if (exercise.kind !== 'problem') return null
+  return <VennDiagram problem={exercise.problem} shown={shown} />
 }

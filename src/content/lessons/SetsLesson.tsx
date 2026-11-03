@@ -128,6 +128,30 @@ const parts: readonly LessonPart[] = [
     example: generate('set.parts-product', 0), // A = {3, 4, 9}: card(℘(A))
     question: generate('set.parts-product', 13), // card(A × B)
   },
+  {
+    id: 'lezione-venn-due',
+    title: 'Problemi con due insiemi',
+    note: 'card(A ∪ B) = card(A) + card(B) − card(A ∩ B)',
+    text: (
+      <>
+        <p>
+          Un problema dà alcuni numeri e ne chiede un altro. Si disegnano due
+          cerchi dentro un rettangolo, l’universo: il diagramma ha quattro
+          regioni, solo A, solo B, entrambi e nessuno, fuori dai cerchi. Si
+          riempie una regione alla volta, ogni volta con un conto che ha una
+          sola incognita: prima l’intersezione, poi solo A, solo B, l’esterno.
+        </p>
+        <p>
+          Attenzione a chi sta in tutti e due: in card(A) + card(B) è contato
+          due volte, quindi chi sta in almeno uno dei due è card(A) + card(B) −
+          card(A ∩ B). “Solo A” non è “almeno A”, e chi non sta in nessuno dei
+          due è il totale meno chi sta in almeno uno.
+        </p>
+      </>
+    ),
+    example: generate('set.venn2', 1), // 50 studenti, 9 nessuna lingua
+    question: generate('set.venn2', 5), // quanti nessuna lingua?
+  },
 ]
 
 export function SetsLesson({ onPractise }: LessonProps) {

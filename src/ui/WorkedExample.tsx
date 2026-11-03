@@ -11,7 +11,12 @@ import {
   type Rule,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import { Consegna, consegnaText, solutionOf } from './exerciseView.tsx'
+import {
+  Consegna,
+  consegnaText,
+  SolutionFigure,
+  solutionOf,
+} from './exerciseView.tsx'
 import { ExpressionFormula, Formula } from './Formula.tsx'
 import { Button, Eyebrow, Note, Sheet } from './kit.tsx'
 import { markedSteps, type MarkedStep } from './lesson/steps.ts'
@@ -62,6 +67,15 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
     case 'symbols':
     case 'count':
       return <LinesWorkedExample exercise={exercise} />
+    case 'problem':
+      return (
+        <LinesWorkedExample exercise={exercise}>
+          <SolutionFigure
+            exercise={exercise}
+            shown={solutionOf(exercise).length}
+          />
+        </LinesWorkedExample>
+      )
     default:
       return unknownKind(exercise)
   }

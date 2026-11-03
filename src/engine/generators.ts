@@ -19,6 +19,7 @@ import {
 import { seededRandom, type Random } from './random.ts'
 import { generateRelations, type SymbolsExercise } from './relations.ts'
 import { generateCount, type CountExercise } from './setCount.ts'
+import { generateVenn, type ProblemExercise } from './venn.ts'
 import { rational, type Rational } from './rational.ts'
 import {
   generateSet,
@@ -39,7 +40,11 @@ import { solve, type Solution } from './solver.ts'
  * passa inosservato.
  */
 export type Exercise =
-  NumberExercise | SetExercise | SymbolsExercise | CountExercise
+  | NumberExercise
+  | SetExercise
+  | SymbolsExercise
+  | CountExercise
+  | ProblemExercise
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
@@ -691,7 +696,11 @@ const generators = {
 export type NumberSkill = keyof typeof generators
 
 /** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill | SetSkill | SymbolsSkill | CountSkill
+export type GeneratedSkill =
+  NumberSkill | SetSkill | SymbolsSkill | CountSkill | ProblemSkill
+
+/** Le abilità i cui esercizi sono problemi con il diagramma di Eulero-Venn. */
+export type ProblemSkill = ProblemExercise['skill']
 
 /** Le abilità i cui esercizi chiedono di contare gli elementi. */
 export type CountSkill = CountExercise['skill']
@@ -740,11 +749,13 @@ export function generate(skill: NumberSkill, seed: number): NumberExercise
 export function generate(skill: SetSkill, seed: number): SetExercise
 export function generate(skill: SymbolsSkill, seed: number): SymbolsExercise
 export function generate(skill: CountSkill, seed: number): CountExercise
+export function generate(skill: ProblemSkill, seed: number): ProblemExercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
   if (isSetSkill(skill)) return generateSet(skill, seed)
   if (skill === 'set.relations') return generateRelations(seed)
   if (skill === 'set.parts-product') return generateCount(seed)
+  if (skill === 'set.venn2') return generateVenn(skill, seed)
   return generateNumber(skill, seed)
 }
 
