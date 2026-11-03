@@ -53,6 +53,7 @@ const ruleNote: Record<Rule, string> = {
   'monomial-quotient': 'coefficienti divisi, esponenti sottratti',
   'monomial-power': 'si eleva il coefficiente, gli esponenti si moltiplicano',
   'like-terms': 'i simili: si sommano i coefficienti, le lettere restano',
+  'minus-group': 'il meno cambia il segno di ogni termine',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',

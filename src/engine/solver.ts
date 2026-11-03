@@ -9,6 +9,7 @@ import {
   type Expression,
   type LiteralExpression,
   type Operator,
+  type Path,
 } from './expression.ts'
 import {
   applyFirstProperty,
@@ -49,6 +50,11 @@ export type Rule =
   | 'monomial-power'
   /** Un gruppo di termini simili ridotto a uno: 9x + 5x − 10x + x = 5x. */
   | 'like-terms'
+  /**
+   * Il meno davanti a un polinomio fra parentesi: le parentesi cadono e ogni
+   * termine cambia segno, −(2a − b) = −2a + b.
+   */
+  | 'minus-group'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */
@@ -73,6 +79,13 @@ export interface Step<V extends Value = Value> {
   readonly expression: LiteralExpression
   /** Nella riga della sostituzione, la lettera che prende il valore `result`. */
   readonly letter?: string
+  /**
+   * La posizione del pezzo svolto nell'espressione prima del passaggio,
+   * quando il passaggio cambia la forma della somma intorno: i termini di
+   * −(2a − b) entrano nella somma, e il confronto fra prima e dopo non
+   * basta a dire dove si è lavorato.
+   */
+  readonly path?: Path
 }
 
 /** Un conto fra due numeri, il passaggio dei capitoli 1-4. */
@@ -201,9 +214,6 @@ function reduceFirst(e: Expression, level: Level): Reduction | null {
     return { ...right, expression: binary(e.op, e.left, right.expression) }
   return null
 }
-
-// Un percorso dalla radice a un nodo dell'albero.
-type Path = readonly ('left' | 'right' | 'inner')[]
 
 function at(e: Expression, path: Path): Expression {
   const [head, ...rest] = path

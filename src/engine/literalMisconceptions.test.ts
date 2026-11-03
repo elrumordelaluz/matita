@@ -100,3 +100,29 @@ describe('somma algebrica di monomi', () => {
     )
   })
 })
+
+describe('somma algebrica di polinomi', () => {
+  test('il meno davanti alla parentesi senza cambiare i segni: −(a − b) = −a − b', () => {
+    expect(recognised('5a − (2a − b)', '3a − b')).toBe('minus-group-signs-kept')
+    expect(
+      recognised('(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2)', '2y³ + 2y² + 5y + 3'),
+    ).toBe('minus-group-signs-kept')
+    // Anche con il meno davanti al primo gruppo.
+    expect(recognised('−(a − 2b) + 3a', '2a − 2b')).toBe(
+      'minus-group-signs-kept',
+    )
+  })
+
+  test('dopo il più le parentesi non cambiano niente', () => {
+    const e = parseLiteralExpression('3a + (2a − b)')
+    expect(
+      isVisibleLiteral('minus-group-signs-kept', e, polynomialValue(e)),
+    ).toBe(false)
+  })
+
+  test('la spiegazione è quella dei numeri', () => {
+    expect(misconceptionExplanation('minus-group-signs-kept')).toContain(
+      'cambia il segno di ogni termine',
+    )
+  })
+})

@@ -311,3 +311,42 @@ describe('mono.expressions', () => {
     expectLiteralLimits('mono.expressions')
   })
 })
+
+const stepsOf = (skill: PolynomialSkill, seed: number) =>
+  solveLiteral(generate(skill, seed).expression).lines.map((l) =>
+    l.steps.map((s) => s.rule),
+  )
+
+describe('poly.add-sub', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.add-sub', 42)).toEqual(generate('poly.add-sub', 42))
+  })
+
+  test('prima cadono le parentesi, con il meno almeno una volta; poi i simili', () => {
+    for (const seed of seeds) {
+      const [first, second, ...rest] = stepsOf('poly.add-sub', seed)
+      expect(first, `seme ${seed}`).toContain('minus-group')
+      expect(
+        second?.every((r) => r === 'like-terms'),
+        `seme ${seed}`,
+      ).toBe(true)
+      expect(rest, `seme ${seed}`).toEqual([])
+    }
+  })
+
+  test('il risultato non è zero e ha al massimo sei termini', () => {
+    for (const seed of seeds) {
+      const { result } = solveLiteral(generate('poly.add-sub', seed).expression)
+      expect(result.size, `seme ${seed}`).toBeGreaterThan(0)
+      expect(result.size, `seme ${seed}`).toBeLessThanOrEqual(6)
+    }
+  })
+
+  test('i segni lasciati dentro la parentesi cambiano sempre il risultato', () => {
+    expectVisibleLiteral('poly.add-sub', ['minus-group-signs-kept'])
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.add-sub')
+  })
+})

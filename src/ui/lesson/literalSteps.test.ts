@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest'
-import { generate, type PolynomialSkill } from '../../engine/index.ts'
+import {
+  generate,
+  parseLiteralExpression,
+  solveLiteral,
+  toText,
+  type PolynomialSkill,
+} from '../../engine/index.ts'
 import { expressionLines } from '../exerciseView.tsx'
 import { markedSteps } from './steps.ts'
 
@@ -13,6 +19,7 @@ const skills: readonly PolynomialSkill[] = [
   'mono.power',
   'mono.add-sub',
   'mono.expressions',
+  'poly.add-sub',
 ]
 
 test('ogni passaggio di un esercizio dei monomi ha il suo pezzo evidenziato', () => {
@@ -23,6 +30,16 @@ test('ogni passaggio di un esercizio dei monomi ha il suo pezzo evidenziato', ()
       for (const step of marked.flat())
         expect(step.tex, `${skill} ${seed}`).toContain('\\htmlClass')
     }
+})
+
+test('il meno davanti a un polinomio evidenzia il gruppo, anche se la somma cambia forma', () => {
+  const start = parseLiteralExpression('(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2)')
+  const [first, second] = markedSteps(start, solveLiteral(start).lines)
+  expect(first?.map((s) => toText(s.target))).toEqual(['(2y³ + 2y² + 2y − 2)'])
+  // Le parentesi dopo il più cadono a fine riga: la riga dopo parte da lì.
+  expect(second?.[0] && toText(second[0].before)).toBe(
+    '4y³ + 3y + 5 − 2y³ − 2y² − 2y + 2',
+  )
 })
 
 test('anche la riga della sostituzione', () => {

@@ -40,7 +40,10 @@ export interface LiteralSolution {
   readonly result: Polynomial
 }
 
-type Level = 'power' | 'mul-div' | 'add-sub'
+// Fra × e : e la riduzione dei simili c'è il giro in cui cadono le
+// parentesi intorno ai polinomi: dopo il più cadono e basta, dopo il meno
+// cambiando il segno di ogni termine.
+type Level = 'power' | 'mul-div' | 'groups' | 'add-sub'
 
 const levelOf = (op: Operator): Level => {
   if (isPower(op)) return 'power'
@@ -50,6 +53,11 @@ const levelOf = (op: Operator): Level => {
 interface Reduction {
   readonly expression: LiteralExpression
   readonly step: Omit<LiteralStep, 'expression'>
+  /**
+   * Dove sta il pezzo svolto, dentro l'ambito, quando il passaggio cambia
+   * la forma della somma intorno.
+   */
+  readonly at?: Path
 }
 
 /** Un valore già scritto: un numero o un monomio. */
@@ -305,12 +313,111 @@ function reduceLikeTerms(e: LiteralExpression): Reduction | null {
   }
 }
 
-const levels: readonly Level[] = ['power', 'mul-div', 'add-sub']
+// Le parentesi intorno a un polinomio. Un gruppo che non si riduce a un
+// numero o a un monomio resta fra parentesi finché il suo interno non è in
+// forma normale; poi le parentesi cadono nel giro di + e − dell'ambito
+// intorno. Vedi SPEC.md, "Calcolo letterale", "Risolutore".
+
+/**
+ * Una somma di almeno due termini in forma normale: numeri e monomi con
+ * lettere diverse, nessun simile.
+ */
+function isNormalSum(e: LiteralExpression): boolean {
+  const terms = sumTerms(e)
+  if (terms.length < 2) return false
+  const keys = terms.map((t) =>
+    t.node.kind === 'monomial' && !inNormalForm(t.node) ? null : likeKey(t),
+  )
+  return keys.every((k) => k !== null) && new Set(keys).size === keys.length
+}
+
+/** Un polinomio in forma normale fra parentesi: non c'è più niente da svolgere dentro. */
+function isPolynomialGroup(
+  e: LiteralExpression,
+): e is Extract<LiteralExpression, { kind: 'group' }> {
+  return e.kind === 'group' && !isNegatedPower(e) && isNormalSum(e.inner)
+}
+
+// Il gruppo preceduto dal meno, nella somma o con il meno suo: −(a − b).
+const afterMinus = (t: SignedTerm) =>
+  isPolynomialGroup(t.node) && t.minus !== (t.node.negated === true)
+
+const afterPlus = (t: SignedTerm) =>
+  isPolynomialGroup(t.node) && !t.minus && t.node.negated !== true
+
+// Un termine scritto come sul libro: un monomio positivo con il segno
+// davanti, −2a come il meno davanti a 2a.
+function signedLeaf({ minus, node }: SignedTerm): SignedTerm {
+  return isNegativeLeaf(node)
+    ? { minus: !minus, node: opposite(node) }
+    : { minus, node }
+}
+
+// I termini dentro un gruppo, ciascuno con il suo segno.
+const innerTerms = (g: LiteralExpression): SignedTerm[] =>
+  g.kind === 'group' ? sumTerms(g.inner).map(signedLeaf) : []
+
+// La posizione del termine `i` in una somma di `n` termini, associata a
+// sinistra: il primo è il più in fondo al ramo sinistro.
+function termPath(n: number, i: number): Path {
+  const lefts = (k: number): Path => Array.from({ length: k }, () => 'left')
+  return i === 0 ? lefts(n - 1) : [...lefts(n - 1 - i), 'right']
+}
+
+// Il primo polinomio preceduto dal meno: le parentesi cadono e ogni termine
+// cambia segno, 5a − (2a − b) = 5a − 2a + b.
+function dropMinusGroup(e: LiteralExpression): Reduction | null {
+  const terms = sumTerms(e)
+  const i = terms.findIndex(afterMinus)
+  const term = terms[i]
+  if (!term || term.node.kind !== 'group') return null
+  const { inner } = term.node
+  const opposites = innerTerms(term.node).map((t) => ({
+    ...t,
+    minus: !t.minus,
+  }))
+  const value = polynomialValue(inner)
+  return {
+    expression: sumOf([
+      ...terms.slice(0, i),
+      ...opposites,
+      ...terms.slice(i + 1),
+    ]),
+    step: {
+      rule: 'minus-group',
+      operands: [value],
+      result: negatePolynomial(value),
+      operation: group('round', inner, { negated: true }),
+      outcome: sumOf(opposites),
+    },
+    at: termPath(terms.length, i),
+  }
+}
+
+// Dopo il più le parentesi cadono e basta, senza un passaggio: alla fine
+// della riga, così ogni passaggio della riga parte dall'espressione che lo
+// precede.
+function dropPlusGroups(e: LiteralExpression): LiteralExpression {
+  const terms = sumTerms(e)
+  if (!terms.some(afterPlus)) return e
+  return sumOf(terms.flatMap((t) => (afterPlus(t) ? innerTerms(t.node) : [t])))
+}
+
+const hasPolynomialGroup = (e: LiteralExpression) =>
+  sumTerms(e).some((t) => isPolynomialGroup(t.node))
+
+const levels: readonly Level[] = ['power', 'mul-div', 'groups', 'add-sub']
 
 // Il primo passaggio del giro, da sinistra.
 function reduceLevel(e: LiteralExpression, level: Level): Reduction | null {
+  if (level === 'groups') return dropMinusGroup(e)
   return level === 'add-sub' ? reduceLikeTerms(e) : reduceFirst(e, level)
 }
+
+// Il giro che ha qualcosa da fare: nel giro dei gruppi anche solo parentesi
+// che cadono dopo il più.
+const hasWork = (e: LiteralExpression, level: Level) =>
+  level === 'groups' ? hasPolynomialGroup(e) : reduceLevel(e, level) !== null
 
 // Gli ambiti: si lavora dentro i gruppi più interni, o sull'intera
 // espressione se non ce ne sono, come con i numeri.
@@ -334,13 +441,15 @@ function replace(
   throw new Error('Percorso non valido')
 }
 
-// Un gruppo da svolgere: non il meno davanti a una potenza, −3a², e non il
-// meno davanti a un monomio, −(−2a), che è un cambio di segno.
+// Un gruppo da svolgere: non il meno davanti a una potenza, −3a², non il
+// meno davanti a un monomio, −(−2a), che è un cambio di segno, e non un
+// polinomio in forma normale, che aspetta l'ambito intorno.
 function isOpenGroup(e: LiteralExpression): boolean {
   return (
     e.kind === 'group' &&
     !isNegatedPower(e) &&
-    !(e.negated === true && isLeaf(e.inner))
+    !(e.negated === true && isLeaf(e.inner)) &&
+    !isPolynomialGroup(e)
   )
 }
 
@@ -379,14 +488,18 @@ function settle(e: LiteralExpression, target: Path): LiteralExpression {
 }
 
 // Svolge un giro dentro un ambito: le potenze, poi × e :, poi i simili.
+// `plusGroups` raccoglie gli ambiti in cui, a fine riga, cadono le
+// parentesi dopo il più.
 function solveScope(
   e: LiteralExpression,
   target: Path,
   steps: LiteralStep[],
+  plusGroups: Path[],
 ): LiteralExpression {
   const inGroup = isOpenGroup(nodeAt(e, target))
   const scope: Path = inGroup ? [...target, 'inner'] : target
-  const level = levels.find((l) => reduceLevel(nodeAt(e, scope), l) !== null)
+  const level = levels.find((l) => hasWork(nodeAt(e, scope), l))
+  if (level === 'groups') plusGroups.push(scope)
   let current = settle(e, target)
   for (;;) {
     // Il gruppo è caduto: l'ambito non c'è più.
@@ -397,16 +510,27 @@ function solveScope(
       positiveTerms(replace(current, scope, reduction.expression)),
       target,
     )
-    steps.push({ ...reduction.step, expression: current })
+    const { at } = reduction
+    steps.push({
+      ...reduction.step,
+      expression: current,
+      ...(at && { path: [...scope, ...at] }),
+    })
   }
 }
 
 // Una riga: in ogni ambito il primo giro che ha qualcosa da fare.
 function solveLevel(e: LiteralExpression): Line<LiteralStep> {
   const steps: LiteralStep[] = []
+  const plusGroups: Path[] = []
   const targets = hasGroup(e) ? innermostGroups(e) : [[]]
   let current = e
-  for (const target of targets) current = solveScope(current, target, steps)
+  for (const target of targets)
+    current = solveScope(current, target, steps, plusGroups)
+  for (const scope of plusGroups)
+    current = positiveTerms(
+      replace(current, scope, dropPlusGroups(nodeAt(current, scope))),
+    )
   return { expression: current, steps }
 }
 

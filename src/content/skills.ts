@@ -159,4 +159,9 @@ export const skills: readonly Skill[] = [
     title: 'Espressioni con i monomi',
     prerequisites: ['mono.add-sub', 'mono.power', 'q.brackets'],
   },
+  {
+    id: 'poly.add-sub',
+    title: 'Somma algebrica di polinomi',
+    prerequisites: ['mono.add-sub'],
+  },
 ]

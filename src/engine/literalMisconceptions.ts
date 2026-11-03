@@ -1,4 +1,8 @@
-import { isAddSub, type LiteralExpression } from './expression.ts'
+import {
+  isAddSub,
+  isNegatedPower,
+  type LiteralExpression,
+} from './expression.ts'
 import { sumTerms } from './literalSolver.ts'
 import { misconceptions, type MisconceptionId } from './misconceptions.ts'
 import {
@@ -44,6 +48,11 @@ interface Rules {
   readonly power: (m: Monomial, exponent: bigint) => Monomial
   /** La somma algebrica dei termini, ciascuno con il suo segno. */
   readonly sum: (terms: readonly Term[]) => Polynomial
+  /** Il gruppo preceduto dal meno, −(a − b), dai termini che ha dentro. */
+  readonly minusGroup: (
+    terms: readonly Term[],
+    sum: (terms: readonly Term[]) => Polynomial,
+  ) => Polynomial
 }
 
 /** Un termine di una somma: il suo valore con il segno e come è scritto. */
@@ -60,6 +69,7 @@ const correctRules: Rules = {
   quotient: divideMonomials,
   power: raiseMonomial,
   sum: correctSum,
+  minusGroup: (terms, sum) => negatePolynomial(sum(terms)),
 }
 
 function product(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
@@ -81,6 +91,43 @@ function quotient(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
   return polynomialOf(terms)
 }
 
+// Un gruppo di più termini preceduto dal meno: dopo il − di una somma, o con
+// il meno suo all'inizio, −(a − b).
+function afterMinus(
+  minus: boolean,
+  node: LiteralExpression,
+): node is Extract<LiteralExpression, { kind: 'group' }> {
+  return (
+    node.kind === 'group' &&
+    !isNegatedPower(node) &&
+    minus !== (node.negated === true) &&
+    sumTerms(node.inner).length > 1
+  )
+}
+
+// I termini di una somma, ciascuno con il suo segno.
+function termsOf(e: LiteralExpression, rules: Rules): Term[] {
+  return sumTerms(e).map(({ minus, node }) => {
+    if (afterMinus(minus, node))
+      return {
+        value: rules.minusGroup(termsOf(node.inner, rules), rules.sum),
+        written: node,
+      }
+    const value = evaluate(node, rules)
+    return { value: minus ? negatePolynomial(value) : value, written: node }
+  })
+}
+
+// −(a − b) come −a − b: il meno tocca solo il primo termine.
+function signsKept(
+  terms: readonly Term[],
+  sum: (terms: readonly Term[]) => Polynomial,
+): Polynomial {
+  const [first, ...rest] = terms
+  if (!first) return zeroPolynomial
+  return sum([{ ...first, value: negatePolynomial(first.value) }, ...rest])
+}
+
 function evaluate(e: LiteralExpression, rules: Rules): Polynomial {
   switch (e.kind) {
     case 'number':
@@ -97,16 +144,7 @@ function evaluate(e: LiteralExpression, rules: Rules): Polynomial {
       return e.negated ? negatePolynomial(inner) : inner
     }
     case 'binary': {
-      if (isAddSub(e.op))
-        return rules.sum(
-          sumTerms(e).map(({ minus, node }) => {
-            const value = evaluate(node, rules)
-            return {
-              value: minus ? negatePolynomial(value) : value,
-              written: node,
-            }
-          }),
-        )
+      if (isAddSub(e.op)) return rules.sum(termsOf(e, rules))
       const left = evaluate(e.left, rules)
       if (e.op === '^') {
         if (e.right.kind !== 'number' || e.right.value.den !== 1n)
@@ -261,6 +299,11 @@ const explanationOfNumbers = (id: MisconceptionId): string =>
   misconceptions.find((m) => m.id === id)?.explanation ?? ''
 
 export const literalMisconceptions: readonly LiteralMisconception[] = [
+  {
+    id: 'minus-group-signs-kept',
+    explanation: explanationOfNumbers('minus-group-signs-kept'),
+    wrongResults: (e) => attempt(e, { ...correctRules, minusGroup: signsKept }),
+  },
   {
     id: 'implicit-coefficient-zero',
     explanation:

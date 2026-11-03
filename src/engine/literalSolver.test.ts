@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { parseLiteralExpression, toText } from './expression.ts'
 import { solveLiteral, type LiteralSolution } from './literalSolver.ts'
-import { polynomialExpression } from './polynomial.ts'
+import {
+  equalPolynomials,
+  polynomialExpression,
+  polynomialValue,
+} from './polynomial.ts'
 
 // Il risolutore del calcolo letterale: SPEC.md, "Calcolo letterale",
 // "Risolutore". Gli esempi vengono da Bergamini, cap. 6.
@@ -267,5 +271,72 @@ describe('espressioni con i monomi', () => {
       '36a⁴ : 4a³',
       '9a',
     ])
+  })
+})
+
+describe('le parentesi intorno a un polinomio', () => {
+  const lines = (text: string) =>
+    solved(text).lines.map((l) => toText(l.expression))
+
+  // Bergamini, Matematica multimediale.rosso, cap. 5: somma di polinomi. I
+  // termini restano nell'ordine di prima comparsa; il libro scrive
+  // 2y³ − 2y² + y + 7, lo stesso polinomio.
+  test('(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2) = 2y³ − 2y² + y + 7', () => {
+    const text = '(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2)'
+    expect(rows(solved(text))).toEqual([
+      {
+        line: '4y³ + 3y + 5 − 2y³ − 2y² − 2y + 2',
+        steps: ['−(2y³ + 2y² + 2y − 2) = −2y³ − 2y² − 2y + 2 (minus-group)'],
+      },
+      {
+        line: '2y³ + y + 7 − 2y²',
+        steps: [
+          '4y³ − 2y³ = 2y³ (like-terms)',
+          '3y − 2y = y (like-terms)',
+          '5 + 2 = 7 (like-terms)',
+        ],
+      },
+    ])
+    expect(
+      equalPolynomials(
+        solved(text).result,
+        polynomialValue(parseLiteralExpression('2y³ − 2y² + y + 7')),
+      ),
+    ).toBe(true)
+  })
+
+  test('dopo il meno le parentesi cadono cambiando il segno di ogni termine: 5a − (2a − b) = 5a − 2a + b', () => {
+    expect(rows(solved('5a − (2a − b)'))).toEqual([
+      { line: '5a − 2a + b', steps: ['−(2a − b) = −2a + b (minus-group)'] },
+      { line: '3a + b', steps: ['5a − 2a = 3a (like-terms)'] },
+    ])
+  })
+
+  test('dopo il più le parentesi cadono e basta, senza passaggio', () => {
+    expect(lines('3a + (2a − b)')).toEqual(['5a − b'])
+    expect(lines('(a + b) − (a − b)')).toEqual(['a + b − a + b', '2b'])
+  })
+
+  test('il meno davanti al primo gruppo', () => {
+    expect(rows(solved('−(a − 2b) + 3a'))).toEqual([
+      { line: '−a + 2b + 3a', steps: ['−(a − 2b) = −a + 2b (minus-group)'] },
+      { line: '2a + 2b', steps: ['−a + 3a = 2a (like-terms)'] },
+    ])
+  })
+
+  test('prima si svolge il dentro, poi le parentesi cadono', () => {
+    expect(lines('7x − (3x + 2y − x)')).toEqual([
+      '7x − (2x + 2y)',
+      '7x − 2x − 2y',
+      '5x − 2y',
+    ])
+  })
+
+  test('il passaggio porta il polinomio e il suo opposto', () => {
+    const [step] = solved('5a − (2a − b)').lines[0]?.steps ?? []
+    expect(step?.operands.map((p) => toText(polynomialExpression(p)))).toEqual([
+      '2a − b',
+    ])
+    expect(step && toText(polynomialExpression(step.result))).toBe('−2a + b')
   })
 })

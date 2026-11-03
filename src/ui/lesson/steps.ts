@@ -96,8 +96,12 @@ const hole = num(10n ** 30n)
 function mark(before: LiteralExpression, step: Step): MarkedStep {
   // La sostituzione mette il valore in ogni posto della lettera: il pezzo
   // svolto è tutta l'espressione.
+  // Quando il passaggio cambia la forma della somma intorno, il motore dice
+  // dove ha lavorato.
   const path =
-    step.rule === 'substitution' ? [] : changed(before, step.expression)
+    step.rule === 'substitution'
+      ? []
+      : (step.path ?? changed(before, step.expression))
   if (!path) throw new Error('Passaggio senza cambiamenti')
   let bracket: Bracket | null = null
   let target = before
@@ -112,10 +116,12 @@ function mark(before: LiteralExpression, step: Step): MarkedStep {
     if (d !== 'left') leading = d === 'inner'
   }
   // Nel cambio di segno, −(−4), le parentesi spariscono con il meno: non si
-  // lavora dentro di loro. In −3² le parentesi non ci sono.
+  // lavora dentro di loro, e così davanti a un polinomio, −(2a − b). In −3²
+  // le parentesi non ci sono.
   const settles =
     target.kind === 'group' &&
     step.rule !== 'change-sign' &&
+    step.rule !== 'minus-group' &&
     step.rule !== 'minus-power'
   if (settles && target.kind === 'group') bracket = target.bracket
   const tex = toKatex(put(before, path, hole)).replace(
@@ -132,11 +138,15 @@ export function markedSteps(
   lines: readonly Line[],
 ): MarkedStep[][] {
   let before = start
-  return lines.map((line) =>
-    line.steps.map((step) => {
+  return lines.map((line) => {
+    const marked = line.steps.map((step) => {
       const marked = mark(before, step)
       before = step.expression
       return marked
-    }),
-  )
+    })
+    // Una riga può finire togliendo parentesi senza un passaggio, come dopo
+    // il più: la riga dopo parte dalla riga scritta.
+    before = line.expression
+    return marked
+  })
 }

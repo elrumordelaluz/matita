@@ -586,6 +586,119 @@ function writtenWithin(e: LiteralExpression): boolean {
   return writtenWithin(e.left) && writtenWithin(e.right)
 }
 
+// I polinomi del capitolo 7. Una lettera con le sue potenze e il termine
+// noto, come 4y³ + 3y + 5, oppure due lettere con termini di grado al più 2,
+// come 2a² − ab + b.
+
+const polynomialLetters = [['x'], ['y'], ['a'], ['a', 'b'], ['x', 'y']] as const
+
+function polynomialParts(letters: readonly string[]): LetterPart[] {
+  const [x = 'x', y] = letters
+  if (!y) return [[[x, 3n]], [[x, 2n]], [[x, 1n]], []]
+  return [
+    [[x, 2n]],
+    [
+      [x, 1n],
+      [y, 1n],
+    ],
+    [[y, 2n]],
+    [[x, 1n]],
+    [[y, 1n]],
+  ]
+}
+
+// Coefficienti interi fino a 9, 1 spesso; a volte mezzi e terzi.
+const polynomialIntegers = [1n, 1n, 2n, 2n, 3n, 3n, 4n, 5n, 6n, 7n, 8n, 9n]
+const polynomialFractions = [
+  rational(1n, 2n),
+  rational(3n, 2n),
+  rational(1n, 3n),
+  rational(2n, 3n),
+  rational(1n),
+  rational(2n),
+]
+
+/** Un termine con il segno: il coefficiente, anche negativo, e la parte letterale. */
+interface PolynomialTerm {
+  readonly coefficient: Rational
+  readonly part: LetterPart
+}
+
+// Da due a quattro termini con parti letterali diverse, ciascuno con il suo
+// segno, nell'ordine di `parts`: per grado decrescente, come li scrive il
+// libro.
+function polynomialTerms(
+  random: Random,
+  parts: readonly LetterPart[],
+  fractions: boolean,
+  count: number,
+): PolynomialTerm[] {
+  const chosen = new Set<number>()
+  while (chosen.size < Math.min(count, parts.length))
+    chosen.add(Number(random.int(0n, BigInt(parts.length - 1))))
+  return [...chosen]
+    .sort((a, b) => a - b)
+    .map((i) => {
+      const magnitude = fractions
+        ? random.pick(polynomialFractions)
+        : rational(random.pick(polynomialIntegers))
+      const sign = random.pick([1n, 1n, -1n])
+      return {
+        coefficient: rational(sign * magnitude.num, magnitude.den),
+        part: parts[i] ?? [],
+      }
+    })
+}
+
+// Un termine come lo scrive il libro: un numero o un monomio, positivo.
+function termNode(t: PolynomialTerm): LiteralExpression {
+  const { num, den } = t.coefficient
+  const magnitude = rational(num < 0n ? -num : num, den)
+  return t.part.length === 0 ? literal(magnitude) : monomial(magnitude, t.part)
+}
+
+/** La somma dei termini, con + e − fra monomi positivi e il primo con il suo segno. */
+function sumExpression(terms: readonly PolynomialTerm[]): LiteralExpression {
+  const [first, ...rest] = terms
+  if (!first) throw new RangeError('Nessun termine')
+  const leading =
+    first.part.length === 0
+      ? literal(first.coefficient)
+      : monomial(first.coefficient, first.part)
+  return rest.reduce<LiteralExpression>(
+    (sum, t) => binary(t.coefficient.num < 0n ? '-' : '+', sum, termNode(t)),
+    leading,
+  )
+}
+
+// Due o tre polinomi fra parentesi, sommati o sottratti, almeno una volta
+// con il meno; il primo a volte è un monomio solo, come in 5a − (2a − b).
+function polynomialSum(random: Random): LiteralExpression {
+  const parts = polynomialParts(random.pick(polynomialLetters))
+  const fractions = random.pick([true, false, false, false, false])
+  const count = Number(random.int(2n, 3n))
+  const alone = random.pick([true, false, false, false])
+  const operands = Array.from({ length: count }, (_, i) =>
+    sumExpression(
+      polynomialTerms(
+        random,
+        parts,
+        fractions,
+        i === 0 && alone ? 1 : Number(random.int(2n, 4n)),
+      ),
+    ),
+  )
+  const ops = operands.map(() => random.pick(addSub))
+  if (!ops.slice(1).includes('-'))
+    ops[Number(random.int(1n, BigInt(count - 1)))] = '-'
+  const [first, ...rest] = operands
+  if (!first) throw new RangeError('Nessun polinomio')
+  return rest.reduce<LiteralExpression>(
+    (sum, p, i) => binary(ops[i + 1] ?? '-', sum, group('round', p)),
+    alone ? first : group('round', first),
+  )
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
   | 'mono.normal-form'
@@ -593,6 +706,7 @@ export type PolynomialSkill =
   | 'mono.power'
   | 'mono.add-sub'
   | 'mono.expressions'
+  | 'poly.add-sub'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -669,6 +783,23 @@ export const polynomialGenerators: Record<
           writtenWithin(e) &&
           withinLiteralLimits(solution) &&
           isVisibleLiteral('like-terms-exponents-added', e, solution.result)
+        )
+      }),
+  },
+  'poly.add-sub': {
+    version: 1,
+    // Una riga in cui cadono le parentesi, una in cui si riducono i simili;
+    // i segni lasciati dentro la parentesi cambiano il risultato.
+    build: (random) =>
+      until(random, polynomialSum, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length === 2 &&
+          solution.result.size > 0 &&
+          solution.result.size <= 6 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('minus-group-signs-kept', e, solution.result)
         )
       }),
   },

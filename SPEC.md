@@ -601,8 +601,13 @@ Un gruppo che non si riduce a un numero perde le parentesi quando il suo
 interno è in forma normale, nel giro di + e −. Se è preceduto dal più le
 parentesi cadono e basta; se è preceduto dal meno cadono cambiando il segno
 di ogni termine, ed è un passaggio con la sua regola,
-`5a − (2a − b) = 5a − 2a + b`. Davanti a un monomio, o dentro un prodotto, il
-gruppo si moltiplica con la distributiva nel giro di × e :.
+`5a − (2a − b) = 5a − 2a + b`. Le parentesi cadono in una riga e i simili si
+riducono nella riga dopo, come sul libro:
+`(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2) = 4y³ + 3y + 5 − 2y³ − 2y² − 2y + 2`,
+poi `2y³ + y + 7 − 2y²`. Le parentesi dopo il più cadono alla fine della
+riga, senza passaggio; una riga che toglie solo quelle non si scrive. Davanti
+a un monomio, o dentro un prodotto, il gruppo si moltiplica con la
+distributiva nel giro di × e :.
 
 Il quaderno segue il libro anche in due righe che non fanno un conto, e solo
 in queste due. La sostituzione, in `mono.value`: `2a² + 3a` per a = −2
