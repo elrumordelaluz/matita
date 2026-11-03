@@ -297,10 +297,17 @@ export function PracticePage({
     setHints((h) => h + 1)
   }
 
+  // Cambiare la scelta svuota il campo: quello scritto era il risultato di
+  // un altro conto, e a scelta spenta varrebbe come risposta finale.
+  function choose(path: Path | null) {
+    setSelected(path)
+    setAnswer('')
+  }
+
   // Toccare l'operatore acceso lo spegne; toccarne un altro sposta la scelta.
   // L'ordine non si giudica qui: solo alla verifica della riga.
   function tapOperator(path: Path) {
-    setSelected(selection && samePath(selection, path) ? null : path)
+    choose(selection && samePath(selection, path) ? null : path)
     input.current?.focus()
   }
 
@@ -478,7 +485,7 @@ export function PracticePage({
                 onKeyDown={(e) => {
                   if (e.key === 'Escape' && selection) {
                     e.preventDefault()
-                    setSelected(null)
+                    choose(null)
                   }
                 }}
                 aria-describedby={

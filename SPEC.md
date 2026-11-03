@@ -337,8 +337,10 @@ giudizio, come per una riga scritta, e una riga rifiutata si comporta come
 sempre. Il tocco porta la posizione dell'operatore, non il suo testo: fra due
 copie uguali, come in 2 × 3 + (2 × 3 + 1), il conto va proprio dove si è
 toccato. Ogni conto toccato dà una riga. Toccare di nuovo l'operatore, o
-premere Esc, spegne la scelta; con un operatore acceso il campo legge come
-risultato solo un numero, e ogni altra cosa come una riga scritta. Il tocco è
+premere Esc, spegne la scelta. Cambiare o spegnere la scelta svuota il campo:
+quello scritto era il risultato di un altro conto. Con un operatore acceso il
+campo legge come risultato solo un numero, e ogni altra cosa come una riga
+scritta. Il tocco è
 una scorciatoia: la formula non si raggiunge da tastiera né da lettore di
 schermo, e scrivere resta la strada completa.
 
