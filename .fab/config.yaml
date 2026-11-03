@@ -3,5 +3,6 @@ intake:
 sandbox: { image: fab-sandbox:ui }
 lines:
   pr-review:
+    harness: pi
     stations:
       02-review: { model: glm-flash }
