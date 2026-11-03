@@ -323,7 +323,10 @@ cadono e non bloccano il conto successivo. Una riga che si legge come un
 numero, anche fra parentesi, è la risposta finale e va alla verifica così
 com'è stata scritta; lo stesso vale per il risultato del conto che chiude
 l'espressione, come 2 + 12 = 14. Il suggerimento scrive il prossimo passo della riga dello
-studente, tranne quello che dà il risultato.
+studente, tranne quello che dà il risultato. L'interruttore ricorda la sua
+ultima posizione sul dispositivo, nella pratica libera e nella sessione: il
+prossimo esercizio del capitolo 1 si apre come lo studente l'ha lasciato, e la
+scelta resta fuori dai progressi e dal backup.
 
 ## Ripasso e tracking
 

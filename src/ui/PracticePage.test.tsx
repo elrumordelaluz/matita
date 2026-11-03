@@ -3,9 +3,12 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { parseExpression, type Exercise } from '../engine/index.ts'
 import { PracticePage } from './PracticePage.tsx'
 
-function exercise(source: string): Exercise {
+function exercise(
+  source: string,
+  skill: Exercise['skill'] = 'n.add-sub',
+): Exercise {
   return {
-    skill: 'n.add-sub',
+    skill,
     seed: 1,
     generatorVersion: 1,
     expression: parseExpression(source),
@@ -14,6 +17,7 @@ function exercise(source: string): Exercise {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 function type(text: string) {
@@ -604,4 +608,92 @@ test('il risultato di un conto finale va alla verifica così com’è scritto', 
   expect(screen.getByRole('status')).not.toHaveTextContent('Corretto!')
   expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
   expect(screen.queryByRole('alert')).toBeNull()
+})
+
+// L'interruttore ricorda la sua ultima posizione, anche fra un esercizio e
+// l'altro. Vedi SPEC.md, "Pratica / Passo passo".
+
+function nextExercise() {
+  fireEvent.click(screen.getByRole('button', { name: 'Esercizio successivo' }))
+}
+
+test('acceso, l’esercizio successivo si apre in passo passo', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  line('14')
+  nextExercise()
+  expect(screen.getByRole('switch', { name: 'Passo passo' })).toBeChecked()
+  line('2 + 12')
+  expect(screen.getByRole('math', { name: '2 + 12' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
+})
+
+test('acceso, dopo un esercizio senza passo passo il successivo con abilità n torna in passo passo', () => {
+  const exercises = [
+    exercise('2 + 3 × 4'),
+    exercise('−8 − (3 − (−6))', 'z.add-sub'),
+    exercise('2 + 3 × 4'),
+  ]
+  let i = 0
+  render(<PracticePage createExercise={() => exercises[i++] as Exercise} />)
+  switchOn()
+  line('14')
+  nextExercise()
+  expect(screen.queryByRole('switch', { name: 'Passo passo' })).toBeNull()
+  // Senza interruttore il suggerimento svela le righe, come sempre.
+  fireEvent.click(screen.getByRole('button', { name: 'Suggerimento' }))
+  expect(
+    screen.getByText(/Righe svelate sul quaderno: 1 di/),
+  ).toBeInTheDocument()
+  answer('−17')
+  nextExercise()
+  expect(screen.getByRole('switch', { name: 'Passo passo' })).toBeChecked()
+})
+
+test('acceso, una pagina nuova si apre in passo passo', () => {
+  const first = render(
+    <PracticePage createExercise={() => exercise('2 + 3 × 4')} />,
+  )
+  switchOn()
+  first.unmount()
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  expect(screen.getByRole('switch', { name: 'Passo passo' })).toBeChecked()
+})
+
+test('spento, l’esercizio successivo e la pagina nuova si aprono senza', () => {
+  const page = () => (
+    <PracticePage createExercise={() => exercise('2 + 3 × 4')} />
+  )
+  const first = render(page())
+  switchOn()
+  first.unmount()
+  const second = render(page())
+  switchOn()
+  line('14')
+  nextExercise()
+  expect(screen.getByRole('switch', { name: 'Passo passo' })).not.toBeChecked()
+  second.unmount()
+  render(page())
+  expect(screen.getByRole('switch', { name: 'Passo passo' })).not.toBeChecked()
+})
+
+test('con lo storage che protesta l’interruttore parte spento e funziona', () => {
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('blocked')
+  })
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('blocked')
+  })
+  // Un errore in un gestore di eventi arriva qui, non al test.
+  const errors = vi.fn((event: ErrorEvent) => event.preventDefault())
+  window.addEventListener('error', errors)
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  const step = screen.getByRole('switch', { name: 'Passo passo' })
+  expect(step).not.toBeChecked()
+  switchOn()
+  expect(step).toBeChecked()
+  line('2 + 12')
+  expect(screen.getByRole('math', { name: '2 + 12' })).toBeInTheDocument()
+  window.removeEventListener('error', errors)
+  expect(errors).not.toHaveBeenCalled()
 })
