@@ -79,6 +79,46 @@ test('la domanda sulla forma normale chiede di riscrivere le lettere ripetute', 
   expect(answer('6c⁴ca³', '6c^5a^3')).toHaveTextContent('Esatto!')
 })
 
+test('prodotto e quoziente vanno da sinistra a destra, un passaggio ciascuno', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: 3x · 5xy² : 2y',
+  })
+  expect(lines(example)).toEqual(['15/2 x²y'])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  expect(within(example).getByText('3x · 5xy² = 15x²y²')).toBeInTheDocument()
+  expect(
+    within(example).getByText('15x²y² : 2y = 15/2 x²y'),
+  ).toBeInTheDocument()
+})
+
+test('la domanda sul prodotto riconosce gli esponenti moltiplicati', () => {
+  lesson()
+  expect(answer('4a³b³ · a⁴', '4a^12b^3')).toHaveTextContent(
+    'Fra potenze con la stessa base hai moltiplicato',
+  )
+  expect(answer('4a³b³ · a⁴', '4a^7b^3')).toHaveTextContent('Esatto!')
+})
+
+test('la potenza del monomio viene prima del prodotto', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: (−3b³a²)² · (−2a²b³)',
+  })
+  expect(lines(example)).toEqual(['9a⁴b⁶ · (−2a²b³)', '−18a⁶b⁹'])
+})
+
+test('la domanda sulla potenza riconosce il coefficiente non elevato e il segno', () => {
+  lesson()
+  expect(answer('(−3x²y³)²', '3x^4y^6')).toHaveTextContent(
+    'Hai elevato solo la parte letterale.',
+  )
+  expect(answer('(−3x²y³)²', '-9x^4y^6')).toHaveTextContent(
+    'Hai lasciato il meno alla potenza di un numero negativo.',
+  )
+  expect(answer('(−3x²y³)²', '9x^4y^6')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

@@ -109,4 +109,14 @@ export const skills: readonly Skill[] = [
     title: 'La forma normale di un monomio',
     prerequisites: ['pow.properties', 'q.mul-div'],
   },
+  {
+    id: 'mono.mul-div',
+    title: 'Prodotto e quoziente di monomi',
+    prerequisites: ['mono.normal-form'],
+  },
+  {
+    id: 'mono.power',
+    title: 'La potenza di un monomio',
+    prerequisites: ['mono.mul-div'],
+  },
 ]

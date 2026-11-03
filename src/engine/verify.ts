@@ -5,6 +5,7 @@ import {
   type NumberExercise,
   type PolynomialExercise,
 } from './generators.ts'
+import { recogniseLiteral } from './literalMisconceptions.ts'
 import { solveLiteral } from './literalSolver.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equalPolynomials } from './polynomial.ts'
@@ -248,7 +249,20 @@ function verifyPolynomial(
   const reading = readPolynomialAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
   const { result } = solveLiteral(exercise.expression)
-  if (!equalPolynomials(reading.value, result)) return { kind: 'wrong' }
+  if (!equalPolynomials(reading.value, result)) {
+    const misconception = recogniseLiteral(
+      reading.value,
+      exercise.expression,
+      result,
+    )
+    return misconception
+      ? {
+          kind: 'misconception',
+          misconception: misconception.id,
+          explanation: misconception.explanation,
+        }
+      : { kind: 'wrong' }
+  }
   if (reading.rewrite === null) return { kind: 'correct' }
   return {
     kind: 'rewrite',

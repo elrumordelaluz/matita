@@ -2,10 +2,14 @@ import {
   binary,
   literal,
   monomial,
+  negatedPower,
+  power,
   type LiteralExpression,
   type MonomialNode,
 } from './expression.ts'
+import { isVisibleLiteral } from './literalMisconceptions.ts'
 import { solveLiteral, type LiteralSolution } from './literalSolver.ts'
+import { asMonomial, polynomialValue } from './polynomial.ts'
 import { isVisible } from './misconceptions.ts'
 import type { Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
@@ -289,8 +293,67 @@ function withinLiteralLimits(solution: LiteralSolution): boolean {
   )
 }
 
+// Una catena di × e : fra due o tre monomi, da sinistra a destra. Ogni
+// divisore si sceglie conoscendo il risultato parziale, così il quoziente è
+// sempre un monomio: le sue lettere sono fra quelle del dividendo, con
+// esponente non più grande.
+function mulDivChain(random: Random): LiteralExpression {
+  const letters = random.pick(monomialLetters)
+  let tree: LiteralExpression = plainMonomial(random, letters)
+  const count = Number(random.int(2n, 3n))
+  for (let i = 1; i < count; i++) {
+    const partial = asMonomial(polynomialValue(tree))
+    const op = random.pick(['×', ':'] as const)
+    if (op === '×' || !partial || partial.letters.size === 0) {
+      tree = binary('×', tree, plainMonomial(random, letters))
+      continue
+    }
+    const own = [...partial.letters]
+    const chosen = own.filter(() => random.pick([true, false]))
+    const divisorLetters = (chosen.length > 0 ? chosen : own.slice(0, 1)).map(
+      ([letter, n]) => [letter, random.int(1n, n < 5n ? n : 5n)] as const,
+    )
+    const coefficient = rational(
+      random.pick([-1n, 1n, 1n]) * random.pick([1n, 2n, 2n, 3n, 4n, 6n]),
+    )
+    tree = binary(':', tree, monomial(coefficient, divisorLetters))
+  }
+  return tree
+}
+
+// La potenza di un monomio, a volte con il meno davanti, a volte per un
+// altro monomio. Il coefficiente non è 1, così si vede che si eleva anche
+// lui, e almeno una lettera ha già un esponente.
+const powerCoefficients = [
+  rational(2n),
+  rational(3n),
+  rational(2n),
+  rational(1n, 2n),
+  rational(2n, 3n),
+  rational(3n, 2n),
+]
+
+function monomialPower(random: Random): LiteralExpression {
+  const letters = random.pick(monomialLetters)
+  const exponent = random.int(2n, 3n)
+  const written = plainMonomial(random, letters)
+  const magnitude = random.pick(powerCoefficients)
+  const sign = random.pick([-1n, 1n])
+  const base = monomial(
+    rational(sign * magnitude.num, magnitude.den),
+    written.letters.map((l) => [l.letter, l.exponent] as const),
+  )
+  const p = power(base, exponent)
+  return random.pick([
+    () => p,
+    () => p,
+    () => negatedPower(p),
+    () => binary('×', p, plainMonomial(random, letters)),
+  ])()
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
-export type PolynomialSkill = 'mono.normal-form'
+export type PolynomialSkill = 'mono.normal-form' | 'mono.mul-div' | 'mono.power'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -307,6 +370,32 @@ export const polynomialGenerators: Record<
           repeatsLetter(e) &&
           solution.lines.length === 1 &&
           withinLiteralLimits(solution)
+        )
+      }),
+  },
+  'mono.mul-div': {
+    version: 1,
+    // Gli esponenti moltiplicati devono cambiare il risultato.
+    build: (random) =>
+      until(random, mulDivChain, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length === 1 &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('same-base-multiplies-exponents', e, solution.result)
+        )
+      }),
+  },
+  'mono.power': {
+    version: 1,
+    build: (random) =>
+      until(random, monomialPower, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          withinLiteralLimits(solution) &&
+          (
+            ['coefficient-not-raised', 'power-of-power-adds-exponents'] as const
+          ).every((id) => isVisibleLiteral(id, e, solution.result))
         )
       }),
   },

@@ -43,6 +43,10 @@ export type Rule =
   | 'normal-form'
   /** Il prodotto di due monomi: 2a² · 3a³ = 6a⁵. */
   | 'monomial-product'
+  /** Il quoziente di due monomi, quando è un monomio: 4a²b³ : 2b² = 2a²b. */
+  | 'monomial-quotient'
+  /** La potenza di un monomio, con il segno: (−3a²)³ = −27a⁶. */
+  | 'monomial-power'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */

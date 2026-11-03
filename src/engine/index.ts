@@ -2,6 +2,7 @@
 // dallo storage. Vedi SPEC.md, sezione "Motore".
 export * from './expression.ts'
 export * from './generators.ts'
+export * from './literalMisconceptions.ts'
 export * from './literalSolver.ts'
 export * from './misconceptions.ts'
 export * from './polynomial.ts'

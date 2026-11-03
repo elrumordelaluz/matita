@@ -1,6 +1,6 @@
 import {
   generate,
-  misconceptions,
+  misconceptionExplanation,
   unknownKind,
   type Exercise,
   type LiteralExpression,
@@ -65,8 +65,7 @@ function consegnaOf(exercise: Exercise): LiteralExpression {
 }
 
 function explanationOf(attempt: Attempt): string | null {
-  return (
-    misconceptions.find((m) => m.id === attempt.misconception)?.explanation ??
-    null
-  )
+  return attempt.misconception === null
+    ? null
+    : (misconceptionExplanation(attempt.misconception) ?? null)
 }

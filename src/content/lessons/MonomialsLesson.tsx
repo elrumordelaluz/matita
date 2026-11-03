@@ -55,6 +55,47 @@ const parts: readonly LessonPart[] = [
     example: generate('mono.normal-form', 45), // 5a²b · 5b²a³
     question: generate('mono.normal-form', 1), // 6c⁴ca³
   },
+  {
+    id: 'lezione-prodotto-quoziente',
+    title: 'Prodotto e quoziente',
+    note: 'coefficienti fra loro, esponenti sommati o sottratti',
+    text: (
+      <>
+        <p>
+          Il prodotto di due monomi è un monomio: si moltiplicano i coefficienti
+          e si sommano gli esponenti della stessa lettera. Nel quoziente i
+          coefficienti si dividono e gli esponenti si sottraggono: 4a²b³ : 2b² =
+          2a²b. Ogni operazione fra due monomi è un passaggio solo, e × e :
+          vanno da sinistra a destra come con i numeri.
+        </p>
+        <p>
+          Il quoziente però non è sempre un monomio. In 10a³b : 2a⁴ la a del
+          divisore ha l’esponente più grande: verrebbe a⁻¹, e un monomio ha solo
+          esponenti naturali. Il quoziente è un monomio solo quando il dividendo
+          ha tutte le lettere del divisore, con esponente uguale o maggiore.
+        </p>
+      </>
+    ),
+    example: generate('mono.mul-div', 0), // 3x · 5xy² : 2y
+    question: generate('mono.mul-div', 8), // 4a³b³ · a⁴
+  },
+  {
+    id: 'lezione-potenza-monomio',
+    title: 'La potenza di un monomio',
+    note: 'si eleva tutto: coefficiente, segno, lettere',
+    text: (
+      <p>
+        Per elevare un monomio si eleva il coefficiente, con il suo segno, e si
+        moltiplica ogni esponente per l’esponente della potenza: (−3a²)³ =
+        −27a⁶. Come con i numeri, un esponente pari rende positivo il risultato:
+        (−3a³)² = 9a⁶. Il meno davanti alla parentesi resta fuori: −(−3a³)³ =
+        −(−27a⁹) = 27a⁹. Sul quaderno la potenza è un passaggio solo, prima di ×
+        e :.
+      </p>
+    ),
+    example: generate('mono.power', 7), // (−3b³a²)² · (−2a²b³)
+    question: generate('mono.power', 20), // (−3x²y³)²
+  },
 ]
 
 export function MonomialsLesson({ onPractise }: LessonProps) {

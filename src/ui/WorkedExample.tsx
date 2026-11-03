@@ -41,6 +41,8 @@ const ruleNote: Record<Rule, string> = {
   substitution: 'al posto della lettera, il suo valore',
   'normal-form': 'forma normale: un solo coefficiente, lettere diverse',
   'monomial-product': 'coefficienti per coefficienti, esponenti sommati',
+  'monomial-quotient': 'coefficienti divisi, esponenti sottratti',
+  'monomial-power': 'si eleva il coefficiente, gli esponenti si moltiplicano',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',

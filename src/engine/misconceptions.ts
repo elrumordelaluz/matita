@@ -51,6 +51,7 @@ export type MisconceptionId =
   | 'zero-exponent-is-zero'
   | 'negative-exponent-is-negative'
   | 'negative-substituted-without-brackets'
+  | 'coefficient-not-raised'
 
 export interface Misconception {
   readonly id: MisconceptionId

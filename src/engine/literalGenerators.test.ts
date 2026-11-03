@@ -5,8 +5,9 @@ import {
   type MonomialNode,
 } from './expression.ts'
 import { generate, type PolynomialSkill } from './generators.ts'
+import { isVisibleLiteral } from './literalMisconceptions.ts'
 import { solveLiteral } from './literalSolver.ts'
-import { isVisible } from './misconceptions.ts'
+import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import { solveWithValues, substitute } from './value.ts'
 
 // I generatori del calcolo letterale. SPEC.md, "Calcolo letterale",
@@ -132,5 +133,93 @@ describe('mono.normal-form', () => {
 
   test('i numeri restano nei limiti del calcolo letterale', () => {
     expectLiteralLimits('mono.normal-form')
+  })
+})
+
+function expectVisibleLiteral(
+  skill: PolynomialSkill,
+  ids: readonly MisconceptionId[],
+) {
+  for (const seed of seeds) {
+    const { expression } = generate(skill, seed)
+    const { result } = solveLiteral(expression)
+    for (const id of ids)
+      expect(
+        isVisibleLiteral(id, expression, result),
+        `${id}, seme ${seed}`,
+      ).toBe(true)
+  }
+}
+
+const rulesOf = (skill: PolynomialSkill) =>
+  new Set(
+    seeds.flatMap((seed) =>
+      solveLiteral(generate(skill, seed).expression).lines.flatMap((l) =>
+        l.steps.map((s) => s.rule),
+      ),
+    ),
+  )
+
+describe('mono.mul-div', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('mono.mul-div', 42)).toEqual(generate('mono.mul-div', 42))
+  })
+
+  test('prodotti e quozienti, sempre possibili, in una riga', () => {
+    for (const seed of seeds) {
+      const { lines } = solveLiteral(generate('mono.mul-div', seed).expression)
+      expect(lines, `seme ${seed}`).toHaveLength(1)
+    }
+    expect(rulesOf('mono.mul-div')).toEqual(
+      new Set(['monomial-product', 'monomial-quotient']),
+    )
+  })
+
+  test('gli esponenti moltiplicati cambiano sempre il risultato', () => {
+    expectVisibleLiteral('mono.mul-div', ['same-base-multiplies-exponents'])
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('mono.mul-div')
+  })
+})
+
+describe('mono.power', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('mono.power', 42)).toEqual(generate('mono.power', 42))
+  })
+
+  test('il coefficiente non elevato e gli esponenti sommati cambiano sempre il risultato', () => {
+    expectVisibleLiteral('mono.power', [
+      'coefficient-not-raised',
+      'power-of-power-adds-exponents',
+    ])
+  })
+
+  test('a volte il segno della base negativa, a volte il meno davanti', () => {
+    const exercises = seeds.map((seed) => generate('mono.power', seed))
+    expect(
+      exercises.some((e) =>
+        isVisibleLiteral(
+          'negative-base-sign-kept',
+          e.expression,
+          solveLiteral(e.expression).result,
+        ),
+      ),
+    ).toBe(true)
+    expect(
+      exercises.some(
+        (e) => e.expression.kind === 'group' && e.expression.negated,
+      ),
+    ).toBe(true)
+  })
+
+  test('la potenza è un passaggio solo', () => {
+    expect(rulesOf('mono.power')).toContain('monomial-power')
+    expect(rulesOf('mono.power')).not.toContain('power-of-power')
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('mono.power')
   })
 })

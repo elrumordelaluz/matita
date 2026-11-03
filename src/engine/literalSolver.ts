@@ -1,6 +1,7 @@
 import {
   binary,
   isMulDiv,
+  isNegatedPower,
   isPower,
   type LiteralExpression,
   type MonomialNode,
@@ -81,18 +82,49 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
     const value = polynomialValue(e)
     return reduced('normal-form', e, [value], value)
   }
+  // Il meno davanti alla potenza resta fuori e si applica nello stesso
+  // passaggio, come in −3² = −9: −(−3a³)³ = 27a⁹.
+  if (isNegatedPower(e) && e.kind === 'group') {
+    const p = e.inner
+    if (level !== 'power' || p.kind !== 'binary' || !isLeaf(p.left)) return null
+    const base = p.left
+    const rule: Rule = base.kind === 'number' ? 'minus-power' : 'monomial-power'
+    const value = polynomialValue(e)
+    return reduced(rule, e, [polynomialValue(base)], value)
+  }
   if (e.kind !== 'binary' || levelOf(e.op) !== level) return null
   if (!isLeaf(e.left) || !isLeaf(e.right)) return null
+  const numbers = e.left.kind === 'number' && e.right.kind === 'number'
   const left = polynomialValue(e.left)
   const right = polynomialValue(e.right)
-  if (e.op === '×') {
-    const rule: Rule =
-      e.left.kind === 'number' && e.right.kind === 'number'
-        ? 'mul-div-left-to-right'
-        : 'monomial-product'
-    return reduced(rule, e, [left, right], multiplyPolynomials(left, right))
+  switch (e.op) {
+    case '^':
+      // Un'operazione fra monomi è un passaggio solo: (−3a²)³ = −27a⁶, senza
+      // la riga della potenza di potenza.
+      return reduced(
+        e.left.kind === 'number' ? 'power' : 'monomial-power',
+        e,
+        [left],
+        polynomialValue(e),
+      )
+    case '×':
+      return reduced(
+        numbers ? 'mul-div-left-to-right' : 'monomial-product',
+        e,
+        [left, right],
+        multiplyPolynomials(left, right),
+      )
+    case ':':
+      // polynomialValue rifiuta il quoziente che non è un monomio.
+      return reduced(
+        numbers ? 'mul-div-left-to-right' : 'monomial-quotient',
+        e,
+        [left, right],
+        polynomialValue(e),
+      )
+    default:
+      return null
   }
-  return null
 }
 
 // Svolge il primo passaggio del giro, da sinistra, senza entrare nei gruppi.
