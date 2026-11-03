@@ -87,6 +87,27 @@ function refusalMessage(check: StepCheck): string {
   }
 }
 
+// La posizione dell'interruttore "Passo passo" è del dispositivo, non dei
+// progressi: sta in localStorage, fuori dall'archivio e dal backup. Senza
+// storage, o se lo storage protesta, l'interruttore parte spento.
+const stepSwitchKey = 'matita.stepSwitch'
+
+function readStepSwitch(): boolean {
+  try {
+    return localStorage.getItem(stepSwitchKey) === 'on'
+  } catch {
+    return false
+  }
+}
+
+function writeStepSwitch(on: boolean) {
+  try {
+    localStorage.setItem(stepSwitchKey, on ? 'on' : 'off')
+  } catch {
+    // La scelta vale per questa pagina e basta.
+  }
+}
+
 export function PracticePage({
   createExercise,
   onAttempt,
@@ -106,9 +127,10 @@ export function PracticePage({
   const [startedAt, setStartedAt] = useState(() => Date.now())
   // Conta le risposte date: rifà comparire la scheda dell'esito ogni volta.
   const [tries, setTries] = useState(0)
-  // La modalità "Passo passo": le righe accettate, il messaggio sulla riga e
-  // il suggerimento scritto. Si spegne con l'esercizio successivo.
-  const [stepMode, setStepMode] = useState(false)
+  // La modalità "Passo passo": la posizione dell'interruttore, le righe
+  // accettate, il messaggio sulla riga e il suggerimento scritto.
+  // L'interruttore tiene la sua posizione da un esercizio all'altro.
+  const [stepSwitch, setStepSwitch] = useState(readStepSwitch)
   const [stepLines, setStepLines] = useState<readonly Expression[]>([])
   const [lineMessage, setLineMessage] = useState<string | null>(null)
   const [stepHint, setStepHint] = useState<string | null>(null)
@@ -124,6 +146,9 @@ export function PracticePage({
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const stepAvailable = exercise.skill.startsWith('n.')
+  // Dove il passo passo non c'è, l'interruttore acceso aspetta il prossimo
+  // esercizio che lo ha.
+  const stepMode = stepAvailable && stepSwitch
   const currentLine =
     stepLines.length > 0
       ? (stepLines[stepLines.length - 1] as Expression)
@@ -233,8 +258,9 @@ export function PracticePage({
   }
 
   function toggleStep() {
-    const next = !stepMode
-    setStepMode(next)
+    const next = !stepSwitch
+    setStepSwitch(next)
+    writeStepSwitch(next)
     // A finestra spenta il quaderno torna quello dell'esercizio.
     if (!next) {
       setStepLines([])
@@ -270,7 +296,6 @@ export function PracticePage({
     setRewrites(0)
     setTries(0)
     setStartedAt(Date.now())
-    setStepMode(false)
     setStepLines([])
     setLineMessage(null)
     setStepHint(null)
