@@ -327,10 +327,13 @@ risposta è un numero. Dal capitolo 5 la risposta può essere un insieme, una
 scelta di simboli o un polinomio, e un problema ha un testo al posto
 dell'espressione. L'esercizio diventa quindi un'unione con il tipo di
 risposta come discriminante, e ogni tipo porta la sua consegna (espressione
-di numeri, espressione di insiemi, scritture da completare, problema,
-espressione letterale) e il suo risultato (razionale, insieme, simboli,
-polinomio). `verifica` legge e giudica la risposta secondo quel tipo, con gli
-stessi cinque esiti. Ogni tipo ha la sua forma canonica e i suoi motivi per
+di numeri, espressione di insiemi, scritture da completare, insiemi da
+contare, problema, espressione letterale) e il suo risultato (razionale,
+insieme, simboli, polinomio). Il conto di ℘(A) e di A × B e il problema
+chiedono un numero, e lo giudicano con la politica dei numeri; hanno un tipo
+a sé perché la consegna non è un'espressione, e scrivere 2ⁿ al posto degli
+insiemi svelerebbe il conto. `verifica` legge e giudica la risposta secondo
+quel tipo, con gli stessi cinque esiti. Ogni tipo ha la sua forma canonica e i suoi motivi per
 riscrivere, descritti nel capitolo che lo introduce. La soluzione resta una
 sequenza di righe fatte di passaggi, qualunque sia il tipo. I tentativi
 salvati prima di questo cambio sono tutti di espressioni di numeri, e si

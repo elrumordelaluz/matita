@@ -7,8 +7,9 @@ import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
 import { verifySymbols } from './relations.ts'
 import type { SetRewriteReason } from './setAnswer.ts'
+import { countResult, countWrongResults } from './setCount.ts'
 import { verifySet } from './setExercise.ts'
-import type { SetMisconceptionId } from './setMisconceptions.ts'
+import { setExplanation, type SetMisconceptionId } from './setMisconceptions.ts'
 import { solve } from './solver.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
@@ -182,15 +183,58 @@ export function verify(answer: string, exercise: Exercise): Outcome {
       return verifySet(answer, exercise)
     case 'symbols':
       return verifySymbols(answer, exercise)
+    case 'count':
+      return verifyValue(answer, rational(countResult(exercise)), (value) =>
+        setRecognised(
+          countWrongResults(exercise).find((w) =>
+            equals(rational(w.value), value),
+          )?.id,
+        ),
+      )
     default:
       return unknownKind(exercise)
   }
 }
 
+type Recognised = Extract<Outcome, { kind: 'misconception' }> | null
+
+function setRecognised(id: SetMisconceptionId | undefined): Recognised {
+  return id
+    ? {
+        kind: 'misconception',
+        misconception: id,
+        explanation: setExplanation(id),
+      }
+    : null
+}
+
 function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
+  const { result } = solve(exercise.expression)
+  return verifyValue(answer, result, (value) => {
+    const misconception = recognise(value, exercise.expression, result)
+    return misconception
+      ? {
+          kind: 'misconception',
+          misconception: misconception.id,
+          explanation: misconception.explanation,
+        }
+      : null
+  })
+}
+
+/**
+ * Il giudizio su un numero scritto, con la politica dei numeri: la usano
+ * le espressioni, e i conti e i problemi del capitolo 5, che chiedono un
+ * numero da una consegna che non è un'espressione. `wrong` dice quale
+ * errore tipico spiega un valore sbagliato, se ce n'è uno.
+ */
+export function verifyValue(
+  answer: string,
+  result: Rational,
+  wrong: (value: Rational) => Recognised,
+): Outcome {
   const reading = readAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
-  const { result } = solve(exercise.expression)
   if (equals(reading.value, result)) {
     if (reading.rewrite === null) return { kind: 'correct' }
     return {
@@ -199,12 +243,5 @@ function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
       message: rewriteMessage(reading.rewrite, result),
     }
   }
-  const misconception = recognise(reading.value, exercise.expression, result)
-  if (misconception)
-    return {
-      kind: 'misconception',
-      misconception: misconception.id,
-      explanation: misconception.explanation,
-    }
-  return { kind: 'wrong' }
+  return wrong(reading.value) ?? { kind: 'wrong' }
 }

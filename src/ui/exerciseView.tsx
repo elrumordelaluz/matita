@@ -13,6 +13,12 @@ import {
   type Expression,
   type Line,
 } from '../engine/index.ts'
+import {
+  CountConsegna,
+  countConsegnaText,
+  countLines,
+  countResultText,
+} from './countView.tsx'
 import { ExpressionFormula } from './Formula.tsx'
 import {
   relationLines,
@@ -54,6 +60,8 @@ export function wordingOf(exercise: Exercise): {
         task: 'Completa con ∈, ∉, ⊂, ⊆, ⊄ o =',
         question: 'Quale simbolo va in ogni scrittura?',
       }
+    case 'count':
+      return { task: 'Conta gli elementi', question: 'Quanti elementi ha?' }
     default:
       return unknownKind(exercise)
   }
@@ -93,6 +101,8 @@ export function solutionOf(exercise: Exercise): readonly ShownLine[] {
       return setLines(exercise)
     case 'symbols':
       return relationLines(exercise)
+    case 'count':
+      return countLines(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -108,6 +118,8 @@ export function resultText(exercise: Exercise): string {
       return setToText(solveSet(exercise).result)
     case 'symbols':
       return relationsResultText(exercise)
+    case 'count':
+      return countResultText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -123,6 +135,8 @@ export function consegnaText(exercise: Exercise): string {
       return setConsegnaText(exercise)
     case 'symbols':
       return relationsConsegnaText(exercise)
+    case 'count':
+      return countConsegnaText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -139,6 +153,7 @@ export function stepExpression(exercise: Exercise): Expression | null {
       return exercise.skill.startsWith('n.') ? exercise.expression : null
     case 'set':
     case 'symbols':
+    case 'count':
       return null
     default:
       return unknownKind(exercise)
@@ -153,6 +168,7 @@ export function answerPreview(
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'count':
       return answerForm(answer)
     case 'set': {
       const reading = readSetAnswer(answer)
@@ -170,6 +186,7 @@ export function keysOf(exercise: Exercise): readonly SymbolKey[] {
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'count':
       return symbolKeys
     case 'set':
       return setSymbolKeys
@@ -196,6 +213,8 @@ export function Consegna({
       return <SetConsegna exercise={exercise} {...size} />
     case 'symbols':
       return <RelationsConsegna exercise={exercise} {...size} />
+    case 'count':
+      return <CountConsegna exercise={exercise} {...size} />
     default:
       return unknownKind(exercise)
   }
@@ -210,6 +229,7 @@ export function answerMode(exercise: Exercise): 'text' | 'symbols' {
     case undefined:
     case 'number':
     case 'set':
+    case 'count':
       return 'text'
     case 'symbols':
       return 'symbols'

@@ -104,6 +104,30 @@ const parts: readonly LessonPart[] = [
     example: generate('set.operations', 20), // Ā ∩ B
     question: generate('set.operations', 9), // A − B
   },
+  {
+    id: 'lezione-parti-prodotto',
+    title: 'Insieme delle parti e prodotto cartesiano',
+    note: 'card(℘(A)) = 2ⁿ, card(A × B) = card(A) × card(B)',
+    text: (
+      <>
+        <p>
+          L’insieme delle parti ℘(A) ha per elementi tutti i sottoinsiemi di A,
+          compresi ∅ e A stesso: ℘({'{1, 2}'}) = {'{∅, {1}, {2}, {1, 2}}'}. Ogni
+          elemento di A può stare in un sottoinsieme o restarne fuori, due
+          scelte per elemento: con n elementi i sottoinsiemi sono 2ⁿ.
+        </p>
+        <p>
+          Il prodotto cartesiano A × B ha per elementi le coppie ordinate (a; b)
+          con a in A e b in B: se A = {'{1, 2}'} e B = {'{5, 6, 7}'}, le coppie
+          sono (1; 5), (1; 6), (1; 7), (2; 5), (2; 6), (2; 7). Ogni elemento di
+          A fa coppia con ogni elemento di B, quindi le coppie sono card(A) ×
+          card(B) = 2 × 3 = 6. Negli esercizi non si elencano: si contano.
+        </p>
+      </>
+    ),
+    example: generate('set.parts-product', 0), // A = {3, 4, 9}: card(℘(A))
+    question: generate('set.parts-product', 13), // card(A × B)
+  },
 ]
 
 export function SetsLesson({ onPractise }: LessonProps) {

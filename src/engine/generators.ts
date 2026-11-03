@@ -18,6 +18,7 @@ import {
 } from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
 import { generateRelations, type SymbolsExercise } from './relations.ts'
+import { generateCount, type CountExercise } from './setCount.ts'
 import { rational, type Rational } from './rational.ts'
 import {
   generateSet,
@@ -37,7 +38,8 @@ import { solve, type Solution } from './solver.ts'
  * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
  * passa inosservato.
  */
-export type Exercise = NumberExercise | SetExercise | SymbolsExercise
+export type Exercise =
+  NumberExercise | SetExercise | SymbolsExercise | CountExercise
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
@@ -689,7 +691,10 @@ const generators = {
 export type NumberSkill = keyof typeof generators
 
 /** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill | SetSkill | SymbolsSkill
+export type GeneratedSkill = NumberSkill | SetSkill | SymbolsSkill | CountSkill
+
+/** Le abilità i cui esercizi chiedono di contare gli elementi. */
+export type CountSkill = CountExercise['skill']
 
 /** Le abilità i cui esercizi chiedono una scelta di simboli. */
 export type SymbolsSkill = SymbolsExercise['skill']
@@ -734,10 +739,12 @@ function solvable(expression: Expression): Solution | null {
 export function generate(skill: NumberSkill, seed: number): NumberExercise
 export function generate(skill: SetSkill, seed: number): SetExercise
 export function generate(skill: SymbolsSkill, seed: number): SymbolsExercise
+export function generate(skill: CountSkill, seed: number): CountExercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
   if (isSetSkill(skill)) return generateSet(skill, seed)
   if (skill === 'set.relations') return generateRelations(seed)
+  if (skill === 'set.parts-product') return generateCount(seed)
   return generateNumber(skill, seed)
 }
 

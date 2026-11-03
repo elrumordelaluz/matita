@@ -132,6 +132,21 @@ test('B − A al posto di A − B è un errore tipico', () => {
   expect(check('{4, 13}')).toHaveTextContent('Esatto!')
 })
 
+test('le parti si contano: prima gli elementi, poi la potenza', () => {
+  lesson()
+  expect(rows('A = {3, 4, 9}: card(℘(A))')).toEqual([
+    'card(A) = 3',
+    'card(℘(A)) = 2³ = 8',
+  ])
+})
+
+test('card(A) + card(B) per il prodotto cartesiano è un errore tipico', () => {
+  lesson()
+  const check = question('A = {0, 1, 7}, B = {11, 18}: card(A × B)')
+  expect(check('5')).toHaveTextContent('Hai sommato le cardinalità.')
+  expect(check('6')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica dell’elencazione', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

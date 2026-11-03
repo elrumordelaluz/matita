@@ -114,4 +114,9 @@ export const skills: readonly Skill[] = [
     title: 'Le operazioni fra insiemi',
     prerequisites: ['set.roster'],
   },
+  {
+    id: 'set.parts-product',
+    title: 'Insieme delle parti e prodotto cartesiano',
+    prerequisites: ['set.operations', 'pow.basics'],
+  },
 ]

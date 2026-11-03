@@ -14,6 +14,8 @@ export type SetMisconceptionId =
   | 'element-as-subset'
   | 'subset-as-element'
   | 'proper-subset-of-equal'
+  | 'parts-as-double'
+  | 'product-as-sum'
 
 export interface SetMisconception {
   readonly id: SetMisconceptionId
@@ -66,6 +68,16 @@ export const setMisconceptions: readonly SetMisconception[] = [
     id: 'proper-subset-of-equal',
     explanation:
       'I due insiemi hanno gli stessi elementi: sono uguali. ⊂ vuol dire sottoinsieme proprio, che ha meno elementi; fra due insiemi uguali si scrive =.',
+  },
+  {
+    id: 'parts-as-double',
+    explanation:
+      'Hai moltiplicato 2 per il numero di elementi. Ogni elemento può stare in un sottoinsieme o restarne fuori: le scelte si moltiplicano, e con n elementi i sottoinsiemi sono 2ⁿ. Con 3 elementi sono 2³ = 8, non 2 × 3.',
+  },
+  {
+    id: 'product-as-sum',
+    explanation:
+      'Hai sommato le cardinalità. Ogni elemento di A fa coppia con ogni elemento di B: le coppie sono card(A) × card(B).',
   },
 ]
 

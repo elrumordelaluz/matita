@@ -67,6 +67,7 @@ function expressionOf(exercise: Exercise): Expression | null {
       return exercise.expression
     case 'set':
     case 'symbols':
+    case 'count':
       return null
     default:
       return unknownKind(exercise)
