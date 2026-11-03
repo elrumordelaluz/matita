@@ -1,0 +1,7 @@
+intake:
+  pull_request: { line: pr-review, on: ready }
+sandbox: { image: fab-sandbox:ui }
+lines:
+  pr-review:
+    stations:
+      02-review: { model: glm-flash }
