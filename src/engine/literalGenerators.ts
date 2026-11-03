@@ -352,8 +352,93 @@ function monomialPower(random: Random): LiteralExpression {
   ])()
 }
 
+// Le parti letterali di una somma di monomi: due lettere, al più tre parti
+// diverse, come a², b, ab.
+function letterParts(
+  random: Random,
+  letters: readonly string[],
+): (readonly [string, bigint])[][] {
+  const [x = 'a', y = 'b'] = letters
+  const shapes: (readonly [string, bigint])[][] = [
+    [[x, 1n]],
+    [[x, 2n]],
+    [[y, 1n]],
+    [[y, 2n]],
+    [
+      [x, 1n],
+      [y, 1n],
+    ],
+    [
+      [x, 2n],
+      [y, 1n],
+    ],
+    [
+      [x, 1n],
+      [y, 3n],
+    ],
+  ]
+  const count = Number(random.int(1n, 3n))
+  const parts: (readonly [string, bigint])[][] = []
+  while (parts.length < count) {
+    const shape = random.pick(shapes)
+    if (!parts.includes(shape)) parts.push(shape)
+  }
+  return parts
+}
+
+// Coefficienti interi fino a 9, 1 spesso, perché il sottinteso è il punto
+// dell'abilità; oppure frazioni con denominatori piccoli, come in Q.
+const sumIntegers = [1n, 1n, 1n, 2n, 3n, 4n, 5n, 6n, 7n, 8n, 9n]
+const sumFractions = [
+  rational(1n, 2n),
+  rational(3n, 2n),
+  rational(1n, 3n),
+  rational(2n, 3n),
+  rational(1n, 4n),
+  rational(3n, 4n),
+  rational(1n, 6n),
+  rational(5n, 6n),
+  rational(1n),
+]
+
+// Una somma algebrica di tre, quattro o cinque monomi. Il primo può avere il
+// meno davanti; gli altri sono monomi positivi fra + e −. I simili non sono
+// per forza vicini.
+function sumOfMonomials(random: Random): LiteralExpression {
+  const letters = random.pick(monomialLetters)
+  const parts = letterParts(random, letters)
+  const fractions = random.pick([true, false, false])
+  const count = Number(random.int(3n, 5n))
+  const terms = Array.from({ length: count }, (_, i) => {
+    // Il primo gruppo ha almeno due simili.
+    const part = i < 2 ? parts[0] : random.pick(parts)
+    const coefficient = fractions
+      ? random.pick(sumFractions)
+      : rational(random.pick(sumIntegers))
+    return monomial(coefficient, part ?? [['a', 1n]])
+  })
+  for (let i = terms.length - 1; i > 0; i--) {
+    const j = Number(random.int(0n, BigInt(i)))
+    const [a, b] = [terms[i], terms[j]]
+    if (a && b) [terms[i], terms[j]] = [b, a]
+  }
+  const [first, ...rest] = terms
+  if (!first) throw new RangeError('Nessun termine')
+  const leading = random.pick([true, false, false])
+    ? monomial(
+        rational(-first.coefficient.num, first.coefficient.den),
+        first.letters.map((l) => [l.letter, l.exponent] as const),
+      )
+    : first
+  return rest.reduce<LiteralExpression>(
+    (sum, term) => binary(random.pick(addSub), sum, term),
+    leading,
+  )
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
-export type PolynomialSkill = 'mono.normal-form' | 'mono.mul-div' | 'mono.power'
+export type PolynomialSkill =
+  'mono.normal-form' | 'mono.mul-div' | 'mono.power' | 'mono.add-sub'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -395,6 +480,23 @@ export const polynomialGenerators: Record<
           withinLiteralLimits(solution) &&
           (
             ['coefficient-not-raised', 'power-of-power-adds-exponents'] as const
+          ).every((id) => isVisibleLiteral(id, e, solution.result))
+        )
+      }),
+  },
+  'mono.add-sub': {
+    version: 1,
+    // Il coefficiente sottinteso e gli esponenti sommati devono cambiare il
+    // risultato; il risultato non è zero.
+    build: (random) =>
+      until(random, sumOfMonomials, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length === 1 &&
+          solution.result.size > 0 &&
+          withinLiteralLimits(solution) &&
+          (
+            ['implicit-coefficient-zero', 'like-terms-exponents-added'] as const
           ).every((id) => isVisibleLiteral(id, e, solution.result))
         )
       }),

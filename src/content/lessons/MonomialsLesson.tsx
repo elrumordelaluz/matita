@@ -56,6 +56,29 @@ const parts: readonly LessonPart[] = [
     question: generate('mono.normal-form', 1), // 6c⁴ca³
   },
   {
+    id: 'lezione-somma-monomi',
+    title: 'La somma di monomi',
+    note: 'si sommano solo i simili',
+    text: (
+      <>
+        <p>
+          Due monomi sono simili quando hanno la stessa parte letterale: 3a²b e
+          −5a²b lo sono, 3a²b e 3ab² no. La somma di monomi simili è un monomio
+          simile a loro: si sommano i coefficienti e la parte letterale resta,
+          9x + 5x − 10x + x = 5x. Attenzione a x: il suo coefficiente è 1, e
+          quello di −x è −1.
+        </p>
+        <p>
+          In una somma i simili si cercano anche lontani. Sul quaderno ogni
+          gruppo di simili diventa un termine solo, al posto del primo, e i
+          monomi che non hanno simili restano come sono: 3a + 2b non si riduce.
+        </p>
+      </>
+    ),
+    example: generate('mono.add-sub', 36), // −x² + xy + x²y + 4x² − 9xy
+    question: generate('mono.add-sub', 6), // 2x − x + 9x
+  },
+  {
     id: 'lezione-prodotto-quoziente',
     title: 'Prodotto e quoziente',
     note: 'coefficienti fra loro, esponenti sommati o sottratti',

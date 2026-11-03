@@ -79,6 +79,25 @@ test('la domanda sulla forma normale chiede di riscrivere le lettere ripetute', 
   expect(answer('6c⁴ca³', '6c^5a^3')).toHaveTextContent('Esatto!')
 })
 
+test('la somma riduce ogni gruppo di simili in un passaggio, anche lontani', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: −x² + xy + x²y + 4x² − 9xy',
+  })
+  expect(lines(example)).toEqual(['3x² − 8xy + x²y'])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  expect(within(example).getByText('−x² + 4x² = 3x²')).toBeInTheDocument()
+  expect(within(example).getByText('xy − 9xy = −8xy')).toBeInTheDocument()
+})
+
+test('la domanda sulla somma riconosce il coefficiente sottinteso contato zero', () => {
+  lesson()
+  expect(answer('2x − x + 9x', '11x')).toHaveTextContent(
+    'Hai contato zero un coefficiente che non si vede.',
+  )
+  expect(answer('2x − x + 9x', '10x')).toHaveTextContent('Esatto!')
+})
+
 test('prodotto e quoziente vanno da sinistra a destra, un passaggio ciascuno', () => {
   lesson()
   const example = screen.getByRole('figure', {

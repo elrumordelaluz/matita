@@ -52,6 +52,9 @@ export type MisconceptionId =
   | 'negative-exponent-is-negative'
   | 'negative-substituted-without-brackets'
   | 'coefficient-not-raised'
+  | 'like-terms-exponents-added'
+  | 'unlike-terms-conjoined'
+  | 'implicit-coefficient-zero'
 
 export interface Misconception {
   readonly id: MisconceptionId

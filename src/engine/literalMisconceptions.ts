@@ -1,8 +1,10 @@
 import { isAddSub, type LiteralExpression } from './expression.ts'
+import { sumTerms } from './literalSolver.ts'
 import { misconceptions, type MisconceptionId } from './misconceptions.ts'
 import {
   addPolynomials,
   asMonomial,
+  letterPart,
   constantPolynomial,
   divideMonomials,
   equalPolynomials,
@@ -12,11 +14,12 @@ import {
   polynomialOf,
   raiseMonomial,
   raisePolynomial,
+  zeroPolynomial,
   type Monomial,
   type Polynomial,
 } from './polynomial.ts'
 import { raise } from './power.ts'
-import { rational } from './rational.ts'
+import { add, rational } from './rational.ts'
 
 // Gli errori tipici del calcolo letterale. Come per i numeri, ognuno è una
 // variante sbagliata di una regola del risolutore: il motore valuta
@@ -39,12 +42,24 @@ interface Rules {
   /** Nulla quando il quoziente non è un monomio. */
   readonly quotient: (a: Monomial, b: Monomial) => Monomial | null
   readonly power: (m: Monomial, exponent: bigint) => Monomial
+  /** La somma algebrica dei termini, ciascuno con il suo segno. */
+  readonly sum: (terms: readonly Term[]) => Polynomial
 }
+
+/** Un termine di una somma: il suo valore con il segno e come è scritto. */
+interface Term {
+  readonly value: Polynomial
+  readonly written: LiteralExpression
+}
+
+const correctSum = (terms: readonly Term[]): Polynomial =>
+  terms.reduce((sum, t) => addPolynomials(sum, t.value), zeroPolynomial)
 
 const correctRules: Rules = {
   product: multiplyMonomials,
   quotient: divideMonomials,
   power: raiseMonomial,
+  sum: correctSum,
 }
 
 function product(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
@@ -82,6 +97,16 @@ function evaluate(e: LiteralExpression, rules: Rules): Polynomial {
       return e.negated ? negatePolynomial(inner) : inner
     }
     case 'binary': {
+      if (isAddSub(e.op))
+        return rules.sum(
+          sumTerms(e).map(({ minus, node }) => {
+            const value = evaluate(node, rules)
+            return {
+              value: minus ? negatePolynomial(value) : value,
+              written: node,
+            }
+          }),
+        )
       const left = evaluate(e.left, rules)
       if (e.op === '^') {
         if (e.right.kind !== 'number' || e.right.value.den !== 1n)
@@ -93,11 +118,6 @@ function evaluate(e: LiteralExpression, rules: Rules): Polynomial {
           : raisePolynomial(left, exponent)
       }
       const right = evaluate(e.right, rules)
-      if (isAddSub(e.op))
-        return addPolynomials(
-          left,
-          e.op === '+' ? right : negatePolynomial(right),
-        )
       return e.op === '×'
         ? product(left, right, rules)
         : quotient(left, right, rules)
@@ -183,10 +203,83 @@ function coefficientNotRaisedSigned(m: Monomial, exponent: bigint): Monomial {
   }
 }
 
+// I monomi dei termini, ciascuno con il suo segno.
+const monomialsOf = (terms: readonly Term[]): Monomial[] =>
+  terms.flatMap((t) => [...t.value.values()])
+
+// 2a² + 3a² come 5a⁴: fra simili si sommano anche gli esponenti. Il termine
+// senza simili resta com'è.
+function exponentsAdded(terms: readonly Term[]): Polynomial {
+  const groups = new Map<string, Monomial[]>()
+  for (const m of monomialsOf(terms)) {
+    const key = letterPart(m)
+    groups.set(key, [...(groups.get(key) ?? []), m])
+  }
+  return polynomialOf(
+    [...groups.values()].flatMap((like) =>
+      like.length === 1 || like[0]?.letters.size === 0
+        ? like
+        : [
+            monomialOf(
+              like.reduce((c, m) => add(c, m.coefficient), rational(0n)),
+              like.flatMap((m) => [...m.letters]),
+            ),
+          ],
+    ),
+  )
+}
+
+// 3a + 2b come 5ab: dopo aver ridotto i simili, i termini che restano si
+// sommano lo stesso, sommando i coefficienti e moltiplicando le parti
+// letterali.
+function conjoined(terms: readonly Term[]): Polynomial {
+  const reduced = [...correctSum(terms).values()]
+  if (reduced.length < 2) return polynomialOf(reduced)
+  return polynomialOf([
+    monomialOf(
+      reduced.reduce((c, m) => add(c, m.coefficient), rational(0n)),
+      reduced.flatMap((m) => [...m.letters]),
+    ),
+  ])
+}
+
+// 9x + 5x − 10x + x come 4x: il coefficiente che non si scrive vale zero.
+function implicitCoefficientZero(terms: readonly Term[]): Polynomial {
+  return correctSum(
+    terms.filter(
+      ({ written }) =>
+        !(
+          written.kind === 'monomial' &&
+          written.coefficient.den === 1n &&
+          (written.coefficient.num === 1n || written.coefficient.num === -1n)
+        ),
+    ),
+  )
+}
+
 const explanationOfNumbers = (id: MisconceptionId): string =>
   misconceptions.find((m) => m.id === id)?.explanation ?? ''
 
 export const literalMisconceptions: readonly LiteralMisconception[] = [
+  {
+    id: 'implicit-coefficient-zero',
+    explanation:
+      'Hai contato zero un coefficiente che non si vede. Davanti a una lettera da sola il coefficiente è 1, o −1 con il meno: in 9x + 5x − 10x + x l’ultimo termine vale 1x, e il risultato è 5x.',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, sum: implicitCoefficientZero }),
+  },
+  {
+    id: 'like-terms-exponents-added',
+    explanation:
+      'Fra monomi simili hai sommato anche gli esponenti. Si sommano solo i coefficienti, la parte letterale resta la stessa: 2a² + 3a² = 5a², non 5a⁴.',
+    wrongResults: (e) => attempt(e, { ...correctRules, sum: exponentsAdded }),
+  },
+  {
+    id: 'unlike-terms-conjoined',
+    explanation:
+      'Hai sommato monomi che non sono simili. Si sommano solo i monomi con la stessa parte letterale: 3a + 2b resta 3a + 2b, non diventa 5ab.',
+    wrongResults: (e) => attempt(e, { ...correctRules, sum: conjoined }),
+  },
   {
     id: 'coefficient-not-raised',
     explanation:

@@ -134,3 +134,68 @@ describe('potenza di un monomio', () => {
     ])
   })
 })
+
+describe('la riduzione dei termini simili', () => {
+  // Bergamini es. 40.
+  test('9x + 5x − 10x + x = 5x: un passaggio con tutti i simili', () => {
+    const solution = solved('9x + 5x − 10x + x')
+    expect(rows(solution)).toEqual([
+      { line: '5x', steps: ['9x + 5x − 10x + x = 5x (like-terms)'] },
+    ])
+    const [step] = solution.lines[0]?.steps ?? []
+    expect(step?.operands.map((p) => toText(polynomialExpression(p)))).toEqual([
+      '9x',
+      '5x',
+      '−10x',
+      'x',
+    ])
+  })
+
+  test('3a² + 2b − a² = 2a² + 2b: il risultato al posto del primo simile', () => {
+    expect(rows(solved('3a² + 2b − a²'))).toEqual([
+      { line: '2a² + 2b', steps: ['3a² − a² = 2a² (like-terms)'] },
+    ])
+  })
+
+  test('un passaggio per gruppo, nell’ordine di prima comparsa', () => {
+    expect(rows(solved('3a + 2b − a + b'))).toEqual([
+      {
+        line: '2a + 3b',
+        steps: ['3a − a = 2a (like-terms)', '2b + b = 3b (like-terms)'],
+      },
+    ])
+  })
+
+  test('il segno del risultato fra monomi positivi, come sul libro', () => {
+    expect(rows(solved('a − 3a + b'))[0]?.line).toBe('−2a + b')
+    expect(rows(solved('b + a − 3a'))[0]?.line).toBe('b − 2a')
+    expect(rows(solved('2b − a² + 3a²'))).toEqual([
+      { line: '2b + 2a²', steps: ['−a² + 3a² = 2a² (like-terms)'] },
+    ])
+  })
+
+  test('simili opposti si annullano', () => {
+    expect(rows(solved('2a − 2a + b'))[0]?.line).toBe('b')
+    expect(result('2a − 2a')).toBe('0')
+  })
+
+  test('i monomi non simili restano: 3a − 2b', () => {
+    expect(solved('3a − 2b').lines).toEqual([])
+  })
+
+  // Bergamini es. 39: il coefficiente −1 sottinteso.
+  test('4a² − a² − 2a² = a²', () => {
+    expect(result('4a² − a² − 2a²')).toBe('a²')
+  })
+
+  // Bergamini es. 43, con i decimali del libro scritti come frazioni:
+  // 3/4 b³ − 0,2b³ − 1,5b³ + 1/5 b³.
+  test('3/4 b³ − 1/5 b³ − 3/2 b³ + 1/5 b³ = −3/4 b³', () => {
+    expect(result('3/4 b³ − 1/5 b³ − 3/2 b³ + 1/5 b³')).toBe('−3/4 b³')
+  })
+
+  // Bergamini es. 44: i termini nell'ordine di prima comparsa.
+  test('−1/4 a + 2b² − 1/2 a + 1/3 b² = −3/4 a + 7/3 b²', () => {
+    expect(result('−1/4 a + 2b² − 1/2 a + 1/3 b²')).toBe('−3/4 a + 7/3 b²')
+  })
+})

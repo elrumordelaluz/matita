@@ -47,6 +47,8 @@ export type Rule =
   | 'monomial-quotient'
   /** La potenza di un monomio, con il segno: (−3a²)³ = −27a⁶. */
   | 'monomial-power'
+  /** Un gruppo di termini simili ridotto a uno: 9x + 5x − 10x + x = 5x. */
+  | 'like-terms'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */

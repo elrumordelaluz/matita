@@ -67,3 +67,36 @@ describe('prodotto, quoziente e potenza di monomi', () => {
     ).toContain('Nel prodotto gli esponenti si sommano')
   })
 })
+
+describe('somma algebrica di monomi', () => {
+  test('fra simili sommati anche gli esponenti: 2a² + 3a² = 5a⁴', () => {
+    expect(recognised('2a² + 3a²', '5a⁴')).toBe('like-terms-exponents-added')
+    // Solo fra simili: il termine che resta da solo non cambia.
+    expect(recognised('3a² + 2b − a²', '2a⁴ + 2b')).toBe(
+      'like-terms-exponents-added',
+    )
+  })
+
+  test('non simili sommati: 3a + 2b = 5ab, 2a² + 3a³ = 5a⁵', () => {
+    expect(recognised('3a + 2b', '5ab')).toBe('unlike-terms-conjoined')
+    expect(recognised('2a² + 3a³', '5a⁵')).toBe('unlike-terms-conjoined')
+  })
+
+  test('il coefficiente sottinteso contato zero: 9x + 5x − 10x + x = 4x', () => {
+    expect(recognised('9x + 5x − 10x + x', '4x')).toBe(
+      'implicit-coefficient-zero',
+    )
+  })
+
+  test('ogni errore ha la sua spiegazione', () => {
+    expect(misconceptionExplanation('like-terms-exponents-added')).toContain(
+      '2a² + 3a² = 5a²',
+    )
+    expect(misconceptionExplanation('unlike-terms-conjoined')).toContain(
+      '3a + 2b',
+    )
+    expect(misconceptionExplanation('implicit-coefficient-zero')).toContain(
+      'il coefficiente è 1',
+    )
+  })
+})

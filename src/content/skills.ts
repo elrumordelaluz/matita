@@ -110,6 +110,11 @@ export const skills: readonly Skill[] = [
     prerequisites: ['pow.properties', 'q.mul-div'],
   },
   {
+    id: 'mono.add-sub',
+    title: 'Somma algebrica di monomi',
+    prerequisites: ['mono.normal-form', 'q.add-sub', 'z.minus-group'],
+  },
+  {
     id: 'mono.mul-div',
     title: 'Prodotto e quoziente di monomi',
     prerequisites: ['mono.normal-form'],

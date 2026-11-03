@@ -1,6 +1,8 @@
 import {
   binary,
+  group,
   isMulDiv,
+  literal,
   isNegatedPower,
   isPower,
   type LiteralExpression,
@@ -8,12 +10,17 @@ import {
   type Operator,
 } from './expression.ts'
 import {
+  addPolynomials,
   asMonomial,
+  letterPart,
   monomialExpression,
   multiplyPolynomials,
+  negatePolynomial,
   polynomialValue,
+  zeroPolynomial,
   type Polynomial,
 } from './polynomial.ts'
+import { rational } from './rational.ts'
 import type { Line, Rule, Step } from './solver.ts'
 
 // Il risolutore del calcolo letterale. L'ordine è quello dei capitoli dei
@@ -141,16 +148,120 @@ function reduceFirst(e: LiteralExpression, level: Level): Reduction | null {
   return null
 }
 
+// La riduzione dei termini simili. Non è "+ e − da sinistra a destra":
+// mette insieme termini lontani. Un passaggio per ogni gruppo di simili, con
+// tanti operandi quanti sono i simili, e il risultato al posto del primo
+// termine del gruppo; i gruppi vanno nell'ordine di prima comparsa.
+
+/** Un termine di una somma con il segno che lo precede. */
+export interface SignedTerm {
+  readonly minus: boolean
+  readonly node: LiteralExpression
+}
+
+/** I termini di una somma algebrica, nell'ordine scritto. */
+export function sumTerms(e: LiteralExpression): SignedTerm[] {
+  if (e.kind === 'binary' && (e.op === '+' || e.op === '-'))
+    return [...sumTerms(e.left), { minus: e.op === '-', node: e.right }]
+  return [{ minus: false, node: e }]
+}
+
+// Il valore di un termine con il suo segno.
+const signedValue = ({ minus, node }: SignedTerm): Polynomial => {
+  const value = polynomialValue(node)
+  return minus ? negatePolynomial(value) : value
+}
+
+// Un monomio o un numero con il suo segno, come termine: −2a diventa il
+// meno davanti a 2a, perché fra i termini ci sono solo monomi positivi.
+function termOf(value: Polynomial): SignedTerm | null {
+  const m = asMonomial(value)
+  if (!m) return null
+  const minus = m.coefficient.num < 0n
+  const coefficient = minus
+    ? rational(-m.coefficient.num, m.coefficient.den)
+    : m.coefficient
+  return { minus, node: monomialExpression({ ...m, coefficient }) }
+}
+
+/**
+ * La somma scritta come sul libro: + e − fra i termini, e il primo con il
+ * suo segno. Senza termini è lo zero.
+ */
+export function sumOf(terms: readonly SignedTerm[]): LiteralExpression {
+  const [first, ...rest] = terms
+  if (!first) return literal(rational(0n))
+  const leading = first.minus ? negated(first.node) : first.node
+  return rest.reduce<LiteralExpression>(
+    (sum, t) => binary(t.minus ? '-' : '+', sum, t.node),
+    leading,
+  )
+}
+
+// Il primo termine con il meno davanti: un monomio o un numero cambia segno,
+// un gruppo ricorda il meno.
+function negated(node: LiteralExpression): LiteralExpression {
+  if (node.kind === 'number')
+    return literal(rational(-node.value.num, node.value.den))
+  if (node.kind === 'monomial')
+    return {
+      ...node,
+      coefficient: rational(-node.coefficient.num, node.coefficient.den),
+    }
+  return group('round', node, { negated: true })
+}
+
+function likeKey(t: SignedTerm): string | null {
+  if (!isLeaf(t.node)) return null
+  const m = asMonomial(polynomialValue(t.node))
+  return m ? letterPart(m) : null
+}
+
+// Il primo gruppo di simili, ridotto a un termine solo.
+function reduceLikeTerms(e: LiteralExpression): Reduction | null {
+  const terms = sumTerms(e)
+  const keys = terms.map(likeKey)
+  const first = keys.findIndex(
+    (k, i) => k !== null && keys.indexOf(k, i + 1) !== -1,
+  )
+  if (first === -1) return null
+  const members = keys.flatMap((k, i) => (k === keys[first] ? [i] : []))
+  const like = members.flatMap((i) => terms[i] ?? [])
+  const operands = like.map(signedValue)
+  const result = operands.reduce(addPolynomials, zeroPolynomial)
+  const reducedTerm = termOf(result)
+  const rest = terms.flatMap((t, i) => {
+    if (i === first) return reducedTerm ? [reducedTerm] : []
+    return members.includes(i) ? [] : [t]
+  })
+  const outcome = reducedTerm ? sumOf([reducedTerm]) : literal(rational(0n))
+  return {
+    expression: sumOf(rest),
+    step: {
+      rule: 'like-terms',
+      operands,
+      result,
+      operation: sumOf(like),
+      outcome,
+    },
+  }
+}
+
 const levels: readonly Level[] = ['power', 'mul-div', 'add-sub']
+
+// Il primo passaggio del giro, da sinistra.
+function reduceLevel(e: LiteralExpression, level: Level): Reduction | null {
+  return level === 'add-sub' ? reduceLikeTerms(e) : reduceFirst(e, level)
+}
 
 // Una riga: il primo giro che ha qualcosa da fare, svolto tutto.
 function solveLevel(e: LiteralExpression): Line<LiteralStep> | null {
-  const level = levels.find((l) => reduceFirst(e, l) !== null)
+  const level = levels.find((l) => reduceLevel(e, l) !== null)
   if (!level) return null
   const steps: LiteralStep[] = []
   let current = e
   for (;;) {
-    const reduction = reduceFirst(current, level)
+    const reduction = reduceLevel(current, level)
     if (!reduction) return { expression: current, steps }
     current = reduction.expression
     steps.push({ ...reduction.step, expression: current })

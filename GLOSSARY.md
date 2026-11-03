@@ -13,7 +13,7 @@ di sinistra; nei nomi di tipi e funzioni, la colonna del codice.
 | esercizio        | `Exercise`      | Una consegna da risolvere (un'espressione, un problema, delle scritture), generata da un seme per un'abilità, con il suo tipo di risposta. |
 | seme             | `seed`          | Il numero che rende un esercizio riproducibile.                                                                                            |
 | riga             | `Line`          | Un livello della soluzione, come sul quaderno.                                                                                             |
-| passaggio        | `Step`          | Una sola operazione dentro una riga, con la regola applicata. Nella riduzione dei simili, un gruppo di simili insieme.                     |
+| passaggio        | `Step`          | Un'operazione di una riga, con operandi, risultato e regola. Fra numeri gli operandi sono due; nella riduzione dei simili, uno per simile. |
 | posizione        | `Path`          | Dove sta un nodo nell'albero: il percorso dalla radice. Distingue le copie uguali di uno stesso conto.                                     |
 | potenza          | `power`         | Base ed esponente, `2³`. Nell'albero è l'operazione `^`.                                                                                   |
 | proprietà        | `PropertyRule`  | Regola che trasforma potenze senza calcolarle: stessa base, stesso esponente, potenza di potenza.                                          |

@@ -567,9 +567,11 @@ righe a sé restano per le potenze di numeri.
 La riduzione mette insieme termini lontani, quindi non è "+ e − da sinistra
 a destra": un passaggio per ogni gruppo di simili, con il risultato al posto
 del primo termine del gruppo, `3a² + 2b − a² = 2a² + 2b`. Questo passaggio ha
-tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`, e
-il passaggio del motore, che oggi è un'operazione fra due razionali, diventa
-un'operazione con i suoi operandi e il suo risultato, monomi compresi.
+tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`:
+il passaggio del motore è un'operazione con i suoi operandi e il suo
+risultato, monomi compresi, e nei capitoli dei numeri resta un conto fra
+due razionali. Un simile con il meno davanti entra con il suo segno, e se il
+gruppo si annulla il termine sparisce.
 L'ordine dei termini nella soluzione è quello di prima comparsa, come nei
 risultati del libro, e le lettere di un monomio sono in ordine alfabetico.
 

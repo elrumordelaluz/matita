@@ -223,3 +223,41 @@ describe('mono.power', () => {
     expectLiteralLimits('mono.power')
   })
 })
+
+describe('mono.add-sub', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('mono.add-sub', 42)).toEqual(generate('mono.add-sub', 42))
+  })
+
+  test('una somma di monomi con dei simili, ridotta in una riga', () => {
+    for (const seed of seeds) {
+      const { lines } = solveLiteral(generate('mono.add-sub', seed).expression)
+      expect(lines, `seme ${seed}`).toHaveLength(1)
+    }
+    expect(rulesOf('mono.add-sub')).toEqual(new Set(['like-terms']))
+  })
+
+  test('il coefficiente sottinteso e gli esponenti sommati cambiano sempre il risultato', () => {
+    expectVisibleLiteral('mono.add-sub', [
+      'implicit-coefficient-zero',
+      'like-terms-exponents-added',
+    ])
+  })
+
+  test('a volte restano monomi non simili', () => {
+    expect(
+      seeds.some((seed) => {
+        const { expression } = generate('mono.add-sub', seed)
+        return isVisibleLiteral(
+          'unlike-terms-conjoined',
+          expression,
+          solveLiteral(expression).result,
+        )
+      }),
+    ).toBe(true)
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('mono.add-sub')
+  })
+})
