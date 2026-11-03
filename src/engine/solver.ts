@@ -69,6 +69,10 @@ export type Rule =
   | 'square-of-binomial'
   /** La riga della formula: (3x + 2y)(3x − 2y) diventa (3x)² − (2y)². */
   | 'sum-times-difference'
+  /** La riga della formula: (A + B + C)² = A² + B² + C² + 2AB + 2AC + 2BC. */
+  | 'square-of-trinomial'
+  /** La riga della formula: (A + B)³ = A³ + 3A²B + 3AB² + B³. */
+  | 'cube-of-binomial'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */

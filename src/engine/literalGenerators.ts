@@ -825,6 +825,29 @@ function sumTimesDifference(random: Random): LiteralExpression {
   return binary('×', binomial([a, b]), binomial([a, opposite]))
 }
 
+// Il quadrato di un trinomio, (2x − y + 5)², o il cubo di un binomio,
+// (x + 2)³. Il trinomio ha una lettera con il suo quadrato e il termine
+// noto, o due lettere e il termine noto.
+function trinomialTerms(random: Random): PolynomialTerm[] {
+  const [x = 'x', y] = random.pick(polynomialLetters)
+  const parts: LetterPart[] = y
+    ? [[[x, 1n]], [[y, 1n]], []]
+    : [[[x, 2n]], [[x, 1n]], []]
+  return parts.map((part, i) => ({
+    coefficient: rational(
+      (i === 0 ? 1n : random.pick([1n, -1n])) *
+        random.pick(notableCoefficients),
+    ),
+    part,
+  }))
+}
+
+function moreNotable(random: Random): LiteralExpression {
+  return random.pick([true, false])
+    ? power(binomial(trinomialTerms(random)), 2n)
+    : power(binomial(binomialTerms(random)), 3n)
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
   | 'mono.normal-form'
@@ -837,6 +860,7 @@ export type PolynomialSkill =
   | 'poly.times'
   | 'poly.square'
   | 'poly.sum-diff'
+  | 'poly.more-notable'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -996,6 +1020,21 @@ export const polynomialGenerators: Record<
           writtenWithin(e) &&
           withinLiteralLimits(solution) &&
           isVisibleLiteral('sum-times-difference-plus', e, solution.result)
+        )
+      }),
+  },
+  'poly.more-notable': {
+    version: 1,
+    // Al massimo sei termini, quelli del quadrato di un trinomio; un cubo
+    // con un coefficiente oltre 60 si scarta, come (3x + 4)³.
+    build: (random) =>
+      until(random, moreNotable, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.result.size <= 6 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('power-of-sum', e, solution.result)
         )
       }),
   },

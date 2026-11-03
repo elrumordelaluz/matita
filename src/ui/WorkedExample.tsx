@@ -58,6 +58,8 @@ const ruleNote: Record<Rule, string> = {
   'polynomial-quotient': 'ogni termine diviso per il monomio',
   'square-of-binomial': 'quadrato di un binomio: si scrive la formula',
   'sum-times-difference': 'somma per differenza: si scrive la formula',
+  'square-of-trinomial': 'quadrato di un trinomio: si scrive la formula',
+  'cube-of-binomial': 'cubo di un binomio: si scrive la formula',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',

@@ -162,6 +162,27 @@ test('la domanda sulla somma per differenza riconosce il più', () => {
   expect(answer(name, '16a^2 - 1')).toHaveTextContent('Esatto!')
 })
 
+test('il cubo di un binomio: la formula, le potenze, i prodotti', () => {
+  lesson()
+  const example = screen.getByRole('figure', { name: 'Esempio: (y + 2)³' })
+  expect(lines(example)).toEqual([
+    'y³ + 3 · y² · 2 + 3 · y · 2² + 2³',
+    'y³ + 3 · y² · 2 + 3 · y · 4 + 8',
+    'y³ + 6y² + 12y + 8',
+  ])
+})
+
+test('la domanda sul quadrato di un trinomio riconosce la potenza distribuita', () => {
+  lesson()
+  const name = '(2a − 3b + 4)²'
+  expect(answer(name, '4a^2 + 9b^2 + 16')).toHaveTextContent(
+    'Hai elevato ogni termine della parentesi',
+  )
+  expect(answer(name, '4a^2 + 9b^2 + 16 - 12ab + 16a - 24b')).toHaveTextContent(
+    'Esatto!',
+  )
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

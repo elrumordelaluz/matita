@@ -631,7 +631,12 @@ prodotti, `4x⁴ + 12x²y + 9y²`. Una lettera da sola si eleva già nella
 formula, `(x + 2)² = x² + 2 · x · 2 + 2²`, perché `(x)²` il libro non lo
 scrive. Con il meno la formula è quella della differenza,
 `(3a − 2b)² = (3a)² − 2 · 3a · 2b + (2b)²`, e la somma per differenza ha la
-sua, `(3x + 2y)(3x − 2y) = (3x)² − (2y)²`. Dopo il meno, o dentro un
+sua, `(3x + 2y)(3x − 2y) = (3x)² − (2y)²`. Il quadrato di un trinomio prende
+ogni termine con il suo segno, `(2x − y + 5)² = (2x)² + (−y)² + 5² +
+2 · 2x · (−y) + 2 · 2x · 5 + 2 · (−y) · 5`, e il risultato esce nell'ordine
+della formula, come lo stampa il libro: `4x² + y² + 25 − 4xy + 20x − 10y`. Il
+cubo di un binomio ha la formula della somma o della differenza,
+`(A − B)³ = A³ − 3A²B + 3AB² − B³`. Dopo il meno, o dentro un
 prodotto, la formula va fra quadre, perché ha già le tonde delle potenze:
 `x² − (x + 1)² = x² − [x² + 2 · x · 1 + 1²]`. In tutte
 e due la riga è proprio ciò che l'abilità allena: senza, il quaderno

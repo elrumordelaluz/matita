@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   hasLetters,
+  parseLiteralExpression,
   type LiteralExpression,
   type MonomialNode,
 } from './expression.ts'
@@ -489,5 +490,53 @@ describe('poly.sum-diff', () => {
 
   test('i numeri restano nei limiti del calcolo letterale', () => {
     expectLiteralLimits('poly.sum-diff')
+  })
+})
+
+describe('poly.more-notable', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.more-notable', 42)).toEqual(
+      generate('poly.more-notable', 42),
+    )
+  })
+
+  test('il quadrato di un trinomio o il cubo di un binomio, dalla riga della formula', () => {
+    for (const seed of seeds)
+      expect(stepsOf('poly.more-notable', seed)[0], `seme ${seed}`).toEqual([
+        expect.stringMatching(/^(square-of-trinomial|cube-of-binomial)$/),
+      ])
+    const rules = rulesOf('poly.more-notable')
+    expect(rules).toContain('square-of-trinomial')
+    expect(rules).toContain('cube-of-binomial')
+  })
+
+  test('al massimo sei termini nel risultato', () => {
+    for (const seed of seeds) {
+      const { result } = solveLiteral(
+        generate('poly.more-notable', seed).expression,
+      )
+      expect(result.size, `seme ${seed}`).toBeLessThanOrEqual(6)
+    }
+  })
+
+  test('la potenza distribuita sulla somma cambia sempre il risultato', () => {
+    expectVisibleLiteral('poly.more-notable', ['power-of-sum'])
+  })
+
+  test('i numeri restano nei limiti: coefficienti fino a 60, anche nei cubi', () => {
+    expectLiteralLimits('poly.more-notable')
+  })
+
+  // SPEC.md, "Generatori": (2x + 3)³ passa, con 36x² e 54x; (3x + 4)³ no.
+  test('(2x + 3)³ resta entro 60, (3x + 4)³ no', () => {
+    const largest = (text: string) => {
+      const { lines, result } = solveLiteral(parseLiteralExpression(text))
+      return [...lines.flatMap((l) => l.steps.map((s) => s.result)), result]
+        .flatMap((p) => [...p.values()])
+        .map((m) => magnitude(m.coefficient.num))
+        .reduce((a, b) => (a > b ? a : b), 0n)
+    }
+    expect(largest('(2x + 3)³')).toBe(54n)
+    expect(largest('(3x + 4)³')).toBeGreaterThan(60n)
   })
 })

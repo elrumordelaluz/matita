@@ -521,3 +521,50 @@ describe('i prodotti notevoli: la riga della formula', () => {
     ])
   })
 })
+
+describe('il quadrato di un trinomio e il cubo di un binomio', () => {
+  const lines = (text: string) =>
+    solved(text).lines.map((l) => toText(l.expression))
+
+  // Bergamini, Matematica multimediale.rosso, cap. 5: il risultato
+  // nell'ordine della formula, come lo stampa il libro.
+  test('(2x − y + 5)² = 4x² + y² + 25 − 4xy + 20x − 10y', () => {
+    expect(lines('(2x − y + 5)²')).toEqual([
+      '(2x)² + (−y)² + 5² + 2 · 2x · (−y) + 2 · 2x · 5 + 2 · (−y) · 5',
+      '4x² + y² + 25 + 2 · 2x · (−y) + 2 · 2x · 5 + 2 · (−y) · 5',
+      '4x² + y² + 25 − 4xy + 20x − 10y',
+    ])
+    expect(result('(2x − y + 5)²')).toBe('4x² + y² + 25 − 4xy + 20x − 10y')
+    const [step] = solved('(2x − y + 5)²').lines[0]?.steps ?? []
+    expect(step?.rule).toBe('square-of-trinomial')
+    expect(step?.formula?.text).toBe(
+      '(A + B + C)² = A² + B² + C² + 2AB + 2AC + 2BC',
+    )
+    expect(step?.formula?.terms.map((t) => toText(t.term))).toEqual([
+      '2x',
+      '−y',
+      '5',
+    ])
+  })
+
+  test('(x + 2)³ = x³ + 6x² + 12x + 8', () => {
+    expect(lines('(x + 2)³')).toEqual([
+      'x³ + 3 · x² · 2 + 3 · x · 2² + 2³',
+      'x³ + 3 · x² · 2 + 3 · x · 4 + 8',
+      'x³ + 6x² + 12x + 8',
+    ])
+    const [step] = solved('(x + 2)³').lines[0]?.steps ?? []
+    expect(step?.rule).toBe('cube-of-binomial')
+    expect(step?.formula?.text).toBe('(A + B)³ = A³ + 3A²B + 3AB² + B³')
+  })
+
+  test('il cubo di una differenza: (A − B)³ = A³ − 3A²B + 3AB² − B³', () => {
+    // La potenza fra tonde si attacca al fattore prima, come 2a(3b)².
+    expect(lines('(2a − b)³')[0]).toBe('(2a)³ − 3(2a)² · b + 3 · 2a · b² − b³')
+    expect(result('(2a − b)³')).toBe('8a³ − 12a²b + 6ab² − b³')
+  })
+
+  test('i simili fra i termini si riducono nella riga dopo', () => {
+    expect(result('(x² + x + 1)²')).toBe('x⁴ + 3x² + 1 + 2x³ + 2x')
+  })
+})

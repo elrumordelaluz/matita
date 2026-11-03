@@ -184,4 +184,9 @@ export const skills: readonly Skill[] = [
     title: 'Somma per differenza',
     prerequisites: ['poly.times', 'mono.power'],
   },
+  {
+    id: 'poly.more-notable',
+    title: 'Quadrato di un trinomio, cubo di un binomio',
+    prerequisites: ['poly.square'],
+  },
 ]

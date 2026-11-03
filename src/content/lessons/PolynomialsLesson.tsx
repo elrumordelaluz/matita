@@ -118,6 +118,29 @@ const parts: readonly LessonPart[] = [
     example: generate('poly.sum-diff', 8), // (3x + 4)(3x − 4)
     question: generate('poly.sum-diff', 11), // (4a − 1)(4a + 1)
   },
+  {
+    id: 'lezione-altri-prodotti-notevoli',
+    title: 'Trinomio al quadrato, binomio al cubo',
+    note: 'la formula, poi i conti',
+    text: (
+      <>
+        <p>
+          Il quadrato di un trinomio è la somma dei quadrati dei tre termini e
+          di tutti i doppi prodotti: (A + B + C)² = A² + B² + C² + 2AB + 2AC +
+          2BC. Ogni termine entra con il suo segno: in (2x − y + 5)² B è −y, e
+          il risultato è 4x² + y² + 25 − 4xy + 20x − 10y.
+        </p>
+        <p>
+          Il cubo di un binomio ha quattro termini: (A + B)³ = A³ + 3A²B + 3AB²
+          + B³. Con il meno i segni si alternano, (A − B)³ = A³ − 3A²B + 3AB² −
+          B³. Come per il quadrato, la prima riga scrive la formula e le righe
+          dopo fanno i conti.
+        </p>
+      </>
+    ),
+    example: generate('poly.more-notable', 13), // (y + 2)³
+    question: generate('poly.more-notable', 8), // (2a − 3b + 4)²
+  },
 ]
 
 export function PolynomialsLesson({ onPractise }: LessonProps) {

@@ -128,7 +128,13 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
   // La regola dei segni, nel giro di × e : come con i numeri: il meno
   // davanti a un monomio fra parentesi cambia il suo segno, −(−2a) = 2a, e
   // in una somma − (−27/8 a¹²x⁶) diventa + 27/8 a¹²x⁶.
-  if (level === 'formula') return squareOfBinomial(e) ?? sumTimesDifference(e)
+  if (level === 'formula')
+    return (
+      squareOfBinomial(e) ??
+      squareOfTrinomial(e) ??
+      cubeOfBinomial(e) ??
+      sumTimesDifference(e)
+    )
   if (level === 'mul-div') {
     const signChange = changeSign(e)
     if (signChange) return signChange
@@ -349,6 +355,71 @@ function squareOfBinomial(e: LiteralExpression): Reduction | null {
       { minus: false, node: raised(A, 2n) },
       { minus: b.minus, node: times(literal(rational(2n)), A, B) },
       { minus: false, node: raised(B, 2n) },
+    ],
+  )
+}
+
+const number = (n: bigint) => literal(rational(n))
+
+// (A + B + C)² = A² + B² + C² + 2AB + 2AC + 2BC, ogni termine con il suo
+// segno: in (2x − y + 5)² B è −y. Il risultato esce nell'ordine della
+// formula, come lo stampa il libro.
+function squareOfTrinomial(e: LiteralExpression): Reduction | null {
+  if (e.kind !== 'binary' || !hasExponent(e, 2n)) return null
+  if (!isPolynomialGroup(e.left)) return null
+  const [a, b, c, ...rest] = innerTerms(e.left)
+  if (!a || !b || !c || rest.length > 0) return null
+  const [A, B, C] = [signedNode(a), signedNode(b), signedNode(c)]
+  const plus = (node: LiteralExpression) => ({ minus: false, node })
+  return formulaRiga(
+    'square-of-trinomial',
+    e,
+    [polynomialValue(e.left)],
+    {
+      text: '(A + B + C)² = A² + B² + C² + 2AB + 2AC + 2BC',
+      terms: [
+        { name: 'A', term: A },
+        { name: 'B', term: B },
+        { name: 'C', term: C },
+      ],
+    },
+    [
+      plus(raised(A, 2n)),
+      plus(raised(B, 2n)),
+      plus(raised(C, 2n)),
+      plus(times(number(2n), A, B)),
+      plus(times(number(2n), A, C)),
+      plus(times(number(2n), B, C)),
+    ],
+  )
+}
+
+// (A + B)³ = A³ + 3A²B + 3AB² + B³, e con il meno
+// (A − B)³ = A³ − 3A²B + 3AB² − B³.
+function cubeOfBinomial(e: LiteralExpression): Reduction | null {
+  if (e.kind !== 'binary' || !hasExponent(e, 3n)) return null
+  if (!isPolynomialGroup(e.left)) return null
+  const [a, b, ...rest] = innerTerms(e.left)
+  if (!a || !b || rest.length > 0) return null
+  const A = signedNode(a)
+  const B = b.node
+  const sign = b.minus ? '−' : '+'
+  return formulaRiga(
+    'cube-of-binomial',
+    e,
+    [polynomialValue(e.left)],
+    {
+      text: `(A ${sign} B)³ = A³ ${sign} 3A²B + 3AB² ${sign} B³`,
+      terms: [
+        { name: 'A', term: A },
+        { name: 'B', term: B },
+      ],
+    },
+    [
+      { minus: false, node: raised(A, 3n) },
+      { minus: b.minus, node: times(number(3n), raised(A, 2n), B) },
+      { minus: false, node: times(number(3n), A, raised(B, 2n)) },
+      { minus: b.minus, node: raised(B, 3n) },
     ],
   )
 }

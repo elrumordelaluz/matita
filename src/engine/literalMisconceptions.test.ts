@@ -162,6 +162,11 @@ describe('i prodotti notevoli', () => {
     )
   })
 
+  test('anche nel cubo di un binomio e nel quadrato di un trinomio', () => {
+    expect(recognised('(x + 2)³', 'x³ + 8')).toBe('power-of-sum')
+    expect(recognised('(2x − y + 5)²', '4x² + y² + 25')).toBe('power-of-sum')
+  })
+
   test('il quadrato di una differenza con il segno sbagliato: (a − b)² = a² − 2ab − b²', () => {
     expect(recognised('(3a − 2b)²', '9a² − 12ab − 4b²')).toBe(
       'square-of-difference-sign',
