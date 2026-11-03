@@ -782,6 +782,49 @@ function polynomialTimesPolynomial(random: Random): LiteralExpression {
   )
 }
 
+// I binomi dei prodotti notevoli: termini con coefficiente intero fino a 5,
+// come sul libro, (2x² + 3y)², (3a − 2b), (x + 3). Il primo termine è quasi
+// sempre positivo; il secondo ha il meno una volta su due.
+const notableCoefficients = [1n, 1n, 2n, 2n, 3n, 3n, 4n, 5n]
+
+function binomialTerms(random: Random): PolynomialTerm[] {
+  const letters = random.pick(polynomialLetters)
+  const [x = 'x', y] = letters
+  const first: LetterPart = random.pick([[[x, 1n]], [[x, 1n]], [[x, 2n]]])
+  const second: LetterPart = y
+    ? random.pick([[[y, 1n]], [[y, 1n]], [[y, 2n]], []])
+    : random.pick([[], [], [[x, first[0]?.[1] === 1n ? 2n : 1n]]])
+  const coefficient = (sign: bigint) =>
+    rational(sign * random.pick(notableCoefficients))
+  return [
+    {
+      coefficient: coefficient(random.pick([1n, 1n, 1n, 1n, 1n, 1n, 1n, -1n])),
+      part: first,
+    },
+    { coefficient: coefficient(random.pick([1n, -1n])), part: second },
+  ]
+}
+
+const binomial = (terms: readonly PolynomialTerm[]) =>
+  group('round', sumExpression(terms))
+
+// Il quadrato di un binomio: (2x² + 3y)².
+function binomialSquare(random: Random): LiteralExpression {
+  return power(binomial(binomialTerms(random)), 2n)
+}
+
+// La somma per la differenza degli stessi termini, in un ordine o
+// nell'altro: (3x + 2y)(3x − 2y), (a − 5)(a + 5).
+function sumTimesDifference(random: Random): LiteralExpression {
+  const [a, b] = binomialTerms(random)
+  if (!a || !b) throw new RangeError('Nessun termine')
+  const opposite = {
+    ...b,
+    coefficient: rational(-b.coefficient.num, b.coefficient.den),
+  }
+  return binary('×', binomial([a, b]), binomial([a, opposite]))
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
   | 'mono.normal-form'
@@ -792,6 +835,8 @@ export type PolynomialSkill =
   | 'poly.add-sub'
   | 'poly.mono-times'
   | 'poly.times'
+  | 'poly.square'
+  | 'poly.sum-diff'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -922,6 +967,35 @@ export const polynomialGenerators: Record<
           writtenWithin(e) &&
           withinLiteralLimits(solution) &&
           isVisibleLiteral('like-terms-exponents-added', e, solution.result)
+        )
+      }),
+  },
+  'poly.square': {
+    version: 1,
+    // Tre termini nel risultato, coefficienti fino a 60; la potenza
+    // distribuita sulla somma cambia il risultato. Il segno sbagliato del
+    // quadrato di una differenza lo cambia sempre, perché B² non è zero.
+    build: (random) =>
+      until(random, binomialSquare, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.result.size === 3 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('power-of-sum', e, solution.result)
+        )
+      }),
+  },
+  'poly.sum-diff': {
+    version: 1,
+    build: (random) =>
+      until(random, sumTimesDifference, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.result.size === 2 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('sum-times-difference-plus', e, solution.result)
         )
       }),
   },

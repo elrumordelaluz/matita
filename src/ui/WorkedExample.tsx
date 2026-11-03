@@ -56,6 +56,8 @@ const ruleNote: Record<Rule, string> = {
   'minus-group': 'il meno cambia il segno di ogni termine',
   distributive: 'ogni termine per ogni termine',
   'polynomial-quotient': 'ogni termine diviso per il monomio',
+  'square-of-binomial': 'quadrato di un binomio: si scrive la formula',
+  'sum-times-difference': 'somma per differenza: si scrive la formula',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
@@ -311,6 +313,16 @@ function StepRow({ marked }: { marked: MarkedStep }) {
             <li key={k}>{`${toText(p.operation)} = ${toText(p.outcome)}`}</li>
           ))}
         </ul>
+      )}
+      {step.formula && (
+        <p className="flex w-full flex-wrap gap-x-4 gap-y-1 text-sm text-lead tabular-nums">
+          <span>{step.formula.text}</span>
+          <span>
+            {step.formula.terms
+              .map((t) => `${t.name} = ${toText(t.term)}`)
+              .join(', ')}
+          </span>
+        </p>
       )}
     </li>
   )

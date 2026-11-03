@@ -62,6 +62,13 @@ export type Rule =
   | 'distributive'
   /** Il polinomio diviso per un monomio, termine per termine, quando è esatto. */
   | 'polynomial-quotient'
+  /**
+   * La riga della formula, senza conto: (2x² + 3y)² diventa
+   * (2x²)² + 2 · 2x² · 3y + (3y)².
+   */
+  | 'square-of-binomial'
+  /** La riga della formula: (3x + 2y)(3x − 2y) diventa (3x)² − (2y)². */
+  | 'sum-times-difference'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */
@@ -99,6 +106,19 @@ export interface Step<V extends Value = Value> {
    * li mostra.
    */
   readonly products?: readonly TermOperation<V>[]
+  /** Nella riga di un prodotto notevole, la formula e i suoi A e B. */
+  readonly formula?: Formula
+}
+
+/** Un prodotto notevole applicato: la formula e i termini al posto delle lettere. */
+export interface Formula {
+  /** La formula come sul libro: (A + B)² = A² + 2AB + B². */
+  readonly text: string
+  /** Ogni lettera della formula con il suo termine: A = 2x², B = 3y. */
+  readonly terms: readonly {
+    readonly name: string
+    readonly term: LiteralExpression
+  }[]
 }
 
 /** Un conto fra due termini dentro un passaggio, come 2xy · 3y = 6xy². */

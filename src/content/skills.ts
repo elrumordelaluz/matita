@@ -174,4 +174,14 @@ export const skills: readonly Skill[] = [
     title: 'Polinomio per polinomio',
     prerequisites: ['poly.mono-times'],
   },
+  {
+    id: 'poly.square',
+    title: 'Il quadrato di un binomio',
+    prerequisites: ['poly.times', 'mono.power'],
+  },
+  {
+    id: 'poly.sum-diff',
+    title: 'Somma per differenza',
+    prerequisites: ['poly.times', 'mono.power'],
+  },
 ]

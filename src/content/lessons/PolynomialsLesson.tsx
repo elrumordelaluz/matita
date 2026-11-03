@@ -78,6 +78,46 @@ const parts: readonly LessonPart[] = [
     example: generate('poly.times', 33), // (−4a + 5b)(5a + b)
     question: generate('poly.times', 11), // (2a + 2)(−2a + 3)
   },
+  {
+    id: 'lezione-quadrato-binomio',
+    title: 'Il quadrato di un binomio',
+    note: 'A² + 2AB + B², il doppio prodotto in mezzo',
+    text: (
+      <>
+        <p>
+          Alcuni prodotti tornano così spesso che conviene sapere il risultato a
+          memoria: sono i prodotti notevoli. Il primo è il quadrato di un
+          binomio: (A + B)² = A² + 2AB + B². Il quadrato non si distribuisce sui
+          termini: (A + B)² non è A² + B², manca il doppio prodotto 2AB.
+        </p>
+        <p>
+          Sul quaderno la prima riga scrive la formula, con i termini del
+          binomio al posto di A e B: (2x² + 3y)² = (2x²)² + 2 · 2x² · 3y +
+          (3y)². Poi si calcola come sempre, prima le potenze e poi i prodotti.
+          Con il meno, (A − B)² = A² − 2AB + B²: il meno va solo al doppio
+          prodotto, perché un quadrato è sempre positivo.
+        </p>
+      </>
+    ),
+    example: generate('poly.square', 2), // (5a − 2b)²
+    question: generate('poly.square', 0), // (2y − 3)²
+  },
+  {
+    id: 'lezione-somma-per-differenza',
+    title: 'Somma per differenza',
+    note: 'A² − B², la differenza dei quadrati',
+    text: (
+      <p>
+        La somma di due termini per la loro differenza è la differenza dei
+        quadrati: (A + B)(A − B) = A² − B². Con la distributiva i due prodotti
+        in mezzo, −AB e +AB, si annullano, e per questo non compaiono. Anche qui
+        la prima riga scrive la formula: (3x + 2y)(3x − 2y) = (3x)² − (2y)², poi
+        si calcolano le potenze.
+      </p>
+    ),
+    example: generate('poly.sum-diff', 8), // (3x + 4)(3x − 4)
+    question: generate('poly.sum-diff', 11), // (4a − 1)(4a + 1)
+  },
 ]
 
 export function PolynomialsLesson({ onPractise }: LessonProps) {

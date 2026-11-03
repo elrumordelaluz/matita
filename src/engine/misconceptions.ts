@@ -56,6 +56,8 @@ export type MisconceptionId =
   | 'unlike-terms-conjoined'
   | 'implicit-coefficient-zero'
   | 'distributive-first-term-only'
+  | 'square-of-difference-sign'
+  | 'sum-times-difference-plus'
 
 export interface Misconception {
   readonly id: MisconceptionId

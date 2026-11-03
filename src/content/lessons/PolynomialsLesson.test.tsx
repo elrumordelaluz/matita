@@ -114,6 +114,54 @@ test('la domanda sul prodotto di polinomi riconosce gli esponenti sommati fra si
   expect(answer(name, '-4a^2 + 2a + 6')).toHaveTextContent('Esatto!')
 })
 
+test('il quadrato di un binomio comincia dalla riga della formula, con A e B', () => {
+  lesson()
+  const example = screen.getByRole('figure', { name: 'Esempio: (5a − 2b)²' })
+  expect(lines(example)).toEqual([
+    '(5a)² − 2 · 5a · 2b + (2b)²',
+    '25a² − 2 · 5a · 2b + 4b²',
+    '25a² − 20ab + 4b²',
+  ])
+  const [first] = within(example).getAllByRole('listitem', { name: /^Riga/ })
+  if (!first) throw new Error('Manca la prima riga')
+  fireEvent.click(
+    within(first).getByRole('button', { name: 'Mostra un passaggio' }),
+  )
+  expect(
+    within(first).getByText('(A − B)² = A² − 2AB + B²'),
+  ).toBeInTheDocument()
+  expect(within(first).getByText('A = 5a, B = 2b')).toBeInTheDocument()
+})
+
+test('la domanda sul quadrato riconosce il segno sbagliato e la potenza distribuita', () => {
+  lesson()
+  const name = '(2y − 3)²'
+  expect(answer(name, '4y^2 - 12y - 9')).toHaveTextContent(
+    'Nel quadrato di una differenza hai dato il meno anche all’ultimo termine.',
+  )
+  expect(answer(name, '4y^2 + 9')).toHaveTextContent(
+    'Hai elevato ogni termine della parentesi',
+  )
+  expect(answer(name, '4y^2 - 12y + 9')).toHaveTextContent('Esatto!')
+})
+
+test('la somma per differenza: la formula, poi le potenze', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: (3x + 4)(3x − 4)',
+  })
+  expect(lines(example)).toEqual(['(3x)² − 4²', '9x² − 16'])
+})
+
+test('la domanda sulla somma per differenza riconosce il più', () => {
+  lesson()
+  const name = '(4a − 1)(4a + 1)'
+  expect(answer(name, '16a^2 + 1')).toHaveTextContent(
+    'Nella somma per differenza hai sommato i quadrati.',
+  )
+  expect(answer(name, '16a^2 - 1')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

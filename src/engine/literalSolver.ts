@@ -4,9 +4,12 @@ import {
   isAddSub,
   isMulDiv,
   literal,
+  monomial,
   nodeAt,
   isNegatedPower,
   isPower,
+  power,
+  type Bracket,
   type LiteralExpression,
   type MonomialNode,
   type Operator,
@@ -16,6 +19,7 @@ import {
   addPolynomials,
   asMonomial,
   divideMonomials,
+  equalPolynomials,
   letterPart,
   monomialExpression,
   multiplyMonomials,
@@ -28,7 +32,7 @@ import {
   type Polynomial,
 } from './polynomial.ts'
 import { rational } from './rational.ts'
-import type { Line, Rule, Step, TermOperation } from './solver.ts'
+import type { Formula, Line, Rule, Step, TermOperation } from './solver.ts'
 
 // Il risolutore del calcolo letterale. L'ordine è quello dei capitoli dei
 // numeri, esteso: dentro un ambito prima le potenze (e la forma normale dei
@@ -45,10 +49,11 @@ export interface LiteralSolution {
   readonly result: Polynomial
 }
 
-// Fra × e : e la riduzione dei simili c'è il giro in cui cadono le
-// parentesi intorno ai polinomi: dopo il più cadono e basta, dopo il meno
-// cambiando il segno di ogni termine.
-type Level = 'power' | 'mul-div' | 'groups' | 'add-sub'
+// Prima di tutto la riga della formula dei prodotti notevoli, che non fa
+// conti e ha una riga sua. Fra × e : e la riduzione dei simili c'è il giro
+// in cui cadono le parentesi intorno ai polinomi: dopo il più cadono e
+// basta, dopo il meno cambiando il segno di ogni termine.
+type Level = 'formula' | 'power' | 'mul-div' | 'groups' | 'add-sub'
 
 const levelOf = (op: Operator): Level => {
   if (isPower(op)) return 'power'
@@ -66,9 +71,9 @@ interface Reduction {
   /**
    * L'espressione è una somma di più termini, come il risultato della
    * distributiva: dentro una somma, dopo il più, i suoi termini entrano
-   * nella somma; altrove va fra parentesi.
+   * nella somma; altrove va fra queste parentesi.
    */
-  readonly sum?: true
+  readonly sum?: Bracket
 }
 
 /** Un valore già scritto: un numero o un monomio. */
@@ -123,6 +128,7 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
   // La regola dei segni, nel giro di × e : come con i numeri: il meno
   // davanti a un monomio fra parentesi cambia il suo segno, −(−2a) = 2a, e
   // in una somma − (−27/8 a¹²x⁶) diventa + 27/8 a¹²x⁶.
+  if (level === 'formula') return squareOfBinomial(e) ?? sumTimesDifference(e)
   if (level === 'mul-div') {
     const signChange = changeSign(e)
     if (signChange) return signChange
@@ -249,7 +255,7 @@ function distribute(e: LiteralExpression): Reduction | null {
   const outcome = sumOf(products.flatMap((p) => termOf(p.result) ?? []))
   return {
     expression: outcome,
-    sum: true,
+    sum: 'round',
     step: {
       rule: op === '×' ? 'distributive' : 'polynomial-quotient',
       operands: [polynomialValue(left), polynomialValue(right)],
@@ -259,6 +265,122 @@ function distribute(e: LiteralExpression): Reduction | null {
       products,
     },
   }
+}
+
+// I prodotti notevoli: la riga della formula, senza conto, con i termini
+// del polinomio al posto di A e B, (2x² + 3y)² = (2x²)² + 2 · 2x² · 3y +
+// (3y)². La riga dopo calcola, un giro per riga come sempre: prima le
+// potenze, poi i prodotti. Vedi SPEC.md, "Calcolo letterale", "Risolutore".
+
+// Il termine con il suo segno, come lo prende la formula: −x è il monomio
+// negativo.
+const signedNode = (t: SignedTerm) => (t.minus ? opposite(t.node) : t.node)
+
+// Una lettera da sola, x: la sua potenza si scrive subito, x², come sul
+// libro, senza (x)².
+function raised(e: LiteralExpression, exponent: bigint): LiteralExpression {
+  const [only, ...rest] = e.kind === 'monomial' ? e.letters : []
+  const bare =
+    e.kind === 'monomial' &&
+    e.coefficient.num === 1n &&
+    e.coefficient.den === 1n &&
+    only?.exponent === 1n &&
+    rest.length === 0
+  return bare
+    ? monomial(rational(1n), [[only.letter, exponent]])
+    : power(e, exponent)
+}
+
+const times = (first: LiteralExpression, ...rest: LiteralExpression[]) =>
+  rest.reduce((product, f) => binary('×', product, f), first)
+
+// L'esponente di una potenza, se è il numero `n`.
+const hasExponent = (e: LiteralExpression, n: bigint) =>
+  e.kind === 'binary' &&
+  e.op === '^' &&
+  e.right.kind === 'number' &&
+  e.right.value.den === 1n &&
+  e.right.value.num === n
+
+function formulaRiga(
+  rule: Rule,
+  e: LiteralExpression,
+  operands: readonly Polynomial[],
+  formula: Formula,
+  terms: readonly SignedTerm[],
+): Reduction {
+  const outcome = sumOf(terms)
+  return {
+    expression: outcome,
+    // Le potenze della formula hanno già le tonde.
+    sum: 'square',
+    step: {
+      rule,
+      operands,
+      result: polynomialValue(e),
+      operation: e,
+      outcome,
+      formula,
+    },
+  }
+}
+
+// (A + B)² = A² + 2AB + B², e con il meno (A − B)² = A² − 2AB + B².
+function squareOfBinomial(e: LiteralExpression): Reduction | null {
+  if (e.kind !== 'binary' || !hasExponent(e, 2n)) return null
+  if (!isPolynomialGroup(e.left)) return null
+  const [a, b, ...rest] = innerTerms(e.left)
+  if (!a || !b || rest.length > 0) return null
+  const A = signedNode(a)
+  const B = b.node
+  const sign = b.minus ? '−' : '+'
+  return formulaRiga(
+    'square-of-binomial',
+    e,
+    [polynomialValue(e.left)],
+    {
+      text: `(A ${sign} B)² = A² ${sign} 2AB + B²`,
+      terms: [
+        { name: 'A', term: A },
+        { name: 'B', term: B },
+      ],
+    },
+    [
+      { minus: false, node: raised(A, 2n) },
+      { minus: b.minus, node: times(literal(rational(2n)), A, B) },
+      { minus: false, node: raised(B, 2n) },
+    ],
+  )
+}
+
+// (A + B)(A − B) = A² − B², anche con la differenza per prima.
+function sumTimesDifference(e: LiteralExpression): Reduction | null {
+  if (e.kind !== 'binary' || e.op !== '×') return null
+  if (!isPolynomialGroup(e.left) || !isPolynomialGroup(e.right)) return null
+  const [a, b, ...rest] = innerTerms(e.left)
+  const [c, d, ...others] = innerTerms(e.right)
+  if (!a || !b || !c || !d || rest.length > 0 || others.length > 0) return null
+  if (!equalPolynomials(signedValue(a), signedValue(c))) return null
+  if (!equalPolynomials(signedValue(b), negatePolynomial(signedValue(d))))
+    return null
+  const A = signedNode(a)
+  const B = b.node
+  return formulaRiga(
+    'sum-times-difference',
+    e,
+    [polynomialValue(e.left), polynomialValue(e.right)],
+    {
+      text: '(A + B)(A − B) = A² − B²',
+      terms: [
+        { name: 'A', term: A },
+        { name: 'B', term: B },
+      ],
+    },
+    [
+      { minus: false, node: raised(A, 2n) },
+      { minus: true, node: raised(B, 2n) },
+    ],
+  )
 }
 
 // Una somma di più termini al suo posto. Dopo il più, o in testa a una
@@ -273,8 +395,8 @@ function placed(
   const other = side === 'left' ? e.right : e.left
   const rebuilt = (node: LiteralExpression) =>
     side === 'left' ? binary(e.op, node, other) : binary(e.op, other, node)
-  if (!r.sum) return { ...r, expression: rebuilt(r.expression) }
-  const { sum: _, ...rest } = r
+  const { sum: bracket, ...rest } = r
+  if (!bracket) return { ...r, expression: rebuilt(r.expression) }
   if (side === 'left' && isAddSub(e.op))
     return { ...rest, expression: rebuilt(r.expression) }
   if (side === 'right' && e.op === '+')
@@ -285,7 +407,7 @@ function placed(
         e.left,
       ),
     }
-  return { ...rest, expression: rebuilt(group('round', r.expression)) }
+  return { ...rest, expression: rebuilt(group(bracket, r.expression)) }
 }
 
 // Dove si è lavorato, per la somma che cambia forma.
@@ -481,7 +603,7 @@ function dropMinusGroup(e: LiteralExpression): Reduction | null {
       rule: 'minus-group',
       operands: [value],
       result: negatePolynomial(value),
-      operation: group('round', inner, { negated: true }),
+      operation: group(term.node.bracket, inner, { negated: true }),
       outcome: sumOf(opposites),
     },
     at: termPath(terms.length, i),
@@ -500,7 +622,13 @@ function dropPlusGroups(e: LiteralExpression): LiteralExpression {
 const hasPolynomialGroup = (e: LiteralExpression) =>
   sumTerms(e).some((t) => isPolynomialGroup(t.node))
 
-const levels: readonly Level[] = ['power', 'mul-div', 'groups', 'add-sub']
+const levels: readonly Level[] = [
+  'formula',
+  'power',
+  'mul-div',
+  'groups',
+  'add-sub',
+]
 
 // Il primo passaggio del giro, da sinistra.
 function reduceLevel(e: LiteralExpression, level: Level): Reduction | null {

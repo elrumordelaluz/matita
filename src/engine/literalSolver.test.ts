@@ -431,3 +431,93 @@ describe('la distributiva', () => {
     )
   })
 })
+
+describe('i prodotti notevoli: la riga della formula', () => {
+  const lines = (text: string) =>
+    solved(text).lines.map((l) => toText(l.expression))
+
+  const formula = (text: string) => {
+    const step = solved(text).lines[0]?.steps[0]
+    return (
+      step?.formula && {
+        text: step.formula.text,
+        terms: step.formula.terms.map((t) => `${t.name} = ${toText(t.term)}`),
+      }
+    )
+  }
+
+  // Bergamini, Matematica multimediale.rosso, cap. 5. Dopo la formula un
+  // giro per riga, come sempre: le potenze, poi i prodotti.
+  test('(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)², poi si calcola', () => {
+    expect(rows(solved('(2x² + 3y)²'))[0]).toEqual({
+      line: '(2x²)² + 2 · 2x² · 3y + (3y)²',
+      steps: [
+        '(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)² (square-of-binomial)',
+      ],
+    })
+    expect(lines('(2x² + 3y)²')).toEqual([
+      '(2x²)² + 2 · 2x² · 3y + (3y)²',
+      '4x⁴ + 2 · 2x² · 3y + 9y²',
+      '4x⁴ + 12x²y + 9y²',
+    ])
+    expect(formula('(2x² + 3y)²')).toEqual({
+      text: '(A + B)² = A² + 2AB + B²',
+      terms: ['A = 2x²', 'B = 3y'],
+    })
+  })
+
+  test('il quadrato di una differenza: (A − B)² = A² − 2AB + B²', () => {
+    expect(lines('(3a − 2b)²')[0]).toBe('(3a)² − 2 · 3a · 2b + (2b)²')
+    expect(formula('(3a − 2b)²')).toEqual({
+      text: '(A − B)² = A² − 2AB + B²',
+      terms: ['A = 3a', 'B = 2b'],
+    })
+    expect(result('(3a − 2b)²')).toBe('9a² − 12ab + 4b²')
+  })
+
+  test('una lettera sola al quadrato si scrive subito: (x + 2)² = x² + 2 · x · 2 + 2²', () => {
+    expect(lines('(x + 2)²')).toEqual([
+      'x² + 2 · x · 2 + 2²',
+      'x² + 2 · x · 2 + 4',
+      'x² + 4x + 4',
+    ])
+  })
+
+  test('somma per differenza: (3x + 2y)(3x − 2y) = (3x)² − (2y)² = 9x² − 4y²', () => {
+    expect(rows(solved('(3x + 2y)(3x − 2y)'))).toEqual([
+      {
+        line: '(3x)² − (2y)²',
+        steps: ['(3x + 2y)(3x − 2y) = (3x)² − (2y)² (sum-times-difference)'],
+      },
+      {
+        line: '9x² − 4y²',
+        steps: ['(3x)² = 9x² (monomial-power)', '(2y)² = 4y² (monomial-power)'],
+      },
+    ])
+    expect(formula('(3x + 2y)(3x − 2y)')).toEqual({
+      text: '(A + B)(A − B) = A² − B²',
+      terms: ['A = 3x', 'B = 2y'],
+    })
+    expect(result('(a − 5)(a + 5)')).toBe('a² − 25')
+  })
+
+  test('il passaggio porta il binomio e il risultato', () => {
+    const [step] = solved('(2x² + 3y)²').lines[0]?.steps ?? []
+    expect(step?.operands.map((p) => toText(polynomialExpression(p)))).toEqual([
+      '2x² + 3y',
+    ])
+    expect(step && toText(polynomialExpression(step.result))).toBe(
+      '4x⁴ + 12x²y + 9y²',
+    )
+  })
+
+  test('dopo il meno la formula va fra quadre', () => {
+    expect(lines('x² − (x + 1)² + 3x')).toEqual([
+      'x² − [x² + 2 · x · 1 + 1²] + 3x',
+      'x² − [x² + 2 · x · 1 + 1] + 3x',
+      'x² − [x² + 2x + 1] + 3x',
+      'x² − x² − 2x − 1 + 3x',
+      'x − 1',
+    ])
+  })
+})

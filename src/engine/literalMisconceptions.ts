@@ -60,6 +60,13 @@ interface Rules {
     terms: readonly Monomial[],
     product: (a: Monomial, b: Monomial) => Monomial,
   ) => Monomial[]
+  /** La potenza di un polinomio di più termini, dai suoi termini. */
+  readonly polynomialPower: (
+    terms: readonly Monomial[],
+    exponent: bigint,
+  ) => Polynomial
+  /** (a + b)(a − b), dai termini a e b della somma. */
+  readonly sumTimesDifference: (a: Monomial, b: Monomial) => Polynomial
 }
 
 /** Un termine di una somma: il suo valore con il segno e come è scritto. */
@@ -79,6 +86,28 @@ const correctRules: Rules = {
   minusGroup: (terms, sum) => negatePolynomial(sum(terms)),
   distributive: (factor, terms, product) =>
     terms.map((t) => product(factor, t)),
+  polynomialPower: (terms, exponent) =>
+    raisePolynomial(polynomialOf(terms), exponent),
+  sumTimesDifference: (a, b) =>
+    polynomialOf([raiseMonomial(a, 2n), negated(raiseMonomial(b, 2n))]),
+}
+
+const negated = (m: Monomial): Monomial => ({
+  ...m,
+  coefficient: rational(-m.coefficient.num, m.coefficient.den),
+})
+
+// I termini a e b di (a + b)(a − b), se i due binomi sono proprio questi.
+function sumAndDifference(
+  p: Polynomial,
+  q: Polynomial,
+): readonly [Monomial, Monomial] | null {
+  const [a, b, ...rest] = p.values()
+  const [c, d, ...others] = q.values()
+  if (!a || !b || !c || !d || rest.length > 0 || others.length > 0) return null
+  const same = (m: Monomial, n: Monomial) =>
+    equalPolynomials(polynomialOf([m]), polynomialOf([n]))
+  return same(a, c) && same(b, negated(d)) ? [a, b] : null
 }
 
 function product(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
@@ -89,6 +118,8 @@ function product(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
     return polynomialOf(
       rules.distributive(single, [...other.values()], rules.product),
     )
+  const sumDifference = sumAndDifference(p, q)
+  if (sumDifference) return rules.sumTimesDifference(...sumDifference)
   const terms: Monomial[] = []
   for (const a of p.values())
     for (const b of q.values()) terms.push(rules.product(a, b))
@@ -153,6 +184,35 @@ function firstTermOnly(
   return first ? [product(factor, first), ...rest] : []
 }
 
+// (a + b)² come a² + b²: la potenza distribuita sui termini.
+function powerOfSum(terms: readonly Monomial[], exponent: bigint): Polynomial {
+  return polynomialOf(terms.map((t) => raiseMonomial(t, exponent)))
+}
+
+// (a − b)² come a² − 2ab − b²: nel quadrato di una differenza il meno
+// anche all'ultimo quadrato.
+function differenceSquareSign(
+  terms: readonly Monomial[],
+  exponent: bigint,
+): Polynomial {
+  const [a, b, ...rest] = terms
+  const square = raisePolynomial(polynomialOf(terms), exponent)
+  if (!a || !b || rest.length > 0 || exponent !== 2n || b.coefficient.num > 0n)
+    return square
+  return addPolynomials(
+    square,
+    polynomialOf([
+      negated(raiseMonomial(b, 2n)),
+      negated(raiseMonomial(b, 2n)),
+    ]),
+  )
+}
+
+// (a + b)(a − b) come a² + b².
+function sumTimesDifferencePlus(a: Monomial, b: Monomial): Polynomial {
+  return polynomialOf([raiseMonomial(a, 2n), raiseMonomial(b, 2n)])
+}
+
 // −(a − b) come −a − b: il meno tocca solo il primo termine.
 function signsKept(
   terms: readonly Term[],
@@ -186,6 +246,8 @@ function evaluate(e: LiteralExpression, rules: Rules): Polynomial {
           throw new RangeError('Esponente non intero')
         const exponent = e.right.value.num
         const base = asMonomial(left)
+        if (left.size > 1)
+          return rules.polynomialPower([...left.values()], exponent)
         return base && base.letters.size > 0
           ? polynomialOf([rules.power(base, exponent)])
           : raisePolynomial(left, exponent)
@@ -338,6 +400,29 @@ export const literalMisconceptions: readonly LiteralMisconception[] = [
     id: 'minus-group-signs-kept',
     explanation: explanationOfNumbers('minus-group-signs-kept'),
     wrongResults: (e) => attempt(e, { ...correctRules, minusGroup: signsKept }),
+  },
+  {
+    id: 'power-of-sum',
+    explanation: explanationOfNumbers('power-of-sum'),
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, polynomialPower: powerOfSum }),
+  },
+  {
+    id: 'square-of-difference-sign',
+    explanation:
+      'Nel quadrato di una differenza hai dato il meno anche all’ultimo termine. Un quadrato è sempre positivo, e il meno va solo al doppio prodotto: (a − b)² = a² − 2ab + b².',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, polynomialPower: differenceSquareSign }),
+  },
+  {
+    id: 'sum-times-difference-plus',
+    explanation:
+      'Nella somma per differenza hai sommato i quadrati. La somma di due termini per la loro differenza dà la differenza dei quadrati: (a + b)(a − b) = a² − b².',
+    wrongResults: (e) =>
+      attempt(e, {
+        ...correctRules,
+        sumTimesDifference: sumTimesDifferencePlus,
+      }),
   },
   {
     id: 'distributive-first-term-only',

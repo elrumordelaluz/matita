@@ -22,6 +22,8 @@ const skills: readonly PolynomialSkill[] = [
   'poly.add-sub',
   'poly.mono-times',
   'poly.times',
+  'poly.square',
+  'poly.sum-diff',
 ]
 
 test('ogni passaggio di un esercizio dei monomi ha il suo pezzo evidenziato', () => {

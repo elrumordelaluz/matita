@@ -417,3 +417,77 @@ describe('poly.times', () => {
     expectLiteralLimits('poly.times')
   })
 })
+
+// I termini scritti di un binomio fra parentesi: coefficienti interi fino a 5.
+function binomialCoefficients(e: LiteralExpression): bigint[] {
+  return monomials(e).map((m) => m.coefficient.num)
+}
+
+describe('poly.square', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.square', 42)).toEqual(generate('poly.square', 42))
+  })
+
+  test('il quadrato di un binomio, con la riga della formula per prima', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('poly.square', seed)
+      expect(stepsOf('poly.square', seed)[0], `seme ${seed}`).toEqual([
+        'square-of-binomial',
+      ])
+      for (const c of binomialCoefficients(expression)) {
+        expect(magnitude(c), `seme ${seed}`).toBeLessThanOrEqual(5n)
+      }
+      expect(solveLiteral(expression).result.size, `seme ${seed}`).toBe(3)
+    }
+  })
+
+  test('la potenza distribuita sulla somma cambia sempre il risultato', () => {
+    expectVisibleLiteral('poly.square', ['power-of-sum'])
+  })
+
+  test('a volte il quadrato di una differenza, e lì il segno sbagliato si vede', () => {
+    const differences = seeds.filter((seed) => {
+      const { expression } = generate('poly.square', seed)
+      return isVisibleLiteral(
+        'square-of-difference-sign',
+        expression,
+        solveLiteral(expression).result,
+      )
+    })
+    expect(differences.length).toBeGreaterThan(seeds.length / 4)
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.square')
+  })
+})
+
+describe('poly.sum-diff', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.sum-diff', 42)).toEqual(generate('poly.sum-diff', 42))
+  })
+
+  test('la riga della formula, poi le potenze', () => {
+    for (const seed of seeds) {
+      const [formula, powers = [], ...rest] = stepsOf('poly.sum-diff', seed)
+      expect(formula, `seme ${seed}`).toEqual(['sum-times-difference'])
+      // Con (x − y)(x + y) la formula scrive già x² − y².
+      expect(
+        powers.every((r) => r === 'monomial-power' || r === 'power'),
+        `seme ${seed}`,
+      ).toBe(true)
+      expect(rest, `seme ${seed}`).toEqual([])
+      const { expression } = generate('poly.sum-diff', seed)
+      for (const c of binomialCoefficients(expression))
+        expect(magnitude(c), `seme ${seed}`).toBeLessThanOrEqual(5n)
+    }
+  })
+
+  test('il più nella somma per differenza cambia sempre il risultato', () => {
+    expectVisibleLiteral('poly.sum-diff', ['sum-times-difference-plus'])
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.sum-diff')
+  })
+})

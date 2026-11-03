@@ -624,7 +624,16 @@ lì l'espressione è di numeri e si scrive come nei capitoli dei numeri, con
 ×; il coefficiente −1 sottinteso resta un meno davanti, `−a²` diventa
 `−(−2)²`. E la formula del
 prodotto notevole: `(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)²`, con un
-passaggio che porta la formula e i suoi A e B; la riga dopo calcola. In tutte
+passaggio che porta la formula e i suoi A e B; la riga dopo calcola. La riga
+della formula viene prima di ogni conto del suo ambito, e dopo si calcola un
+giro per riga come sempre: le potenze, `4x⁴ + 2 · 2x² · 3y + 9y²`, poi i
+prodotti, `4x⁴ + 12x²y + 9y²`. Una lettera da sola si eleva già nella
+formula, `(x + 2)² = x² + 2 · x · 2 + 2²`, perché `(x)²` il libro non lo
+scrive. Con il meno la formula è quella della differenza,
+`(3a − 2b)² = (3a)² − 2 · 3a · 2b + (2b)²`, e la somma per differenza ha la
+sua, `(3x + 2y)(3x − 2y) = (3x)² − (2y)²`. Dopo il meno, o dentro un
+prodotto, la formula va fra quadre, perché ha già le tonde delle potenze:
+`x² − (x + 1)² = x² − [x² + 2 · x · 1 + 1²]`. In tutte
 e due la riga è proprio ciò che l'abilità allena: senza, il quaderno
 salterebbe il punto in cui si sbaglia. Le altre righe senza conto che il
 libro scrive restano alla lezione, come il minimo comune multiplo in Q. La
