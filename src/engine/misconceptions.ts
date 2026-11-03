@@ -55,6 +55,7 @@ export type MisconceptionId =
   | 'like-terms-exponents-added'
   | 'unlike-terms-conjoined'
   | 'implicit-coefficient-zero'
+  | 'distributive-first-term-only'
 
 export interface Misconception {
   readonly id: MisconceptionId

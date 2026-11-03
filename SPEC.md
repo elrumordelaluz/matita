@@ -607,7 +607,14 @@ riducono nella riga dopo, come sul libro:
 poi `2y³ + y + 7 − 2y²`. Le parentesi dopo il più cadono alla fine della
 riga, senza passaggio; una riga che toglie solo quelle non si scrive. Davanti
 a un monomio, o dentro un prodotto, il gruppo si moltiplica con la
-distributiva nel giro di × e :.
+distributiva nel giro di × e :. Il risultato della distributiva prende il
+posto del prodotto come un monomio negativo: dopo il più, o in testa a una
+somma, i suoi termini entrano nella somma, `5a² + 2a(3a + b) = 5a² + 6a² + 2ab`;
+dopo il meno, o dentro un altro prodotto, va fra tonde,
+`5a − 2a(3a + b) = 5a − (6a² + 2ab)`, e la riga dopo toglie le parentesi. Un
+polinomio diviso per un monomio si divide termine per termine, in un
+passaggio con i quozienti di ogni termine:
+`(12x⁴ − 8x³ + 4x²) : 4x² = 3x² − 2x + 1`.
 
 Il quaderno segue il libro anche in due righe che non fanno un conto, e solo
 in queste due. La sostituzione, in `mono.value`: `2a² + 3a` per a = −2

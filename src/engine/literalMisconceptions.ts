@@ -12,6 +12,7 @@ import {
   constantPolynomial,
   divideMonomials,
   equalPolynomials,
+  monomialExpression,
   monomialOf,
   multiplyMonomials,
   negatePolynomial,
@@ -53,6 +54,12 @@ interface Rules {
     terms: readonly Term[],
     sum: (terms: readonly Term[]) => Polynomial,
   ) => Polynomial
+  /** Un monomio per i termini di un polinomio, con la distributiva. */
+  readonly distributive: (
+    factor: Monomial,
+    terms: readonly Monomial[],
+    product: (a: Monomial, b: Monomial) => Monomial,
+  ) => Monomial[]
 }
 
 /** Un termine di una somma: il suo valore con il segno e come è scritto. */
@@ -70,13 +77,31 @@ const correctRules: Rules = {
   power: raiseMonomial,
   sum: correctSum,
   minusGroup: (terms, sum) => negatePolynomial(sum(terms)),
+  distributive: (factor, terms, product) =>
+    terms.map((t) => product(factor, t)),
 }
 
 function product(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
+  // Un monomio per un polinomio, da una parte o dall'altra.
+  const [factor, other] = p.size === 1 ? [p, q] : [q, p]
+  const single = asMonomial(factor)
+  if (single && other.size > 1)
+    return polynomialOf(
+      rules.distributive(single, [...other.values()], rules.product),
+    )
   const terms: Monomial[] = []
   for (const a of p.values())
     for (const b of q.values()) terms.push(rules.product(a, b))
-  return polynomialOf(terms)
+  // Fra i prodotti di due polinomi ci sono dei simili, e la loro riduzione
+  // è una somma come le altre: (x + 3y)(2x − 4y) = 2x² − 4xy + 6xy − 12y².
+  const product = polynomialOf(terms)
+  if (product.size === terms.length) return product
+  return rules.sum(
+    terms.map((m) => ({
+      value: polynomialOf([m]),
+      written: monomialExpression(m),
+    })),
+  )
 }
 
 function quotient(p: Polynomial, q: Polynomial, rules: Rules): Polynomial {
@@ -116,6 +141,16 @@ function termsOf(e: LiteralExpression, rules: Rules): Term[] {
     const value = evaluate(node, rules)
     return { value: minus ? negatePolynomial(value) : value, written: node }
   })
+}
+
+// 2x(3y + 5x²) come 6xy + 5x²: il monomio moltiplica solo il primo termine.
+function firstTermOnly(
+  factor: Monomial,
+  terms: readonly Monomial[],
+  product: (a: Monomial, b: Monomial) => Monomial,
+): Monomial[] {
+  const [first, ...rest] = terms
+  return first ? [product(factor, first), ...rest] : []
 }
 
 // −(a − b) come −a − b: il meno tocca solo il primo termine.
@@ -303,6 +338,13 @@ export const literalMisconceptions: readonly LiteralMisconception[] = [
     id: 'minus-group-signs-kept',
     explanation: explanationOfNumbers('minus-group-signs-kept'),
     wrongResults: (e) => attempt(e, { ...correctRules, minusGroup: signsKept }),
+  },
+  {
+    id: 'distributive-first-term-only',
+    explanation:
+      'Hai moltiplicato il monomio solo per il primo termine della parentesi. Con la distributiva il monomio moltiplica ogni termine: 2x(3y + 5x²) = 6xy + 10x³, non 6xy + 5x².',
+    wrongResults: (e) =>
+      attempt(e, { ...correctRules, distributive: firstTermOnly }),
   },
   {
     id: 'implicit-coefficient-zero',

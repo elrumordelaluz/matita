@@ -55,6 +55,13 @@ export type Rule =
    * termine cambia segno, −(2a − b) = −2a + b.
    */
   | 'minus-group'
+  /**
+   * La distributiva, dritta al risultato: 2xy(3y + 5x²) = 6xy² + 10x³y,
+   * (x + 3y)(2x − 4y) = 2x² − 4xy + 6xy − 12y².
+   */
+  | 'distributive'
+  /** Il polinomio diviso per un monomio, termine per termine, quando è esatto. */
+  | 'polynomial-quotient'
   | PropertyRule
 
 /** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */
@@ -86,6 +93,20 @@ export interface Step<V extends Value = Value> {
    * basta a dire dove si è lavorato.
    */
   readonly path?: Path
+  /**
+   * Nella distributiva, i prodotti dei termini a due a due; nel quoziente
+   * per un monomio, il quoziente di ogni termine. L'apertura passo per passo
+   * li mostra.
+   */
+  readonly products?: readonly TermOperation<V>[]
+}
+
+/** Un conto fra due termini dentro un passaggio, come 2xy · 3y = 6xy². */
+export interface TermOperation<V extends Value = Value> {
+  readonly operands: readonly [V, V]
+  readonly result: V
+  readonly operation: LiteralExpression
+  readonly outcome: LiteralExpression
 }
 
 /** Un conto fra due numeri, il passaggio dei capitoli 1-4. */

@@ -164,4 +164,14 @@ export const skills: readonly Skill[] = [
     title: 'Somma algebrica di polinomi',
     prerequisites: ['mono.add-sub'],
   },
+  {
+    id: 'poly.mono-times',
+    title: 'Monomio per polinomio, polinomio diviso monomio',
+    prerequisites: ['poly.add-sub', 'mono.mul-div'],
+  },
+  {
+    id: 'poly.times',
+    title: 'Polinomio per polinomio',
+    prerequisites: ['poly.mono-times'],
+  },
 ]

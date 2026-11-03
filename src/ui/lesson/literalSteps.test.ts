@@ -20,6 +20,8 @@ const skills: readonly PolynomialSkill[] = [
   'mono.add-sub',
   'mono.expressions',
   'poly.add-sub',
+  'poly.mono-times',
+  'poly.times',
 ]
 
 test('ogni passaggio di un esercizio dei monomi ha il suo pezzo evidenziato', () => {
@@ -40,6 +42,12 @@ test('il meno davanti a un polinomio evidenzia il gruppo, anche se la somma camb
   expect(second?.[0] && toText(second[0].before)).toBe(
     '4y³ + 3y + 5 − 2y³ − 2y² − 2y + 2',
   )
+})
+
+test('la distributiva dentro una somma evidenzia il prodotto', () => {
+  const start = parseLiteralExpression('5a² + 2a(3a + b)')
+  const [first] = markedSteps(start, solveLiteral(start).lines)
+  expect(first?.map((s) => toText(s.target))).toEqual(['2a(3a + b)'])
 })
 
 test('anche la riga della sostituzione', () => {

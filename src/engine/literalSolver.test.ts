@@ -340,3 +340,94 @@ describe('le parentesi intorno a un polinomio', () => {
     expect(step && toText(polynomialExpression(step.result))).toBe('−2a + b')
   })
 })
+
+describe('la distributiva', () => {
+  const lines = (text: string) =>
+    solved(text).lines.map((l) => toText(l.expression))
+
+  const products = (text: string) =>
+    solved(text).lines[0]?.steps[0]?.products?.map(
+      (p) => `${toText(p.operation)} = ${toText(p.outcome)}`,
+    )
+
+  // Bergamini, Matematica multimediale.rosso, cap. 5.
+  test('monomio per polinomio: 2xy(3y + 5x²) = 6xy² + 10x³y, un passaggio', () => {
+    expect(rows(solved('2xy(3y + 5x²)'))).toEqual([
+      {
+        line: '6xy² + 10x³y',
+        steps: ['2xy(3y + 5x²) = 6xy² + 10x³y (distributive)'],
+      },
+    ])
+    expect(products('2xy(3y + 5x²)')).toEqual([
+      '2xy · 3y = 6xy²',
+      '2xy · 5x² = 10x³y',
+    ])
+  })
+
+  test('polinomio per polinomio: (x + 3y)(2x − 4y), poi la riduzione', () => {
+    expect(rows(solved('(x + 3y)(2x − 4y)'))).toEqual([
+      {
+        line: '2x² − 4xy + 6xy − 12y²',
+        steps: ['(x + 3y)(2x − 4y) = 2x² − 4xy + 6xy − 12y² (distributive)'],
+      },
+      { line: '2x² + 2xy − 12y²', steps: ['−4xy + 6xy = 2xy (like-terms)'] },
+    ])
+    expect(products('(x + 3y)(2x − 4y)')).toEqual([
+      'x · 2x = 2x²',
+      'x · (−4y) = −4xy',
+      '3y · 2x = 6xy',
+      '3y · (−4y) = −12y²',
+    ])
+  })
+
+  test('il passaggio porta i fattori e il prodotto', () => {
+    const [step] = solved('(x + 3y)(2x − 4y)').lines[0]?.steps ?? []
+    expect(step?.operands.map((p) => toText(polynomialExpression(p)))).toEqual([
+      'x + 3y',
+      '2x − 4y',
+    ])
+    expect(step && toText(polynomialExpression(step.result))).toBe(
+      '2x² + 2xy − 12y²',
+    )
+  })
+
+  test('anche con il polinomio prima e con un numero', () => {
+    expect(lines('(3y + 5x²) · 2xy')).toEqual(['6xy² + 10x³y'])
+    expect(lines('3(2a − b)')).toEqual(['6a − 3b'])
+  })
+
+  test('polinomio diviso monomio: ogni termine diviso', () => {
+    expect(rows(solved('(12x⁴ − 8x³ + 4x²) : 4x²'))).toEqual([
+      {
+        line: '3x² − 2x + 1',
+        steps: [
+          '(12x⁴ − 8x³ + 4x²) : 4x² = 3x² − 2x + 1 (polynomial-quotient)',
+        ],
+      },
+    ])
+    expect(products('(12x⁴ − 8x³ + 4x²) : 4x²')).toEqual([
+      '12x⁴ : 4x² = 3x²',
+      '−8x³ : 4x² = −2x',
+      '4x² : 4x² = 1',
+    ])
+  })
+
+  test('il quoziente che non è un polinomio non si svolge', () => {
+    expect(() => solved('(a² + b) : a')).toThrow(RangeError)
+  })
+
+  test('dopo il più il prodotto entra nella somma; dopo il meno va fra parentesi', () => {
+    expect(lines('5a² + 2a(3a + b)')).toEqual(['5a² + 6a² + 2ab', '11a² + 2ab'])
+    expect(lines('5a − 2a(3a + b)')).toEqual([
+      '5a − (6a² + 2ab)',
+      '5a − 6a² − 2ab',
+    ])
+  })
+
+  test('il prodotto dentro un altro prodotto va fra parentesi', () => {
+    expect(lines('2a(a + b) · 3b')).toEqual(['6a²b + 6ab²'])
+    expect(solved('2a(a + b) · 3b').lines[0]?.steps.map((s) => s.rule)).toEqual(
+      ['distributive', 'distributive'],
+    )
+  })
+})

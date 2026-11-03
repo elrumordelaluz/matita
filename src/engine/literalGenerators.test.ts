@@ -350,3 +350,70 @@ describe('poly.add-sub', () => {
     expectLiteralLimits('poly.add-sub')
   })
 })
+
+describe('poly.mono-times', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.mono-times', 42)).toEqual(
+      generate('poly.mono-times', 42),
+    )
+  })
+
+  test('monomio per polinomio o polinomio diviso monomio, in una riga', () => {
+    for (const seed of seeds)
+      expect(stepsOf('poly.mono-times', seed), `seme ${seed}`).toHaveLength(1)
+    expect(rulesOf('poly.mono-times')).toEqual(
+      new Set(['distributive', 'polynomial-quotient']),
+    )
+  })
+
+  test('la distributiva sul primo termine soltanto cambia sempre il prodotto', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('poly.mono-times', seed)
+      if (expression.kind !== 'binary' || expression.op !== '×') continue
+      expect(
+        isVisibleLiteral(
+          'distributive-first-term-only',
+          expression,
+          solveLiteral(expression).result,
+        ),
+        `seme ${seed}`,
+      ).toBe(true)
+    }
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.mono-times')
+  })
+})
+
+describe('poly.times', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.times', 42)).toEqual(generate('poly.times', 42))
+  })
+
+  test('la distributiva in una riga, la riduzione dei simili nella seconda', () => {
+    for (const seed of seeds)
+      expect(stepsOf('poly.times', seed), `seme ${seed}`).toEqual([
+        ['distributive'],
+        expect.arrayContaining(['like-terms']),
+      ])
+  })
+
+  test('gli esponenti sommati fra simili cambiano sempre il risultato', () => {
+    expectVisibleLiteral('poly.times', ['like-terms-exponents-added'])
+  })
+
+  test('a volte un binomio per un trinomio', () => {
+    const products = seeds.map(
+      (seed) =>
+        solveLiteral(generate('poly.times', seed).expression).lines[0]?.steps[0]
+          ?.products?.length,
+    )
+    expect(products).toContain(4)
+    expect(products).toContain(6)
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.times')
+  })
+})

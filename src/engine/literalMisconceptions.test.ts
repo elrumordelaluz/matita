@@ -126,3 +126,28 @@ describe('somma algebrica di polinomi', () => {
     )
   })
 })
+
+describe('la distributiva', () => {
+  test('sul primo termine soltanto: 2x(3y + 5x²) = 6xy + 5x²', () => {
+    expect(recognised('2x(3y + 5x²)', '6xy + 5x²')).toBe(
+      'distributive-first-term-only',
+    )
+    expect(recognised('(3y + 5x²) · 2x', '6xy + 5x²')).toBe(
+      'distributive-first-term-only',
+    )
+    expect(recognised('2x(3y + 5x²)', '6xy + 10x³')).toBeUndefined()
+  })
+
+  test('fra due polinomi non si legge così', () => {
+    const e = parseLiteralExpression('(x + 3y)(2x − 4y)')
+    expect(
+      isVisibleLiteral('distributive-first-term-only', e, polynomialValue(e)),
+    ).toBe(false)
+  })
+
+  test('la sua spiegazione', () => {
+    expect(misconceptionExplanation('distributive-first-term-only')).toContain(
+      '2x(3y + 5x²) = 6xy + 10x³',
+    )
+  })
+})

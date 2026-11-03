@@ -52,6 +52,68 @@ test('la domanda sulla somma riconosce i segni lasciati dentro la parentesi', ()
   expect(answer(name, '-5y - y^2 + 9')).toHaveTextContent('Esatto!')
 })
 
+test('monomio per polinomio: un passaggio, con i prodotti a due a due', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: 2a(2a² + b² − 3b)',
+  })
+  expect(lines(example)).toEqual(['4a³ + 2ab² − 6ab'])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  const products = within(example).getByRole('list', {
+    name: 'I prodotti a due a due',
+  })
+  expect(
+    within(products)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent),
+  ).toEqual(['2a · 2a² = 4a³', '2a · b² = 2ab²', '2a · (−3b) = −6ab'])
+  expect(
+    within(example).getByText('ogni termine per ogni termine'),
+  ).toBeInTheDocument()
+})
+
+test('la domanda sul monomio per polinomio riconosce la distributiva sul primo termine', () => {
+  lesson()
+  const name = '−2x²(x + 3)'
+  expect(answer(name, '-2x^3 + 3')).toHaveTextContent(
+    'Hai moltiplicato il monomio solo per il primo termine della parentesi.',
+  )
+  expect(answer(name, '-2x^3 - 6x^2')).toHaveTextContent('Esatto!')
+})
+
+test('polinomio per polinomio: la distributiva, poi la riduzione dei simili', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: (−4a + 5b)(5a + b)',
+  })
+  expect(lines(example)).toEqual([
+    '−20a² − 4ab + 25ab + 5b²',
+    '−20a² + 21ab + 5b²',
+  ])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  expect(
+    within(
+      within(example).getByRole('list', { name: 'I prodotti a due a due' }),
+    )
+      .getAllByRole('listitem')
+      .map((li) => li.textContent),
+  ).toEqual([
+    '−4a · 5a = −20a²',
+    '−4a · b = −4ab',
+    '5b · 5a = 25ab',
+    '5b · b = 5b²',
+  ])
+})
+
+test('la domanda sul prodotto di polinomi riconosce gli esponenti sommati fra simili', () => {
+  lesson()
+  const name = '(2a + 2)(−2a + 3)'
+  expect(answer(name, '-2a^2 + 6')).toHaveTextContent(
+    'Fra monomi simili hai sommato anche gli esponenti.',
+  )
+  expect(answer(name, '-4a^2 + 2a + 6')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

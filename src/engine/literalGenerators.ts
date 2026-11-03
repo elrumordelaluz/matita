@@ -10,7 +10,13 @@ import {
 } from './expression.ts'
 import { isVisibleLiteral } from './literalMisconceptions.ts'
 import { solveLiteral, type LiteralSolution } from './literalSolver.ts'
-import { asMonomial, polynomialValue } from './polynomial.ts'
+import {
+  asMonomial,
+  monomialOf,
+  multiplyMonomials,
+  polynomialValue,
+  type Monomial,
+} from './polynomial.ts'
 import { isVisible } from './misconceptions.ts'
 import type { Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
@@ -608,7 +614,9 @@ function polynomialParts(letters: readonly string[]): LetterPart[] {
 }
 
 // Coefficienti interi fino a 9, 1 spesso; a volte mezzi e terzi.
-const polynomialIntegers = [1n, 1n, 2n, 2n, 3n, 3n, 4n, 5n, 6n, 7n, 8n, 9n]
+const polynomialIntegers = [1n, 1n, 2n, 2n, 3n, 3n, 4n, 5n, 6n, 7n, 8n, 9n].map(
+  (n) => rational(n),
+)
 const polynomialFractions = [
   rational(1n, 2n),
   rational(3n, 2n),
@@ -624,13 +632,13 @@ interface PolynomialTerm {
   readonly part: LetterPart
 }
 
-// Da due a quattro termini con parti letterali diverse, ciascuno con il suo
-// segno, nell'ordine di `parts`: per grado decrescente, come li scrive il
-// libro.
+// Termini con parti letterali diverse, ciascuno con il suo segno e un
+// coefficiente da `magnitudes`, nell'ordine di `parts`: per grado
+// decrescente, come li scrive il libro.
 function polynomialTerms(
   random: Random,
   parts: readonly LetterPart[],
-  fractions: boolean,
+  magnitudes: readonly Rational[],
   count: number,
 ): PolynomialTerm[] {
   const chosen = new Set<number>()
@@ -639,9 +647,7 @@ function polynomialTerms(
   return [...chosen]
     .sort((a, b) => a - b)
     .map((i) => {
-      const magnitude = fractions
-        ? random.pick(polynomialFractions)
-        : rational(random.pick(polynomialIntegers))
+      const magnitude = random.pick(magnitudes)
       const sign = random.pick([1n, 1n, -1n])
       return {
         coefficient: rational(sign * magnitude.num, magnitude.den),
@@ -675,7 +681,9 @@ function sumExpression(terms: readonly PolynomialTerm[]): LiteralExpression {
 // con il meno; il primo a volte è un monomio solo, come in 5a − (2a − b).
 function polynomialSum(random: Random): LiteralExpression {
   const parts = polynomialParts(random.pick(polynomialLetters))
-  const fractions = random.pick([true, false, false, false, false])
+  const magnitudes = random.pick([true, false, false, false, false])
+    ? polynomialFractions
+    : polynomialIntegers
   const count = Number(random.int(2n, 3n))
   const alone = random.pick([true, false, false, false])
   const operands = Array.from({ length: count }, (_, i) =>
@@ -683,7 +691,7 @@ function polynomialSum(random: Random): LiteralExpression {
       polynomialTerms(
         random,
         parts,
-        fractions,
+        magnitudes,
         i === 0 && alone ? 1 : Number(random.int(2n, 4n)),
       ),
     ),
@@ -699,6 +707,81 @@ function polynomialSum(random: Random): LiteralExpression {
   )
 }
 
+// I termini dei fattori di un prodotto fra polinomi hanno grado al più 2,
+// come sul libro: (x + 3y)(2x − 4y), (2x² − 1)(x + 3).
+function factorParts(letters: readonly string[]): LetterPart[] {
+  const [x = 'x', y] = letters
+  return y ? polynomialParts(letters) : [[[x, 2n]], [[x, 1n]], []]
+}
+
+// Coefficienti piccoli per i fattori di un prodotto: i prodotti crescono.
+const factorIntegers = [1n, 1n, 2n, 2n, 3n, 4n, 5n].map((n) => rational(n))
+
+// Un monomio con le lettere del polinomio, esponenti fino a 2.
+function factorMonomial(
+  random: Random,
+  letters: readonly string[],
+): MonomialNode {
+  const chosen = letters.filter(() => random.pick([true, true, false]))
+  const used = chosen.length > 0 ? chosen : letters.slice(0, 1)
+  const magnitude = random.pick([...factorIntegers, rational(1n, 2n)])
+  const sign = random.pick([1n, 1n, -1n])
+  return monomial(
+    rational(sign * magnitude.num, magnitude.den),
+    used.map((l) => [l, random.int(1n, 2n)] as const),
+  )
+}
+
+const asTerm = (m: Monomial): PolynomialTerm => ({
+  coefficient: m.coefficient,
+  part: [...m.letters],
+})
+
+// Il monomio per un polinomio di due o tre termini, quasi sempre davanti:
+// 2xy(3y + 5x²). Oppure un polinomio diviso per un monomio, costruito dal
+// quoziente così che la divisione sia esatta: (12x⁴ − 8x³ + 4x²) : 4x².
+function monomialTimesPolynomial(random: Random): LiteralExpression {
+  const letters = random.pick(polynomialLetters)
+  const parts = polynomialParts(letters)
+  const factor = factorMonomial(random, letters)
+  const terms = polynomialTerms(
+    random,
+    parts,
+    factorIntegers,
+    Number(random.int(2n, 3n)),
+  )
+  if (random.pick([true, true, false])) {
+    const p = group('round', sumExpression(terms))
+    return random.pick([true, true, true, false])
+      ? binary('×', factor, p)
+      : binary('×', p, factor)
+  }
+  const divisor = asMonomial(polynomialValue(factor))
+  if (!divisor) throw new RangeError('Divisore nullo')
+  const dividend = terms.map((t) =>
+    asTerm(multiplyMonomials(monomialOf(t.coefficient, t.part), divisor)),
+  )
+  return binary(':', group('round', sumExpression(dividend)), factor)
+}
+
+// Un binomio per un binomio, a volte per un trinomio, nelle stesse lettere
+// così che fra i prodotti ci siano dei simili: (x + 3y)(2x − 4y).
+function polynomialTimesPolynomial(random: Random): LiteralExpression {
+  const parts = factorParts(random.pick(polynomialLetters))
+  const left = polynomialTerms(random, parts, factorIntegers, 2)
+  const right = polynomialTerms(
+    random,
+    parts,
+    factorIntegers,
+    random.pick([2, 2, 2, 3]),
+  )
+  return binary(
+    '×',
+    group('round', sumExpression(left)),
+    group('round', sumExpression(right)),
+  )
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
   | 'mono.normal-form'
@@ -707,6 +790,8 @@ export type PolynomialSkill =
   | 'mono.add-sub'
   | 'mono.expressions'
   | 'poly.add-sub'
+  | 'poly.mono-times'
+  | 'poly.times'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -800,6 +885,43 @@ export const polynomialGenerators: Record<
           writtenWithin(e) &&
           withinLiteralLimits(solution) &&
           isVisibleLiteral('minus-group-signs-kept', e, solution.result)
+        )
+      }),
+  },
+  'poly.mono-times': {
+    version: 1,
+    // Una riga; nel prodotto la distributiva sul primo termine soltanto
+    // cambia il risultato.
+    build: (random) =>
+      until(random, monomialTimesPolynomial, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length === 1 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          (e.kind !== 'binary' ||
+            e.op !== '×' ||
+            isVisibleLiteral(
+              'distributive-first-term-only',
+              e,
+              solution.result,
+            ))
+        )
+      }),
+  },
+  'poly.times': {
+    version: 1,
+    // La riga della distributiva e quella dei simili, e gli esponenti
+    // sommati fra simili cambiano il risultato.
+    build: (random) =>
+      until(random, polynomialTimesPolynomial, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length === 2 &&
+          solution.result.size <= 6 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('like-terms-exponents-added', e, solution.result)
         )
       }),
   },

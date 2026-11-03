@@ -54,6 +54,8 @@ const ruleNote: Record<Rule, string> = {
   'monomial-power': 'si eleva il coefficiente, gli esponenti si moltiplicano',
   'like-terms': 'i simili: si sommano i coefficienti, le lettere restano',
   'minus-group': 'il meno cambia il segno di ogni termine',
+  distributive: 'ogni termine per ogni termine',
+  'polynomial-quotient': 'ogni termine diviso per il monomio',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
@@ -295,6 +297,20 @@ function StepRow({ marked }: { marked: MarkedStep }) {
           <Eraser aria-hidden="true" className="size-4" />
           via le {bracketName[bracket]}
         </span>
+      )}
+      {step.products && (
+        <ul
+          aria-label={
+            step.rule === 'polynomial-quotient'
+              ? 'I quozienti termine per termine'
+              : 'I prodotti a due a due'
+          }
+          className="flex w-full flex-wrap gap-x-4 gap-y-1 text-sm text-lead tabular-nums"
+        >
+          {step.products.map((p, k) => (
+            <li key={k}>{`${toText(p.operation)} = ${toText(p.outcome)}`}</li>
+          ))}
+        </ul>
       )}
     </li>
   )

@@ -1,6 +1,7 @@
 import {
   binary,
   group,
+  isAddSub,
   isMulDiv,
   literal,
   nodeAt,
@@ -14,16 +15,20 @@ import {
 import {
   addPolynomials,
   asMonomial,
+  divideMonomials,
   letterPart,
   monomialExpression,
+  multiplyMonomials,
   multiplyPolynomials,
   negatePolynomial,
+  polynomialOf,
   polynomialValue,
   zeroPolynomial,
+  type Monomial,
   type Polynomial,
 } from './polynomial.ts'
 import { rational } from './rational.ts'
-import type { Line, Rule, Step } from './solver.ts'
+import type { Line, Rule, Step, TermOperation } from './solver.ts'
 
 // Il risolutore del calcolo letterale. L'ordine è quello dei capitoli dei
 // numeri, esteso: dentro un ambito prima le potenze (e la forma normale dei
@@ -58,6 +63,12 @@ interface Reduction {
    * la forma della somma intorno.
    */
   readonly at?: Path
+  /**
+   * L'espressione è una somma di più termini, come il risultato della
+   * distributiva: dentro una somma, dopo il più, i suoi termini entrano
+   * nella somma; altrove va fra parentesi.
+   */
+  readonly sum?: true
 }
 
 /** Un valore già scritto: un numero o un monomio. */
@@ -115,6 +126,8 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
   if (level === 'mul-div') {
     const signChange = changeSign(e)
     if (signChange) return signChange
+    const distributed = distribute(e)
+    if (distributed) return distributed
   }
   if (e.kind !== 'binary' || levelOf(e.op) !== level) return null
   if (!isLeaf(e.left) || !isLeaf(e.right)) return null
@@ -200,17 +213,98 @@ function positiveTerms(e: LiteralExpression): LiteralExpression {
   return left === e.left && right === e.right ? e : binary(e.op, left, right)
 }
 
+// La distributiva, nel giro di × e :. Un passaggio solo, dritto al
+// risultato, con i prodotti dei termini a due a due e senza ridurre i
+// simili, che hanno la loro riga: (x + 3y)(2x − 4y) = 2x² − 4xy + 6xy − 12y².
+// Un polinomio si divide per un monomio termine per termine, se è esatto.
+
+// Un fattore: un numero, un monomio o un polinomio fra parentesi.
+const isFactor = (e: LiteralExpression) => isLeaf(e) || isPolynomialGroup(e)
+
+// I monomi di un fattore, nell'ordine scritto.
+const monomialsOf = (e: LiteralExpression): Monomial[] => [
+  ...polynomialValue(e).values(),
+]
+
+function distribute(e: LiteralExpression): Reduction | null {
+  if (e.kind !== 'binary' || !isMulDiv(e.op)) return null
+  const { op, left, right } = e
+  if (!isFactor(left) || !isFactor(right)) return null
+  if (!isPolynomialGroup(left) && !isPolynomialGroup(right)) return null
+  // Si divide solo per un monomio.
+  if (op === ':' && !isLeaf(right)) return null
+  const products = monomialsOf(left).flatMap((a) =>
+    monomialsOf(right).map((b): TermOperation<Polynomial> => {
+      const result =
+        op === '×' ? multiplyMonomials(a, b) : divideMonomials(a, b)
+      if (!result) throw new RangeError('Il quoziente non è un polinomio')
+      return {
+        operands: [polynomialOf([a]), polynomialOf([b])],
+        result: polynomialOf([result]),
+        operation: binary(op, monomialExpression(a), monomialExpression(b)),
+        outcome: monomialExpression(result),
+      }
+    }),
+  )
+  const outcome = sumOf(products.flatMap((p) => termOf(p.result) ?? []))
+  return {
+    expression: outcome,
+    sum: true,
+    step: {
+      rule: op === '×' ? 'distributive' : 'polynomial-quotient',
+      operands: [polynomialValue(left), polynomialValue(right)],
+      result: polynomialValue(e),
+      operation: e,
+      outcome,
+      products,
+    },
+  }
+}
+
+// Una somma di più termini al suo posto. Dopo il più, o in testa a una
+// somma, i termini entrano nella somma: 5a² + 2a(3a + b) = 5a² + 6a² + 2ab.
+// Dopo il meno, o dentro un prodotto, la somma va fra tonde, come un
+// monomio negativo: 5a − 2a(3a + b) = 5a − (6a² + 2ab).
+function placed(
+  e: Extract<LiteralExpression, { kind: 'binary' }>,
+  side: 'left' | 'right',
+  r: Reduction,
+): Reduction {
+  const other = side === 'left' ? e.right : e.left
+  const rebuilt = (node: LiteralExpression) =>
+    side === 'left' ? binary(e.op, node, other) : binary(e.op, other, node)
+  if (!r.sum) return { ...r, expression: rebuilt(r.expression) }
+  const { sum: _, ...rest } = r
+  if (side === 'left' && isAddSub(e.op))
+    return { ...rest, expression: rebuilt(r.expression) }
+  if (side === 'right' && e.op === '+')
+    return {
+      ...rest,
+      expression: sumTerms(r.expression).reduce<LiteralExpression>(
+        (sum, t) => binary(t.minus ? '-' : '+', sum, t.node),
+        e.left,
+      ),
+    }
+  return { ...rest, expression: rebuilt(group('round', r.expression)) }
+}
+
+// Dove si è lavorato, per la somma che cambia forma.
+const located = (r: Reduction | null, path: Path): Reduction | null =>
+  r && r.sum ? { ...r, at: path } : r
+
 // Svolge il primo passaggio del giro, da sinistra, senza entrare nei gruppi.
-function reduceFirst(e: LiteralExpression, level: Level): Reduction | null {
-  if (e.kind !== 'binary') return reduceHere(e, level)
-  const left = reduceFirst(e.left, level)
-  if (left)
-    return { ...left, expression: binary(e.op, left.expression, e.right) }
-  const here = reduceHere(e, level)
+function reduceFirst(
+  e: LiteralExpression,
+  level: Level,
+  path: Path = [],
+): Reduction | null {
+  if (e.kind !== 'binary') return located(reduceHere(e, level), path)
+  const left = reduceFirst(e.left, level, [...path, 'left'])
+  if (left) return placed(e, 'left', left)
+  const here = located(reduceHere(e, level), path)
   if (here) return here
-  const right = reduceFirst(e.right, level)
-  if (right)
-    return { ...right, expression: binary(e.op, e.left, right.expression) }
+  const right = reduceFirst(e.right, level, [...path, 'right'])
+  if (right) return placed(e, 'right', right)
   return null
 }
 
