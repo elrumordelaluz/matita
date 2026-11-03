@@ -14,6 +14,7 @@ di sinistra; nei nomi di tipi e funzioni, la colonna del codice.
 | seme             | `seed`          | Il numero che rende un esercizio riproducibile.                                                                |
 | riga             | `Line`          | Un livello della soluzione, come sul quaderno.                                                                 |
 | passaggio        | `Step`          | Una sola operazione dentro una riga, con la regola applicata.                                                  |
+| posizione        | `Path`          | Dove sta un nodo nell'albero: il percorso dalla radice. Distingue le copie uguali di uno stesso conto.         |
 | potenza          | `power`         | Base ed esponente, `2³`. Nell'albero è l'operazione `^`.                                                       |
 | proprietà        | `PropertyRule`  | Regola che trasforma potenze senza calcolarle: stessa base, stesso esponente, potenza di potenza.              |
 | forma canonica   | `canonical`     | Il modo in cui il risultato va scritto in quel capitolo (frazione ridotta, segno davanti).                     |

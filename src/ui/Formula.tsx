@@ -4,8 +4,9 @@ import { toKatex, toText, type Expression } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 
 // Una formula resa con KaTeX. Il testo semplice fa da nome accessibile.
-// Con `marked` KaTeX accetta `\htmlClass`, per evidenziare un pezzo a matita:
-// solo per tex costruito dall'interfaccia, mai per quello dello studente.
+// Con `marked` KaTeX accetta `\htmlClass`, per evidenziare un pezzo a matita,
+// e `\htmlData`, per la posizione degli operatori da toccare: solo per tex
+// costruito dall'interfaccia, mai per quello dello studente.
 export function Formula({
   tex,
   text,
@@ -26,7 +27,8 @@ export function Formula({
         __html: katex.renderToString(tex, {
           output: 'html',
           ...(marked && {
-            trust: ({ command }) => command === '\\htmlClass',
+            trust: ({ command }) =>
+              command === '\\htmlClass' || command === '\\htmlData',
             strict: 'ignore',
           }),
         }),

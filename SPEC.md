@@ -322,7 +322,27 @@ possibile. Un numero fra parentesi, (72), vale come il numero: le parentesi
 cadono e non bloccano il conto successivo. Una riga che si legge come un
 numero, anche fra parentesi, è la risposta finale e va alla verifica così
 com'è stata scritta; lo stesso vale per il risultato del conto che chiude
-l'espressione, come 2 + 12 = 14. Il suggerimento scrive il prossimo passo della riga dello
+l'espressione, come 2 + 12 = 14.
+
+Sul telefono si può anche toccare un operatore della riga corrente: il conto si
+accende e il campo chiede solo il suo risultato, 3 × 7 = ▢. La pagina non deve
+risolvere l'esercizio al posto dello studente, e da qui vengono due regole.
+Ogni operatore si tocca, anche quelli i cui operandi non sono ancora numeri: se
+in 2 + 3 × 4 si potesse toccare solo ×, la pagina svelerebbe l'ordine delle
+operazioni, cioè proprio ciò che il capitolo 1 allena. E l'evidenziazione segue
+quello che lo studente vede, non l'albero: toccando + in 2 + 3 × 4 si accende
+2 + 3, l'operatore col numero o il gruppo scritto a ciascun lato, e non
+2 + (3 × 4). L'ordine si giudica alla verifica, non al tocco: una riga, un
+giudizio, come per una riga scritta, e una riga rifiutata si comporta come
+sempre. Il tocco porta la posizione dell'operatore, non il suo testo: fra due
+copie uguali, come in 2 × 3 + (2 × 3 + 1), il conto va proprio dove si è
+toccato. Ogni conto toccato dà una riga. Toccare di nuovo l'operatore, o
+premere Esc, spegne la scelta; con un operatore acceso il campo legge come
+risultato solo un numero, e ogni altra cosa come una riga scritta. Il tocco è
+una scorciatoia: la formula non si raggiunge da tastiera né da lettore di
+schermo, e scrivere resta la strada completa.
+
+Il suggerimento scrive il prossimo passo della riga dello
 studente, tranne quello che dà il risultato. L'interruttore ricorda la sua
 ultima posizione sul dispositivo, nella pratica libera e nella sessione: il
 prossimo esercizio del capitolo 1 si apre come lo studente l'ha lasciato, e la
