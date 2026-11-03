@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { toText } from '../engine/index.ts'
+import { generate, toText } from '../engine/index.ts'
 import { attempt } from './fixtures.ts'
 import { latestAttempts } from './history.ts'
 
@@ -83,4 +83,24 @@ test('a parità di data conta l’ordine con cui i tentativi arrivano', () => {
   expect(
     latestAttempts(attempts, 'n.add-sub').map((row) => row.attempt.seed),
   ).toEqual([11, 7])
+})
+
+test('un tentativo salvato prima dei tipi di risposta si ricostruisce', () => {
+  // Il tentativo com'è nell'archivio e nel backup: nessun tipo di risposta.
+  const saved = {
+    id: 'attempt-saved',
+    skill: 'n.add-sub',
+    seed: 42,
+    generatorVersion: 1,
+    answer: '0',
+    outcome: 'correct',
+    misconception: null,
+    hints: 0,
+    rewrites: 0,
+    durationMs: 20_000,
+    answeredAt: Date.UTC(2026, 8, 14, 9),
+  } as const
+  const [row] = latestAttempts([saved], 'n.add-sub')
+  expect(row?.expression).toEqual(generate('n.add-sub', 42).expression)
+  expect(row?.expression && toText(row.expression)).toBe('23 − 16 + 27 + 32')
 })

@@ -1,4 +1,8 @@
-import type { Exercise } from './generators.ts'
+import {
+  unknownKind,
+  type Exercise,
+  type NumberExercise,
+} from './generators.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
 import { solve } from './solver.ts'
@@ -161,7 +165,18 @@ function rewriteMessage(reason: RewriteReason, value: Rational): string {
   }
 }
 
+/** Il giudizio su una risposta, secondo il tipo di risposta dell'esercizio. */
 export function verify(answer: string, exercise: Exercise): Outcome {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return verifyNumber(answer, exercise)
+    default:
+      return unknownKind(exercise.kind)
+  }
+}
+
+function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
   const reading = readAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
   const { result } = solve(exercise.expression)

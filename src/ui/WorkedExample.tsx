@@ -3,9 +3,11 @@ import { useMemo, useState } from 'react'
 import {
   solve,
   toText,
+  unknownKind,
   type Bracket,
   type Exercise,
   type Line,
+  type NumberExercise,
   type Rule,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
@@ -51,6 +53,16 @@ const bracketName: Record<Bracket, string> = {
 }
 
 export function WorkedExample({ exercise }: { exercise: Exercise }) {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return <NumberWorkedExample exercise={exercise} />
+    default:
+      return unknownKind(exercise.kind)
+  }
+}
+
+function NumberWorkedExample({ exercise }: { exercise: NumberExercise }) {
   const { lines, marked } = useMemo(() => {
     const { lines } = solve(exercise.expression)
     return { lines, marked: markedSteps(exercise.expression, lines) }

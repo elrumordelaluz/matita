@@ -1,6 +1,8 @@
 import {
   generate,
   misconceptions,
+  unknownKind,
+  type Exercise,
   type Expression,
   type GeneratedSkill,
 } from '../engine/index.ts'
@@ -43,10 +45,21 @@ function rebuild(attempt: Attempt): Expression | null {
   try {
     const exercise = generate(attempt.skill as GeneratedSkill, attempt.seed)
     return exercise.generatorVersion === attempt.generatorVersion
-      ? exercise.expression
+      ? consegnaOf(exercise)
       : null
   } catch {
     return null
+  }
+}
+
+// La consegna da mostrare accanto alla risposta, secondo il tipo di risposta.
+function consegnaOf(exercise: Exercise): Expression {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return exercise.expression
+    default:
+      return unknownKind(exercise.kind)
   }
 }
 

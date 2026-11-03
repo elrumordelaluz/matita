@@ -334,7 +334,8 @@ stessi cinque esiti. Ogni tipo ha la sua forma canonica e i suoi motivi per
 riscrivere, descritti nel capitolo che lo introduce. La soluzione resta una
 sequenza di righe fatte di passaggi, qualunque sia il tipo. I tentativi
 salvati prima di questo cambio sono tutti di espressioni di numeri, e si
-ricostruiscono come prima.
+ricostruiscono come prima: un esercizio senza tipo è di numeri. Il tentativo
+non salva il tipo, perché lo decide l'abilità.
 
 ## Politica delle risposte
 

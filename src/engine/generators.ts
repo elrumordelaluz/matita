@@ -24,7 +24,32 @@ import { solve, type Solution } from './solver.ts'
 // capitolo dentro. Cambiare cosa produce un seme richiede di alzare la
 // versione, perché i tentativi salvati ricostruiscono l'esercizio dal seme.
 
-export interface Exercise {
+/**
+ * Un esercizio, secondo il suo tipo di risposta (SPEC.md, "Tipi di
+ * risposta"). Ogni tipo porta la sua consegna e si verifica a modo suo: chi
+ * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
+ * passa inosservato.
+ */
+export type Exercise = NumberExercise
+
+/** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
+export type AnswerKind = NonNullable<Exercise['kind']>
+
+/**
+ * Il ramo che nessun tipo raggiunge: chi tratta i tipi di risposta lo mette
+ * in fondo allo `switch`, e il compilatore segnala il tipo dimenticato.
+ */
+export function unknownKind(kind: never): never {
+  throw new Error(`Tipo di risposta sconosciuto: ${String(kind)}`)
+}
+
+/** Un'espressione di numeri, da cui si chiede il valore: un razionale. */
+export interface NumberExercise {
+  /**
+   * Senza tipo un esercizio è di numeri: così erano tutti prima che i tipi
+   * esistessero, e così si leggono gli esercizi scritti allora.
+   */
+  readonly kind?: 'number'
   readonly skill: GeneratedSkill
   readonly seed: number
   readonly generatorVersion: number
@@ -652,7 +677,13 @@ const generators = {
   },
 } satisfies Record<string, Generator>
 
-export type GeneratedSkill = keyof typeof generators
+/** Le abilità i cui esercizi chiedono un numero. */
+export type NumberSkill = keyof typeof generators
+
+/** Le abilità con un generatore, di qualunque tipo di risposta. */
+export type GeneratedSkill = NumberSkill
+
+export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
 
 function min(a: bigint, b: bigint): bigint {
   return a < b ? a : b
@@ -687,9 +718,18 @@ function solvable(expression: Expression): Solution | null {
   }
 }
 
+// Ogni tipo di risposta ha il suo sovraccarico: chi chiede un'abilità di
+// numeri riceve un esercizio di numeri, senza guardarne il tipo.
+export function generate(skill: NumberSkill, seed: number): NumberExercise
+export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
+  return generateNumber(skill, seed)
+}
+
+function generateNumber(skill: NumberSkill, seed: number): NumberExercise {
   const generator: Generator = generators[skill]
   return {
+    kind: 'number',
     skill,
     seed,
     generatorVersion: generator.version,

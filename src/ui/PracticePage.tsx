@@ -3,7 +3,6 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
   answerForm,
   checkStep,
-  literal,
   operationStep,
   operationStepAt,
   parseExpression,
@@ -20,6 +19,13 @@ import {
   type StepCheck,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
+import {
+  Consegna,
+  resultText,
+  solutionOf,
+  stepExpression,
+  wordingOf,
+} from './exerciseView.tsx'
 import { ExpressionFormula, Formula } from './Formula.tsx'
 import { Button, Eyebrow, Note, Panel, Sheet } from './kit.tsx'
 import {
@@ -160,19 +166,18 @@ export function PracticePage({
   const input = useRef<HTMLInputElement>(null)
   const nextButton = useRef<HTMLButtonElement>(null)
 
-  const solution = solve(exercise.expression)
+  const solution = solutionOf(exercise)
+  // La riga zero del passo passo, se l'esercizio ne ha uno.
+  const stepStart = stepExpression(exercise)
   // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
   const form = answerForm(answer)
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
-  const stepAvailable = exercise.skill.startsWith('n.')
+  const stepAvailable = stepStart !== null
   // Dove il passo passo non c'è, l'interruttore acceso aspetta il prossimo
   // esercizio che lo ha.
   const stepMode = stepAvailable && stepSwitch
-  const currentLine =
-    stepLines.length > 0
-      ? (stepLines[stepLines.length - 1] as Expression)
-      : exercise.expression
+  const currentLine = stepLines.at(-1) ?? stepStart
   // Si tocca solo la riga ancora da svolgere, e solo a esercizio aperto.
   const tapping = stepMode && !done
   const selection = tapping ? selected : null
@@ -234,6 +239,7 @@ export function PracticePage({
   // riga scritta. Se la riga è il risultato, alla verifica va così com'è
   // scritto.
   function submitTapped(path: Path, result: Rational, text: string) {
+    if (!currentLine) return
     const step = operationStepAt(currentLine, path, result)
     if (!step.ok) return refuse(step)
     if (step.line.kind === 'number') return grade(text)
@@ -245,6 +251,7 @@ export function PracticePage({
   // singolo conto. Con un operatore acceso, ciò che non è un numero si legge
   // come una riga scritta.
   function submitLine() {
+    if (!currentLine) return
     const text = answer.trim()
     if (selection) {
       const result = writtenResult(text)
@@ -289,7 +296,7 @@ export function PracticePage({
       setHints((h) => h + 1)
       return
     }
-    if (hintLine === currentLine) return
+    if (!currentLine || hintLine === currentLine) return
     const hint = nextHint(currentLine)
     if (hint === null) return
     setStepHint(hint)
@@ -367,19 +374,19 @@ export function PracticePage({
       <Sheet className="min-w-0 px-5 py-6 sm:px-10 sm:py-9 lg:min-h-[30rem]">
         {title && <Eyebrow>{title}</Eyebrow>}
         <h2 id={`${answerId}-title`} className="font-hand text-2xl text-lead">
-          Calcola il valore dell’espressione
+          {wordingOf(exercise).task}
         </h2>
         <div className="overflow-x-auto py-6 sm:py-8">
-          {tapping && stepLines.length === 0 ? (
+          {tapping && stepStart && stepLines.length === 0 ? (
             <TappableLine
-              expression={exercise.expression}
+              expression={stepStart}
               selected={selection}
               onTap={tapOperator}
               className="text-3xl sm:text-4xl lg:text-5xl"
             />
           ) : (
-            <ExpressionFormula
-              expression={exercise.expression}
+            <Consegna
+              exercise={exercise}
               className="text-3xl sm:text-4xl lg:text-5xl"
             />
           )}
@@ -469,7 +476,7 @@ export function PracticePage({
             {/* Con un operatore acceso il campo chiede solo il risultato:
                 l'operazione sta davanti, 3 × 7 = ▢. */}
             <div className="flex items-center gap-3">
-              {selection && (
+              {selection && currentLine && (
                 <span
                   id={`${answerId}-operation`}
                   className="shrink-0 font-display text-2xl font-bold text-pencil-ink"
@@ -561,7 +568,7 @@ export function PracticePage({
             <OutcomeCard
               key={tries}
               outcome={outcome}
-              result={toText(literal(solution.result))}
+              result={resultText(exercise)}
               hints={hints}
             />
           )}
@@ -590,7 +597,7 @@ export function PracticePage({
                 onClick={askHint}
                 disabled={
                   stepMode
-                    ? nextHint(currentLine) === null
+                    ? !currentLine || nextHint(currentLine) === null
                     : hints >= solution.lines.length
                 }
                 icon={<Lightbulb aria-hidden="true" className="size-4" />}
