@@ -1,8 +1,12 @@
 import {
+  binary,
+  group,
   isAddSub,
   isMulDiv,
   isNegatedPower,
   isPower,
+  negatedPower,
+  power,
   type Expression,
   type Operator,
 } from './expression.ts'
@@ -46,6 +50,14 @@ export type MisconceptionId =
   | 'negative-base-sign-kept'
   | 'zero-exponent-is-zero'
   | 'negative-exponent-is-negative'
+  | 'negative-substituted-without-brackets'
+  | 'coefficient-not-raised'
+  | 'like-terms-exponents-added'
+  | 'unlike-terms-conjoined'
+  | 'implicit-coefficient-zero'
+  | 'distributive-first-term-only'
+  | 'square-of-difference-sign'
+  | 'sum-times-difference-plus'
 
 export interface Misconception {
   readonly id: MisconceptionId
@@ -300,6 +312,37 @@ function attemptOnLine(
   return line ? attempt(line, rules) : []
 }
 
+// Nella riga della sostituzione, il valore negativo di una lettera scritto
+// senza tonde alla base di una potenza: a² per a = −2 letto come −2², cioè
+// −4. Nulla se nessuna lettera negativa è alla base di una potenza.
+function substitutedWithoutBrackets(e: Expression): Expression | null {
+  let found = false
+  const visit = (node: Expression): Expression => {
+    if (node.kind === 'number') return node
+    if (node.kind === 'group')
+      return group(node.bracket, visit(node.inner), {
+        negated: node.negated === true,
+      })
+    const base = node.left
+    if (
+      isPower(node.op) &&
+      base.kind === 'number' &&
+      base.letter !== undefined &&
+      negative(base.value) &&
+      node.right.kind === 'number'
+    ) {
+      found = true
+      const exponent = node.right.value.num
+      return negatedPower(power(literalOf(opposite(base.value)), exponent))
+    }
+    return binary(node.op, visit(node.left), visit(node.right))
+  }
+  const read = visit(e)
+  return found ? read : null
+}
+
+const literalOf = (value: Rational): Expression => ({ kind: 'number', value })
+
 // a/b : c/d come a/b × c/d, quando c'è una frazione.
 function withoutReciprocal(
   op: Operator,
@@ -350,6 +393,17 @@ export const misconceptions: readonly Misconception[] = [
     // Un valore per ogni gruppo ignorato, uno alla volta.
     wrongResults: (e) =>
       groups(e).flatMap((ignored) => attempt(e, { ...correctRules, ignored })),
+  },
+  // Prima di base per esponente e del segno della base negativa: per
+  // a = −2 anche loro danno a² = −4, ma qui l'errore è nella sostituzione.
+  {
+    id: 'negative-substituted-without-brackets',
+    explanation:
+      'Hai sostituito un numero negativo senza le parentesi. Al posto della lettera va tutto il numero, con il suo segno, fra tonde: per a = −2, a² = (−2)² = 4, non −2² = −4.',
+    wrongResults: (e) => {
+      const read = substitutedWithoutBrackets(e)
+      return read ? attempt(read, correctRules) : []
+    },
   },
   // Prima di base per esponente: con l'esponente zero danno lo stesso
   // valore, 5 × 0 = 0, e la spiegazione dell'esponente zero è più precisa.

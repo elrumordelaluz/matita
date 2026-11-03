@@ -3,7 +3,6 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
   answerForm,
   checkStep,
-  literal,
   operationStep,
   operationStepAt,
   parseExpression,
@@ -20,6 +19,19 @@ import {
   type StepCheck,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
+import {
+  AnswerChoices,
+  answerMode,
+  answerPreview,
+  answerReady,
+  ExercisePrompt,
+  keysOf,
+  resultText,
+  SolutionFigure,
+  solutionOf,
+  stepExpression,
+  wordingOf,
+} from './exerciseView.tsx'
 import { ExpressionFormula, Formula } from './Formula.tsx'
 import { Button, Eyebrow, Note, Panel, Sheet } from './kit.tsx'
 import {
@@ -29,7 +41,7 @@ import {
 } from './practice/Notebook.tsx'
 import { OutcomeCard, RunState } from './practice/OutcomeCard.tsx'
 import { TappableLine } from './practice/TappableLine.tsx'
-import { insertAtCursor, symbolKeys } from './symbolRow.ts'
+import { insertAtCursor } from './symbolRow.ts'
 
 // La pagina di pratica: espressione, risposta, esito, soluzione per righe.
 // La pagina non salva nulla: quando un esercizio si chiude lo riferisce con
@@ -160,29 +172,30 @@ export function PracticePage({
   const input = useRef<HTMLInputElement>(null)
   const nextButton = useRef<HTMLButtonElement>(null)
 
-  const solution = solve(exercise.expression)
+  const solutionLines = solutionOf(exercise)
+  // La riga zero del passo passo, se l'esercizio ne ha uno.
+  const stepStart = stepExpression(exercise)
   // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
-  const form = answerForm(answer)
+  const form = answerPreview(exercise, answer)
   const done = closes(outcome)
+  // Le scritture da completare si rispondono con i tasti, non nel campo.
+  const choosing = answerMode(exercise) === 'symbols'
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
-  const stepAvailable = exercise.skill.startsWith('n.')
+  const stepAvailable = stepStart !== null
   // Dove il passo passo non c'è, l'interruttore acceso aspetta il prossimo
   // esercizio che lo ha.
   const stepMode = stepAvailable && stepSwitch
-  const currentLine =
-    stepLines.length > 0
-      ? (stepLines[stepLines.length - 1] as Expression)
-      : exercise.expression
+  const currentLine = stepLines.at(-1) ?? stepStart
   // Si tocca solo la riga ancora da svolgere, e solo a esercizio aperto.
   const tapping = stepMode && !done
   const selection = tapping ? selected : null
   const shownLines = stepMode
     ? done
-      ? solution.lines
+      ? solutionLines
       : []
     : done
-      ? solution.lines
-      : solution.lines.slice(0, hints)
+      ? solutionLines
+      : solutionLines.slice(0, hints)
 
   // A esercizio chiuso, Invio porta al successivo.
   useEffect(() => {
@@ -234,6 +247,7 @@ export function PracticePage({
   // riga scritta. Se la riga è il risultato, alla verifica va così com'è
   // scritto.
   function submitTapped(path: Path, result: Rational, text: string) {
+    if (!currentLine) return
     const step = operationStepAt(currentLine, path, result)
     if (!step.ok) return refuse(step)
     if (step.line.kind === 'number') return grade(text)
@@ -245,6 +259,7 @@ export function PracticePage({
   // singolo conto. Con un operatore acceso, ciò che non è un numero si legge
   // come una riga scritta.
   function submitLine() {
+    if (!currentLine) return
     const text = answer.trim()
     if (selection) {
       const result = writtenResult(text)
@@ -289,7 +304,7 @@ export function PracticePage({
       setHints((h) => h + 1)
       return
     }
-    if (hintLine === currentLine) return
+    if (!currentLine || hintLine === currentLine) return
     const hint = nextHint(currentLine)
     if (hint === null) return
     setStepHint(hint)
@@ -367,19 +382,19 @@ export function PracticePage({
       <Sheet className="min-w-0 px-5 py-6 sm:px-10 sm:py-9 lg:min-h-[30rem]">
         {title && <Eyebrow>{title}</Eyebrow>}
         <h2 id={`${answerId}-title`} className="font-hand text-2xl text-lead">
-          Calcola il valore dell’espressione
+          {wordingOf(exercise).task}
         </h2>
         <div className="overflow-x-auto py-6 sm:py-8">
-          {tapping && stepLines.length === 0 ? (
+          {tapping && stepStart && stepLines.length === 0 ? (
             <TappableLine
-              expression={exercise.expression}
+              expression={stepStart}
               selected={selection}
               onTap={tapOperator}
               className="text-3xl sm:text-4xl lg:text-5xl"
             />
           ) : (
-            <ExpressionFormula
-              expression={exercise.expression}
+            <ExercisePrompt
+              exercise={exercise}
               className="text-3xl sm:text-4xl lg:text-5xl"
             />
           )}
@@ -421,13 +436,19 @@ export function PracticePage({
         )}
         <SolutionLines
           lines={shownLines}
-          total={solution.lines.length}
+          total={solutionLines.length}
           written={hints}
           pause={outcome?.kind === 'misconception' ? 1 : 0}
           checked={outcome?.kind === 'correct'}
           titleId={`${answerId}-solution`}
         />
-        {!done && (stepMode || hints < solution.lines.length) && <NextLine />}
+        {!done && (stepMode || hints < solutionLines.length) && <NextLine />}
+        {/* Dopo l'esito, il disegno che accompagna la soluzione. */}
+        {done && (
+          <div className="mt-6">
+            <SolutionFigure exercise={exercise} shown={shownLines.length} />
+          </div>
+        )}
       </Sheet>
 
       <Panel
@@ -459,7 +480,13 @@ export function PracticePage({
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
+          <AnswerChoices
+            exercise={exercise}
+            answer={answer}
+            onChange={setAnswer}
+            disabled={done}
+          />
+          <div className="space-y-1.5" hidden={choosing}>
             <label
               htmlFor={answerId}
               className="block text-sm font-semibold text-dim"
@@ -469,7 +496,7 @@ export function PracticePage({
             {/* Con un operatore acceso il campo chiede solo il risultato:
                 l'operazione sta davanti, 3 × 7 = ▢. */}
             <div className="flex items-center gap-3">
-              {selection && (
+              {selection && currentLine && (
                 <span
                   id={`${answerId}-operation`}
                   className="shrink-0 font-display text-2xl font-bold text-pencil-ink"
@@ -517,7 +544,7 @@ export function PracticePage({
               sistema nasconde. Da sm in su la riga non c'è. */}
           {!done && (
             <div className="flex justify-center gap-2 sm:hidden">
-              {symbolKeys.map(({ symbol, label }) => (
+              {keysOf(exercise).map(({ symbol, label }) => (
                 <button
                   key={symbol}
                   type="button"
@@ -561,7 +588,7 @@ export function PracticePage({
             <OutcomeCard
               key={tries}
               outcome={outcome}
-              result={toText(literal(solution.result))}
+              result={resultText(exercise)}
               hints={hints}
             />
           )}
@@ -580,6 +607,7 @@ export function PracticePage({
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <Button
                 type="submit"
+                disabled={!answerReady(exercise, answer)}
                 icon={<Check aria-hidden="true" className="size-5" />}
                 className="py-3.5 text-lg"
               >
@@ -590,8 +618,8 @@ export function PracticePage({
                 onClick={askHint}
                 disabled={
                   stepMode
-                    ? nextHint(currentLine) === null
-                    : hints >= solution.lines.length
+                    ? !currentLine || nextHint(currentLine) === null
+                    : hints >= solutionLines.length
                 }
                 icon={<Lightbulb aria-hidden="true" className="size-4" />}
               >
@@ -602,7 +630,7 @@ export function PracticePage({
 
           {!done && !stepMode && hints > 0 && (
             <p className="text-center text-sm text-dim">
-              {`Righe svelate sul quaderno: ${hints} di ${solution.lines.length}`}
+              {`Righe svelate sul quaderno: ${hints} di ${solutionLines.length}`}
             </p>
           )}
         </form>

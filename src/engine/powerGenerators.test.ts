@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { isNegatedPower, type Expression } from './expression.ts'
-import { generate, type GeneratedSkill } from './generators.ts'
+import { generate, type NumberSkill } from './generators.ts'
 import { isVisible } from './misconceptions.ts'
 import { numericPower, powerOfPower } from './power.ts'
 import { compare, isInteger, rational } from './rational.ts'
@@ -15,7 +15,7 @@ function nodes(e: Expression): Expression[] {
   return [e, ...nodes(e.left), ...nodes(e.right)]
 }
 
-const steps = (skill: GeneratedSkill, seed: number) =>
+const steps = (skill: NumberSkill, seed: number) =>
   solve(generate(skill, seed).expression).lines.flatMap((l) => l.steps)
 
 const propertyRules: readonly Rule[] = [
@@ -28,7 +28,7 @@ const propertyRules: readonly Rule[] = [
 
 // Vincoli comuni del capitolo, con basi naturali: ogni passaggio resta in N,
 // e ogni potenza che si calcola resta nel calcolo mentale.
-function expectChapterConstraints(skill: GeneratedSkill) {
+function expectChapterConstraints(skill: NumberSkill) {
   for (const seed of seeds)
     for (const step of steps(skill, seed)) {
       expect(isInteger(step.result)).toBe(true)
@@ -42,7 +42,7 @@ function expectChapterConstraints(skill: GeneratedSkill) {
 
 // In pow.basics le basi possono essere negative: ogni passaggio resta in Z e
 // ogni potenza che si calcola resta entro 125 in valore assoluto.
-function expectIntegerPowers(skill: GeneratedSkill) {
+function expectIntegerPowers(skill: NumberSkill) {
   for (const seed of seeds)
     for (const step of steps(skill, seed)) {
       expect(isInteger(step.result)).toBe(true)
@@ -211,7 +211,7 @@ describe('pow.properties', () => {
 
 // Le potenze in Q: intermedi con denominatore fino a 36 e numeratore fino a
 // 60, risultato con denominatore fino a 12 e numeratore fino a 30.
-function expectCleanInQ(skill: GeneratedSkill) {
+function expectCleanInQ(skill: NumberSkill) {
   for (const seed of seeds) {
     const { expression } = generate(skill, seed)
     const { result, lines } = solve(expression)

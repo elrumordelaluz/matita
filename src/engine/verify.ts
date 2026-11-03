@@ -1,15 +1,39 @@
-import type { Exercise } from './generators.ts'
+import type { LiteralExpression } from './expression.ts'
+import {
+  unknownKind,
+  type Exercise,
+  type NumberExercise,
+  type PolynomialExercise,
+} from './generators.ts'
+import { recogniseLiteral } from './literalMisconceptions.ts'
+import { solveLiteral } from './literalSolver.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
+import { equalPolynomials } from './polynomial.ts'
+import {
+  readPolynomialAnswer,
+  type PolynomialRewrite,
+  type PolynomialRewriteReason,
+} from './polynomialAnswer.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
-import { solve } from './solver.ts'
+import { verifySymbols } from './relations.ts'
+import type { SetRewriteReason } from './setAnswer.ts'
+import { countResult, countWrongResults } from './setCount.ts'
+import { vennAnswer, vennWrongResults } from './venn.ts'
+import { verifySet } from './setExercise.ts'
+import { setExplanation, type SetMisconceptionId } from './setMisconceptions.ts'
+import { solveWithValues, substitute } from './value.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
 // risposte": una risposta con il valore giusto in una forma non canonica non
 // è né giusta né sbagliata, va riscritta.
 
+/** Perché un numero con il valore giusto va riscritto. */
+export type NumberRewriteReason =
+  'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
+
 /** Perché una risposta con il valore giusto va riscritta. */
 export type RewriteReason =
-  'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
+  NumberRewriteReason | SetRewriteReason | PolynomialRewriteReason
 
 /** La risposta come l'ha scritta lo studente, senza normalizzarla. */
 export interface AnswerForm {
@@ -28,7 +52,7 @@ export type Outcome =
     }
   | {
       readonly kind: 'misconception'
-      readonly misconception: MisconceptionId
+      readonly misconception: MisconceptionId | SetMisconceptionId
       readonly explanation: string
     }
   | { readonly kind: 'wrong' }
@@ -39,7 +63,7 @@ type Reading =
       readonly ok: true
       readonly value: Rational
       /** Il motivo per riscriverla, se la forma non è canonica. */
-      readonly rewrite: RewriteReason | null
+      readonly rewrite: NumberRewriteReason | null
       /** La risposta come scritta, per l'anteprima. */
       readonly form: AnswerForm
     }
@@ -98,7 +122,7 @@ export function readAnswer(answer: string): Reading {
       return { ok: false, message: 'Il denominatore non può essere zero.' }
     const value = rational(signed(num, s), signed(den, denS))
     // Il primo motivo che si vede, nell'ordine in cui lo si corregge.
-    const rewrite: RewriteReason | null = denS
+    const rewrite: NumberRewriteReason | null = denS
       ? 'sign-at-denominator'
       : num % den === 0n
         ? 'integer-as-fraction'
@@ -145,7 +169,7 @@ export function answerForm(answer: string): AnswerForm | null {
   return reading.ok ? reading.form : null
 }
 
-function rewriteMessage(reason: RewriteReason, value: Rational): string {
+function rewriteMessage(reason: NumberRewriteReason, value: Rational): string {
   switch (reason) {
     case 'sign-at-denominator':
       return 'Il segno va davanti alla frazione.'
@@ -161,10 +185,88 @@ function rewriteMessage(reason: RewriteReason, value: Rational): string {
   }
 }
 
+/** Il giudizio su una risposta, secondo il tipo di risposta dell'esercizio. */
 export function verify(answer: string, exercise: Exercise): Outcome {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return verifyNumber(answer, exercise)
+    case 'set':
+      return verifySet(answer, exercise)
+    case 'symbols':
+      return verifySymbols(answer, exercise)
+    case 'count':
+      return verifyValue(answer, rational(countResult(exercise)), (value) =>
+        setRecognised(
+          countWrongResults(exercise).find((w) =>
+            equals(rational(w.value), value),
+          )?.id,
+        ),
+      )
+    case 'problem':
+      return verifyValue(
+        answer,
+        rational(vennAnswer(exercise.problem)),
+        (value) =>
+          setRecognised(
+            vennWrongResults(exercise.problem).find((w) =>
+              equals(rational(w.value), value),
+            )?.id,
+          ),
+      )
+    case 'polynomial':
+      return verifyPolynomial(answer, exercise)
+    default:
+      return unknownKind(exercise)
+  }
+}
+
+type Recognised = Extract<Outcome, { kind: 'misconception' }> | null
+
+function setRecognised(id: SetMisconceptionId | undefined): Recognised {
+  return id
+    ? {
+        kind: 'misconception',
+        misconception: id,
+        explanation: setExplanation(id),
+      }
+    : null
+}
+
+function verifyNumber(
+  answer: string,
+  exercise: NumberExercise<LiteralExpression>,
+): Outcome {
+  // Nel valore numerico gli errori si cercano dopo la sostituzione: è lì che
+  // l'espressione diventa di numeri.
+  const substitution = exercise.substitution ?? []
+  const { result } = solveWithValues(exercise.expression, substitution)
+  const numeric = substitute(exercise.expression, substitution)
+  return verifyValue(answer, result, (value) => {
+    const misconception = recognise(value, numeric, result)
+    return misconception
+      ? {
+          kind: 'misconception',
+          misconception: misconception.id,
+          explanation: misconception.explanation,
+        }
+      : null
+  })
+}
+
+/**
+ * Il giudizio su un numero scritto, con la politica dei numeri: la usano
+ * le espressioni, e i conti e i problemi del capitolo 5, che chiedono un
+ * numero da una consegna che non è un'espressione. `wrong` dice quale
+ * errore tipico spiega un valore sbagliato, se ce n'è uno.
+ */
+export function verifyValue(
+  answer: string,
+  result: Rational,
+  wrong: (value: Rational) => Recognised,
+): Outcome {
   const reading = readAnswer(answer)
   if (!reading.ok) return { kind: 'invalid', message: reading.message }
-  const { result } = solve(exercise.expression)
   if (equals(reading.value, result)) {
     if (reading.rewrite === null) return { kind: 'correct' }
     return {
@@ -173,12 +275,56 @@ export function verify(answer: string, exercise: Exercise): Outcome {
       message: rewriteMessage(reading.rewrite, result),
     }
   }
-  const misconception = recognise(reading.value, exercise.expression, result)
-  if (misconception)
-    return {
-      kind: 'misconception',
-      misconception: misconception.id,
-      explanation: misconception.explanation,
-    }
-  return { kind: 'wrong' }
+  return wrong(reading.value) ?? { kind: 'wrong' }
+}
+
+function polynomialMessage(rewrite: PolynomialRewrite): string {
+  switch (rewrite.reason) {
+    case 'products':
+      return 'Svolgi i prodotti.'
+    case 'normal-form':
+      return 'Scrivi ogni monomio in forma normale.'
+    case 'coefficient-one':
+      return 'Il coefficiente 1 non si scrive.'
+    case 'exponent-one':
+      return 'L’esponente 1 non si scrive.'
+    case 'exponent-zero':
+      return `${rewrite.letter ?? 'a'}⁰ vale 1.`
+    case 'like-terms':
+      return 'Somma i monomi simili.'
+    default:
+      // Il coefficiente si riscrive con le regole di Q.
+      return rewriteMessage(rewrite.reason, rewrite.coefficient ?? rational(1n))
+  }
+}
+
+// La risposta polinomio: il valore è la forma normale, confrontata con il
+// risultato della soluzione. Vedi SPEC.md, "Calcolo letterale", "Risposte".
+function verifyPolynomial(
+  answer: string,
+  exercise: PolynomialExercise,
+): Outcome {
+  const reading = readPolynomialAnswer(answer)
+  if (!reading.ok) return { kind: 'invalid', message: reading.message }
+  const { result } = solveLiteral(exercise.expression)
+  if (!equalPolynomials(reading.value, result)) {
+    const misconception = recogniseLiteral(
+      reading.value,
+      exercise.expression,
+      result,
+    )
+    return misconception
+      ? {
+          kind: 'misconception',
+          misconception: misconception.id,
+          explanation: misconception.explanation,
+        }
+      : { kind: 'wrong' }
+  }
+  if (reading.rewrite === null) return { kind: 'correct' }
+  return {
+    kind: 'rewrite',
+    reason: reading.rewrite.reason,
+    message: polynomialMessage(reading.rewrite),
+  }
 }

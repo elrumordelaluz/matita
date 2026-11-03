@@ -327,14 +327,18 @@ risposta è un numero. Dal capitolo 5 la risposta può essere un insieme, una
 scelta di simboli o un polinomio, e un problema ha un testo al posto
 dell'espressione. L'esercizio diventa quindi un'unione con il tipo di
 risposta come discriminante, e ogni tipo porta la sua consegna (espressione
-di numeri, espressione di insiemi, scritture da completare, problema,
-espressione letterale) e il suo risultato (razionale, insieme, simboli,
-polinomio). `verifica` legge e giudica la risposta secondo quel tipo, con gli
-stessi cinque esiti. Ogni tipo ha la sua forma canonica e i suoi motivi per
+di numeri, espressione di insiemi, scritture da completare, insiemi da
+contare, problema, espressione letterale) e il suo risultato (razionale,
+insieme, simboli, polinomio). Il conto di ℘(A) e di A × B e il problema
+chiedono un numero, e lo giudicano con la politica dei numeri; hanno un tipo
+a sé perché la consegna non è un'espressione, e scrivere 2ⁿ al posto degli
+insiemi svelerebbe il conto. `verifica` legge e giudica la risposta secondo
+quel tipo, con gli stessi cinque esiti. Ogni tipo ha la sua forma canonica e i suoi motivi per
 riscrivere, descritti nel capitolo che lo introduce. La soluzione resta una
 sequenza di righe fatte di passaggi, qualunque sia il tipo. I tentativi
 salvati prima di questo cambio sono tutti di espressioni di numeri, e si
-ricostruiscono come prima.
+ricostruiscono come prima: un esercizio senza tipo è di numeri. Il tentativo
+non salva il tipo, perché lo decide l'abilità.
 
 ## Politica delle risposte
 
@@ -441,6 +445,10 @@ parole "solo", "almeno", "entrambi", "nessuno" vengono dai modelli, mai
 composte dal generatore. I modelli fanno parte del generatore: cambiarne uno
 cambia cosa produce un seme, e alza la versione.
 
+Con tre insiemi ognuno sta in almeno un insieme, come nei problemi di C3
+(5.78, 5.81): l'apertura del testo dà l'unione, quando la domanda non la
+chiede, e la regione esterna resta vuota.
+
 Prima di rispondere lo studente vede solo il testo: disegnare il diagramma è
 parte del lavoro. La domanda può chiedere una regione ("solo calcio",
 "nessuno") o una quantità che ne somma più d'una ("almeno uno", "una sola
@@ -452,7 +460,7 @@ centro, poi le regioni di "solo due", poi quelle di "solo uno", poi
 l'esterno; con due insiemi l'intersezione, poi solo A, solo B, l'esterno. Una
 riga può trovare anche un'unione, quando il testo dà il totale e "nessuno":
 in una classe di 28 con 18 a teatro, 22 a fotografia e 3 a nessun laboratorio,
-card(A ∪ B) = 28 − 3 = 25, poi entrambi = 18 + 22 − 25 = 15. Con due insiemi
+almeno uno = 28 − 3 = 25, poi entrambi = 18 + 22 − 25 = 15. Con due insiemi
 la strada della formula è la stessa del libro: almeno uno = 17 + 12 − 5 = 24,
 nessuno = 28 − 24 = 4. Quando un dato fa trovare una regione all'indietro,
 come "Salsa o Break ma non Hip Hop", la riga lo dice. Se la domanda somma più
@@ -460,7 +468,13 @@ regioni, l'ultima riga fa la somma.
 
 Una riga ha il nome della quantità e un'espressione in N, svolta dal
 risolutore del capitolo 1 con le sue righe e i suoi passaggi: solo A =
-17 − 5 = 12. Il nome è la forma del libro, come "solo A" o "card(A ∪ B)".
+17 − 5 = 12. Il nome è la forma del libro con le parole del testo al posto
+delle lettere: "solo inglese", "entrambi", "nessuno". L'unione si chiama
+"almeno uno" anche quando è un passo verso un'altra domanda, così una
+quantità ha sempre lo stesso nome; "almeno uno" chiesto dalla domanda segue
+la formula come sul libro, e non è la somma delle regioni. Fra le strade
+possibili la soluzione sceglie la più corta, e a pari righe l'ordine del
+quaderno.
 Dopo l'esito l'interfaccia disegna il diagramma con le regioni riempite fino
 alla riga mostrata, con il nome di ogni regione come testo accessibile. I
 numeri restano piccoli: il totale fino a 60, ogni regione fino a 30.
@@ -550,7 +564,10 @@ termini si scrivono con + e − fra monomi positivi, come sul libro,
 `3a − 2b` e mai `3a + (−2b)`. Fra tonde va solo un monomio negativo che sia
 un fattore o una base: `2a² · (−4a⁵b³)`, `(−2a)²`. Il testo semplice scrive i
 coefficienti frazionari con la barra e uno spazio, `1/2 ab²`, e KaTeX con la
-frazione a due piani.
+frazione a due piani. In un'espressione con le lettere il prodotto è il
+punto, `2a² · 3a³`, e un gruppo o una potenza fra tonde si attacca al
+fattore che lo precede, `2xy(3y + 5x²)`, `2a(3b)²`. Un monomio alla base di
+una potenza va sempre fra tonde, anche positivo: `(3a²)²`.
 
 **Risolutore.** L'ordine è quello dei capitoli dei numeri, esteso. Dentro un
 ambito, prima le potenze, poi × e : da sinistra a destra, poi la riduzione
@@ -563,25 +580,65 @@ righe a sé restano per le potenze di numeri.
 La riduzione mette insieme termini lontani, quindi non è "+ e − da sinistra
 a destra": un passaggio per ogni gruppo di simili, con il risultato al posto
 del primo termine del gruppo, `3a² + 2b − a² = 2a² + 2b`. Questo passaggio ha
-tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`, e
-il passaggio del motore, che oggi è un'operazione fra due razionali, diventa
-un'operazione con i suoi operandi e il suo risultato, monomi compresi.
+tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`:
+il passaggio del motore è un'operazione con i suoi operandi e il suo
+risultato, monomi compresi, e nei capitoli dei numeri resta un conto fra
+due razionali. Un simile con il meno davanti entra con il suo segno, e se il
+gruppo si annulla il termine sparisce.
 L'ordine dei termini nella soluzione è quello di prima comparsa, come nei
 risultati del libro, e le lettere di un monomio sono in ordine alfabetico.
+
+Come con i numeri, un gruppo che si riduce a un monomio perde le parentesi,
+e un monomio negativo resta fra tonde perché è la sua scrittura:
+`5a − (a − 3a) = 5a − (−2a)`. Il meno davanti a un monomio negativo è la
+regola dei segni e si svolge nel giro di × e :, `5a − (−2a) = 5a + 2a`;
+un risultato negativo dopo il più si scrive subito con il meno, senza
+passaggio. Ogni ambito fa un giro per riga, come con i numeri: in
+`(3a²b²)² : 3a³b + 5a²b⁴ : 2ab⁴` il secondo quoziente aspetta la riga di ×
+e :, anche se l'esercizio guida 199 del libro lo anticipa.
 
 Un gruppo che non si riduce a un numero perde le parentesi quando il suo
 interno è in forma normale, nel giro di + e −. Se è preceduto dal più le
 parentesi cadono e basta; se è preceduto dal meno cadono cambiando il segno
 di ogni termine, ed è un passaggio con la sua regola,
-`5a − (2a − b) = 5a − 2a + b`. Davanti a un monomio, o dentro un prodotto, il
-gruppo si moltiplica con la distributiva nel giro di × e :.
+`5a − (2a − b) = 5a − 2a + b`. Le parentesi cadono in una riga e i simili si
+riducono nella riga dopo, come sul libro:
+`(4y³ + 3y + 5) − (2y³ + 2y² + 2y − 2) = 4y³ + 3y + 5 − 2y³ − 2y² − 2y + 2`,
+poi `2y³ + y + 7 − 2y²`. Le parentesi dopo il più cadono alla fine della
+riga, senza passaggio; una riga che toglie solo quelle non si scrive. Davanti
+a un monomio, o dentro un prodotto, il gruppo si moltiplica con la
+distributiva nel giro di × e :. Il risultato della distributiva prende il
+posto del prodotto come un monomio negativo: dopo il più, o in testa a una
+somma, i suoi termini entrano nella somma, `5a² + 2a(3a + b) = 5a² + 6a² + 2ab`;
+dopo il meno, o dentro un altro prodotto, va fra tonde,
+`5a − 2a(3a + b) = 5a − (6a² + 2ab)`, e la riga dopo toglie le parentesi. Un
+polinomio diviso per un monomio si divide termine per termine, in un
+passaggio con i quozienti di ogni termine:
+`(12x⁴ − 8x³ + 4x²) : 4x² = 3x² − 2x + 1`.
 
 Il quaderno segue il libro anche in due righe che non fanno un conto, e solo
 in queste due. La sostituzione, in `mono.value`: `2a² + 3a` per a = −2
-diventa `2 · (−2)² + 3 · (−2)`. È la riga in cui si mettono le tonde al
-negativo, e il suo passaggio porta la lettera e il valore. E la formula del
+diventa `2 × (−2)² + 3 × (−2)`. È la riga in cui si mettono le tonde al
+negativo, con un passaggio per lettera che porta la lettera e il valore. Da
+lì l'espressione è di numeri e si scrive come nei capitoli dei numeri, con
+×; il coefficiente −1 sottinteso resta un meno davanti, `−a²` diventa
+`−(−2)²`. E la formula del
 prodotto notevole: `(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)²`, con un
-passaggio che porta la formula e i suoi A e B; la riga dopo calcola. In tutte
+passaggio che porta la formula e i suoi A e B; la riga dopo calcola. La riga
+della formula viene prima di ogni conto del suo ambito, e dopo si calcola un
+giro per riga come sempre: le potenze, `4x⁴ + 2 · 2x² · 3y + 9y²`, poi i
+prodotti, `4x⁴ + 12x²y + 9y²`. Una lettera da sola si eleva già nella
+formula, `(x + 2)² = x² + 2 · x · 2 + 2²`, perché `(x)²` il libro non lo
+scrive. Con il meno la formula è quella della differenza,
+`(3a − 2b)² = (3a)² − 2 · 3a · 2b + (2b)²`, e la somma per differenza ha la
+sua, `(3x + 2y)(3x − 2y) = (3x)² − (2y)²`. Il quadrato di un trinomio prende
+ogni termine con il suo segno, `(2x − y + 5)² = (2x)² + (−y)² + 5² +
+2 · 2x · (−y) + 2 · 2x · 5 + 2 · (−y) · 5`, e il risultato esce nell'ordine
+della formula, come lo stampa il libro: `4x² + y² + 25 − 4xy + 20x − 10y`. Il
+cubo di un binomio ha la formula della somma o della differenza,
+`(A − B)³ = A³ − 3A²B + 3AB² − B³`. Dopo il meno, o dentro un
+prodotto, la formula va fra quadre, perché ha già le tonde delle potenze:
+`x² − (x + 1)² = x² − [x² + 2 · x · 1 + 1²]`. In tutte
 e due la riga è proprio ciò che l'abilità allena: senza, il quaderno
 salterebbe il punto in cui si sbaglia. Le altre righe senza conto che il
 libro scrive restano alla lezione, come il minimo comune multiplo in Q. La
@@ -617,6 +674,11 @@ sul primo termine soltanto (`2x(3y + 5x²) = 6xy + 5x²`), il quadrato di una
 differenza con il segno sbagliato (`(a − b)² = a² − 2ab − b²`), la somma per
 differenza con il più (`(a + b)(a − b) = a² + b²`), il negativo sostituito
 senza tonde (a = −2, `a² = −4`). Il confronto avviene fra forme normali.
+Il meno che non cambia i segni vale anche davanti a un prodotto o a una
+potenza che diventa un polinomio, perché il quaderno lo mette fra
+parentesi: `5x − 2x(x + 3)` letto come `5x − 2x² + 6x`. Nella potenza di un
+polinomio `(a + b)² = a² + b²` vale anche per il cubo e per il trinomio, e
+il segno sbagliato del quadrato di una differenza solo per il binomio.
 
 **Risposte.** Lo studente scrive un polinomio come `3a^2b - 1/2ab^2` o con le
 cifre ad apice. Le lettere attaccate si moltiplicano, `ab` è a · b. La barra
@@ -645,7 +707,11 @@ riscrivere: il libro non vincola né l'uno né l'altro.
 | esponente senza `^`          | `a3`           | `non-valido`    | Scrivi l'esponente con ^.             |
 
 Un prodotto di soli numeri e lettere, `2·3a`, è un monomio non in forma
-normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi.
+normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi. Un numero
+relativo fra tonde, come in `12a²b³(−2)a³`, è un numero e non un gruppo.
+Dopo la barra il coefficiente si giudica come una frazione di Q: `6a/3` vale
+2a ma va riscritto, come `6/3`, mentre `ab²/2` ha il coefficiente 1/2 già
+ridotto.
 I motivi si mostrano nell'ordine in cui si corregge: i prodotti, poi la forma
 normale di ogni monomio, poi i simili, poi i coefficienti con le regole di Q.
 Una risposta in forma non canonica con il valore sbagliato si giudica dal

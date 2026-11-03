@@ -1,5 +1,6 @@
 // La riga di simboli sotto il campo risposta, sul telefono: il segno meno,
-// la frazione, la potenza e le tonde che la tastiera di sistema nasconde.
+// la frazione, la potenza e le tonde che la tastiera di sistema nasconde. Gli
+// insiemi hanno la loro: le graffe, la virgola e il vuoto.
 
 export interface SymbolKey {
   readonly symbol: string
@@ -13,6 +14,13 @@ export const symbolKeys: readonly SymbolKey[] = [
   { symbol: '^', label: 'elevato a' },
   { symbol: '(', label: 'apri tonda' },
   { symbol: ')', label: 'chiudi tonda' },
+]
+
+export const setSymbolKeys: readonly SymbolKey[] = [
+  { symbol: '{', label: 'apri graffa' },
+  { symbol: '}', label: 'chiudi graffa' },
+  { symbol: ', ', label: 'virgola' },
+  { symbol: '∅', label: 'insieme vuoto' },
 ]
 
 /** Scrive `symbol` al posto della selezione [start, end) e dice dove sta il

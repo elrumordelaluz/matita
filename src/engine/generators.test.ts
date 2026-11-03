@@ -6,7 +6,7 @@ import {
   type Expression,
   type Operator,
 } from './expression.ts'
-import { generate, type GeneratedSkill } from './generators.ts'
+import { generate, type NumberSkill } from './generators.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import { compare, isInteger, rational, type Rational } from './rational.ts'
 import { solve } from './solver.ts'
@@ -80,17 +80,17 @@ describe('n.add-sub', () => {
   })
 })
 
-function steps(skill: GeneratedSkill, seed: number) {
+function steps(skill: NumberSkill, seed: number) {
   return solve(generate(skill, seed).expression).lines.flatMap((l) => l.steps)
 }
 
-function operators(skill: GeneratedSkill, seed: number): Set<Operator> {
+function operators(skill: NumberSkill, seed: number): Set<Operator> {
   return new Set(steps(skill, seed).map((s) => s.op))
 }
 
 // Vincoli comuni del capitolo: ogni passaggio resta in N, quindi ogni
 // divisione è esatta, e i numeri scritti e i fattori vanno fino a 20.
-function expectChapterConstraints(skill: GeneratedSkill) {
+function expectChapterConstraints(skill: NumberSkill) {
   for (const seed of seeds) {
     for (const n of numbers(generate(skill, seed).expression)) {
       expect(n).toBeGreaterThanOrEqual(1n)
@@ -239,7 +239,7 @@ const zSkills = [
 ] as const
 
 // Ogni errore tipico che l'esercizio deve far vedere.
-function expectVisible(skill: GeneratedSkill, ids: readonly MisconceptionId[]) {
+function expectVisible(skill: NumberSkill, ids: readonly MisconceptionId[]) {
   for (const seed of seeds) {
     const { expression } = generate(skill, seed)
     const { result } = solve(expression)

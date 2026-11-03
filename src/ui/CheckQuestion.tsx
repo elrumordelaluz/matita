@@ -6,16 +6,17 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
-import {
-  literal,
-  solve,
-  toText,
-  verify,
-  type Exercise,
-  type Outcome,
-} from '../engine/index.ts'
+import { verify, type Exercise, type Outcome } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import { ExpressionFormula } from './Formula.tsx'
+import {
+  AnswerChoices,
+  answerMode,
+  answerReady,
+  ExercisePrompt,
+  promptText,
+  resultText,
+  wordingOf,
+} from './exerciseView.tsx'
 import { Button, Eyebrow, Panel, Sheet } from './kit.tsx'
 
 // Una domanda di controllo dentro una lezione: si può riprovare finché si
@@ -40,7 +41,7 @@ function feedback(
       return {
         tone: 'err',
         title: 'Non è corretto.',
-        detail: `Il risultato è ${toText(literal(solve(exercise.expression).result))}.`,
+        detail: `Il risultato è ${resultText(exercise)}.`,
       }
     case 'rewrite':
       return {
@@ -103,12 +104,14 @@ export function CheckQuestion({
   // Il campo prende il colore dell'esito finché la risposta resta quella.
   const fresh = shown && checked.answer === answer ? tones[shown.tone] : null
   const Badge = solved ? CircleCheck : PencilLine
+  // Le scritture da completare si rispondono con i tasti, non nel campo.
+  const choosing = answerMode(exercise) === 'symbols'
 
   return (
     <Panel className={cn('transition-colors', solved && 'border-ok/50')}>
       <form
         role="group"
-        aria-label={`Domanda: ${toText(exercise.expression)}`}
+        aria-label={`Domanda: ${promptText(exercise)}`}
         onSubmit={submit}
       >
         <div className="flex flex-col gap-4">
@@ -127,19 +130,33 @@ export function CheckQuestion({
             <div>
               <Eyebrow>Prova tu</Eyebrow>
               <p className="font-display text-lg leading-tight font-bold">
-                Quanto vale?
+                {wordingOf(exercise).question}
               </p>
             </div>
           </div>
 
           <Sheet className="overflow-x-auto rounded-2xl px-4 py-5 text-center shadow-none">
-            <ExpressionFormula
-              expression={exercise.expression}
-              className="text-xl"
-            />
+            <ExercisePrompt exercise={exercise} className="text-xl" />
           </Sheet>
 
-          <div className="flex items-center gap-2">
+          {choosing && (
+            <div className="flex flex-col gap-3">
+              <AnswerChoices
+                exercise={exercise}
+                answer={answer}
+                onChange={setAnswer}
+                disabled={false}
+              />
+              <Button
+                type="submit"
+                variant="pencil"
+                disabled={!answerReady(exercise, answer)}
+              >
+                Controlla
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-2" hidden={choosing}>
             <label htmlFor={id} className="sr-only">
               Risposta
             </label>

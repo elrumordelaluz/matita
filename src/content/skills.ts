@@ -99,4 +99,99 @@ export const skills: readonly Skill[] = [
     title: 'Espressioni con le potenze',
     prerequisites: ['pow.zero-negative', 'q.brackets'],
   },
+  {
+    id: 'set.roster',
+    title: 'Dalla proprietà all’elencazione',
+    prerequisites: ['n.mul-div'],
+  },
+  {
+    id: 'set.relations',
+    title: 'Appartenenza e inclusione',
+    prerequisites: ['set.roster'],
+  },
+  {
+    id: 'set.operations',
+    title: 'Le operazioni fra insiemi',
+    prerequisites: ['set.roster'],
+  },
+  {
+    id: 'set.parts-product',
+    title: 'Insieme delle parti e prodotto cartesiano',
+    prerequisites: ['set.operations', 'pow.basics'],
+  },
+  {
+    id: 'set.venn2',
+    title: 'Problemi con due insiemi',
+    prerequisites: ['set.operations', 'n.parens'],
+  },
+  {
+    id: 'set.venn3',
+    title: 'Problemi con tre insiemi',
+    prerequisites: ['set.venn2'],
+  },
+  {
+    id: 'mono.value',
+    title: 'Il valore numerico',
+    prerequisites: ['pow.basics', 'q.order'],
+  },
+  {
+    id: 'mono.normal-form',
+    title: 'La forma normale di un monomio',
+    prerequisites: ['pow.properties', 'q.mul-div'],
+  },
+  {
+    id: 'mono.add-sub',
+    title: 'Somma algebrica di monomi',
+    prerequisites: ['mono.normal-form', 'q.add-sub', 'z.minus-group'],
+  },
+  {
+    id: 'mono.mul-div',
+    title: 'Prodotto e quoziente di monomi',
+    prerequisites: ['mono.normal-form'],
+  },
+  {
+    id: 'mono.power',
+    title: 'La potenza di un monomio',
+    prerequisites: ['mono.mul-div'],
+  },
+  {
+    id: 'mono.expressions',
+    title: 'Espressioni con i monomi',
+    prerequisites: ['mono.add-sub', 'mono.power', 'q.brackets'],
+  },
+  {
+    id: 'poly.add-sub',
+    title: 'Somma algebrica di polinomi',
+    prerequisites: ['mono.add-sub'],
+  },
+  {
+    id: 'poly.mono-times',
+    title: 'Monomio per polinomio, polinomio diviso monomio',
+    prerequisites: ['poly.add-sub', 'mono.mul-div'],
+  },
+  {
+    id: 'poly.times',
+    title: 'Polinomio per polinomio',
+    prerequisites: ['poly.mono-times'],
+  },
+  {
+    id: 'poly.square',
+    title: 'Il quadrato di un binomio',
+    prerequisites: ['poly.times', 'mono.power'],
+  },
+  {
+    id: 'poly.sum-diff',
+    title: 'Somma per differenza',
+    prerequisites: ['poly.times', 'mono.power'],
+  },
+  {
+    id: 'poly.more-notable',
+    title: 'Quadrato di un trinomio, cubo di un binomio',
+    prerequisites: ['poly.square'],
+  },
+  {
+    id: 'poly.expressions',
+    title: 'Espressioni con i polinomi e i prodotti notevoli',
+    prerequisites: ['poly.sum-diff', 'poly.more-notable', 'mono.expressions'],
+  },
 ]

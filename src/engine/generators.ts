@@ -7,8 +7,14 @@ import {
   num,
   type Bracket,
   type Expression,
+  type LiteralExpression,
   type Operator,
 } from './expression.ts'
+import {
+  polynomialGenerators,
+  valueGenerator,
+  type PolynomialSkill,
+} from './literalGenerators.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import {
   basicPowers,
@@ -17,18 +23,80 @@ import {
   zeroAndNegativePowers,
 } from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
+import { generateRelations, type SymbolsExercise } from './relations.ts'
+import { generateCount, type CountExercise } from './setCount.ts'
+import { generateVenn, type ProblemExercise } from './venn.ts'
 import { rational, type Rational } from './rational.ts'
+import {
+  generateSet,
+  isSetSkill,
+  type SetExercise,
+  type SetSkill,
+} from './setExercise.ts'
 import { solve, type Solution } from './solver.ts'
+import type { Assignment } from './value.ts'
 
 // Un generatore per abilità: dal seme all'esercizio, con i vincoli del
 // capitolo dentro. Cambiare cosa produce un seme richiede di alzare la
 // versione, perché i tentativi salvati ricostruiscono l'esercizio dal seme.
 
-export interface Exercise {
+/**
+ * Un esercizio, secondo il suo tipo di risposta (SPEC.md, "Tipi di
+ * risposta"). Ogni tipo porta la sua consegna e si verifica a modo suo: chi
+ * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
+ * passa inosservato.
+ */
+export type Exercise =
+  | NumberExercise<LiteralExpression>
+  | SetExercise
+  | SymbolsExercise
+  | CountExercise
+  | ProblemExercise
+  | PolynomialExercise
+
+/** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
+export type AnswerKind = NonNullable<Exercise['kind']>
+
+/**
+ * Il ramo che nessun tipo raggiunge: chi tratta i tipi di risposta lo mette
+ * in fondo allo `switch`, con l'esercizio, e il compilatore segnala il tipo
+ * dimenticato. Con più tipi lo `switch` restringe l'esercizio intero, non
+ * solo il suo `kind`.
+ */
+export function unknownKind(exercise: never): never {
+  const { kind } = exercise as { readonly kind?: unknown }
+  throw new Error(`Tipo di risposta sconosciuto: ${String(kind)}`)
+}
+
+/**
+ * Un'espressione da cui si chiede il valore, un razionale. Nei capitoli 1-4
+ * è un'espressione di numeri; nel valore numerico (`mono.value`) è
+ * un'espressione letterale con i valori delle lettere.
+ */
+export interface NumberExercise<E extends LiteralExpression = Expression> {
+  /**
+   * Senza tipo un esercizio è di numeri: così erano tutti prima che i tipi
+   * esistessero, e così si leggono gli esercizi scritti allora.
+   */
+  readonly kind?: 'number'
   readonly skill: GeneratedSkill
   readonly seed: number
   readonly generatorVersion: number
-  readonly expression: Expression
+  readonly expression: E
+  /** I valori delle lettere, nell'ordine in cui la consegna li dà. */
+  readonly substitution?: readonly Assignment[]
+}
+
+/**
+ * Un'espressione letterale da svolgere, di cui si chiede il risultato in
+ * forma normale: un polinomio. Vedi SPEC.md, "Calcolo letterale".
+ */
+export interface PolynomialExercise {
+  readonly kind: 'polynomial'
+  readonly skill: PolynomialSkill
+  readonly seed: number
+  readonly generatorVersion: number
+  readonly expression: LiteralExpression
 }
 
 interface Generator {
@@ -652,7 +720,38 @@ const generators = {
   },
 } satisfies Record<string, Generator>
 
-export type GeneratedSkill = keyof typeof generators
+/** Le abilità i cui esercizi chiedono un numero. */
+export type NumberSkill = keyof typeof generators
+
+/** Le abilità con un generatore, di qualunque tipo di risposta. */
+export type GeneratedSkill =
+  | NumberSkill
+  | ValueSkill
+  | PolynomialSkill
+  | SetSkill
+  | SymbolsSkill
+  | CountSkill
+  | ProblemSkill
+
+/** Le abilità i cui esercizi sono problemi con il diagramma di Eulero-Venn. */
+export type ProblemSkill = ProblemExercise['skill']
+
+/** Le abilità i cui esercizi chiedono di contare gli elementi. */
+export type CountSkill = CountExercise['skill']
+
+/** Le abilità i cui esercizi chiedono una scelta di simboli. */
+export type SymbolsSkill = SymbolsExercise['skill']
+
+/** Le abilità che chiedono il valore numerico di un'espressione letterale. */
+export type ValueSkill = 'mono.value'
+
+export type { PolynomialSkill }
+
+/** Le abilità dei capitoli 1-4, quelle delle espressioni di numeri. */
+export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
+
+const isNumberSkill = (skill: GeneratedSkill): skill is NumberSkill =>
+  Object.hasOwn(generators, skill)
 
 function min(a: bigint, b: bigint): bigint {
   return a < b ? a : b
@@ -687,9 +786,51 @@ function solvable(expression: Expression): Solution | null {
   }
 }
 
+// Ogni tipo di risposta ha il suo sovraccarico: chi chiede un'abilità di
+// numeri riceve un esercizio di numeri, senza guardarne il tipo.
+export function generate(skill: NumberSkill, seed: number): NumberExercise
+export function generate(skill: SetSkill, seed: number): SetExercise
+export function generate(skill: SymbolsSkill, seed: number): SymbolsExercise
+export function generate(skill: CountSkill, seed: number): CountExercise
+export function generate(skill: ProblemSkill, seed: number): ProblemExercise
+export function generate(
+  skill: ValueSkill,
+  seed: number,
+): NumberExercise<LiteralExpression>
+export function generate(
+  skill: PolynomialSkill,
+  seed: number,
+): PolynomialExercise
+export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
+  if (isNumberSkill(skill)) return generateNumber(skill, seed)
+  if (isSetSkill(skill)) return generateSet(skill, seed)
+  if (skill === 'set.relations') return generateRelations(seed)
+  if (skill === 'set.parts-product') return generateCount(seed)
+  if (skill === 'set.venn2' || skill === 'set.venn3')
+    return generateVenn(skill, seed)
+  if (skill === 'mono.value')
+    return {
+      kind: 'number',
+      skill,
+      seed,
+      generatorVersion: valueGenerator.version,
+      ...valueGenerator.build(seededRandom(seed)),
+    }
+  const generator = polynomialGenerators[skill]
+  return {
+    kind: 'polynomial',
+    skill,
+    seed,
+    generatorVersion: generator.version,
+    expression: generator.build(seededRandom(seed)),
+  }
+}
+
+function generateNumber(skill: NumberSkill, seed: number): NumberExercise {
   const generator: Generator = generators[skill]
   return {
+    kind: 'number',
     skill,
     seed,
     generatorVersion: generator.version,

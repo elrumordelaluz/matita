@@ -24,7 +24,7 @@ import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
-import { ExpressionFormula } from './Formula.tsx'
+import { ExercisePrompt } from './exerciseView.tsx'
 import {
   chapterStatus,
   summarize,
@@ -379,15 +379,15 @@ export function ProgressPage({
                               <Eyebrow>Ultimi tentativi</Eyebrow>
                               <ul className="space-y-1">
                                 {history.map(
-                                  ({ attempt, expression, explanation }) => (
+                                  ({ attempt, exercise, explanation }) => (
                                     <li
                                       key={attempt.id}
                                       className="text-xs leading-relaxed text-dim"
                                     >
-                                      {expression !== null && (
+                                      {exercise !== null && (
                                         <>
-                                          <ExpressionFormula
-                                            expression={expression}
+                                          <ExercisePrompt
+                                            exercise={exercise}
                                             className="text-sm"
                                           />
                                           {' · '}

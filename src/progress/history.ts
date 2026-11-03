@@ -1,7 +1,10 @@
 import {
   generate,
-  misconceptions,
-  type Expression,
+  misconceptionExplanation,
+  setMisconceptions,
+  unknownKind,
+  type Exercise,
+  type LiteralExpression,
   type GeneratedSkill,
 } from '../engine/index.ts'
 import { chronological, type Attempt } from './attempt.ts'
@@ -14,7 +17,9 @@ import { chronological, type Attempt } from './attempt.ts'
 export interface AttemptEntry {
   readonly attempt: Attempt
   /** L’esercizio ricostruito dal seme, se la ricostruzione è fedele. */
-  readonly expression: Expression | null
+  readonly exercise: Exercise | null
+  /** La sua espressione, se il tipo ne ha una: numeri o lettere. */
+  readonly expression: LiteralExpression | null
   /** La spiegazione dell’errore tipico riconosciuto, se il catalogo lo conosce. */
   readonly explanation: string | null
 }
@@ -28,31 +33,55 @@ export function latestAttempts(
     .filter((a) => a.skill === skill)
     .slice(-5)
     .reverse()
-    .map((attempt) => ({
-      attempt,
-      expression: rebuild(attempt),
-      explanation: explanationOf(attempt),
-    }))
+    .map((attempt) => {
+      const exercise = rebuild(attempt)
+      return {
+        attempt,
+        exercise,
+        expression: exercise && expressionOf(exercise),
+        explanation: explanationOf(attempt),
+      }
+    })
 }
 
 // Stesso seme, stesso esercizio, purché il generatore sia quello di allora:
 // con un’altra versione l’esercizio ricostruito sarebbe un altro, e non si
 // mostra mai uno sbagliato. Un’abilità senza generatore, arrivata da una
 // versione passata del percorso, non si può ricostruire: non è un errore.
-function rebuild(attempt: Attempt): Expression | null {
+function rebuild(attempt: Attempt): Exercise | null {
   try {
     const exercise = generate(attempt.skill as GeneratedSkill, attempt.seed)
     return exercise.generatorVersion === attempt.generatorVersion
-      ? exercise.expression
+      ? exercise
       : null
   } catch {
     return null
   }
 }
 
+// L’espressione da mostrare accanto alla risposta, se il tipo ne ha una.
+function expressionOf(exercise: Exercise): LiteralExpression | null {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+    case 'polynomial':
+      return exercise.expression
+    case 'set':
+    case 'symbols':
+    case 'count':
+    case 'problem':
+      return null
+    default:
+      return unknownKind(exercise)
+  }
+}
+
 function explanationOf(attempt: Attempt): string | null {
+  if (attempt.misconception === null) return null
   return (
-    misconceptions.find((m) => m.id === attempt.misconception)?.explanation ??
+    misconceptionExplanation(attempt.misconception) ??
+    setMisconceptions.find((m) => m.id === attempt.misconception)
+      ?.explanation ??
     null
   )
 }

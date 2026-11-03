@@ -1,14 +1,24 @@
 import { ChevronsDown, Eraser, Plus, RotateCcw } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
-  solve,
   toText,
+  unknownKind,
   type Bracket,
   type Exercise,
   type Line,
+  type LiteralExpression,
+  type NumberExercise,
+  type PolynomialExercise,
   type Rule,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
+import {
+  ExercisePrompt,
+  promptText,
+  expressionLines,
+  SolutionFigure,
+  solutionOf,
+} from './exerciseView.tsx'
 import { ExpressionFormula, Formula } from './Formula.tsx'
 import { Button, Eyebrow, Note, Sheet } from './kit.tsx'
 import { markedSteps, type MarkedStep } from './lesson/steps.ts'
@@ -37,6 +47,19 @@ const ruleNote: Record<Rule, string> = {
   'change-sign': 'il meno cambia il segno',
   'minus-power': 'prima la potenza, il meno resta fuori',
   power: 'prima le potenze',
+  substitution: 'al posto della lettera, il suo valore',
+  'normal-form': 'forma normale: un solo coefficiente, lettere diverse',
+  'monomial-product': 'coefficienti per coefficienti, esponenti sommati',
+  'monomial-quotient': 'coefficienti divisi, esponenti sottratti',
+  'monomial-power': 'si eleva il coefficiente, gli esponenti si moltiplicano',
+  'like-terms': 'i simili: si sommano i coefficienti, le lettere restano',
+  'minus-group': 'il meno cambia il segno di ogni termine',
+  distributive: 'ogni termine per ogni termine',
+  'polynomial-quotient': 'ogni termine diviso per il monomio',
+  'square-of-binomial': 'quadrato di un binomio: si scrive la formula',
+  'sum-times-difference': 'somma per differenza: si scrive la formula',
+  'square-of-trinomial': 'quadrato di un trinomio: si scrive la formula',
+  'cube-of-binomial': 'cubo di un binomio: si scrive la formula',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
@@ -51,8 +74,39 @@ const bracketName: Record<Bracket, string> = {
 }
 
 export function WorkedExample({ exercise }: { exercise: Exercise }) {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return <NotebookExample exercise={exercise} />
+    case 'polynomial':
+      return <NotebookExample exercise={exercise} />
+    case 'set':
+    case 'symbols':
+    case 'count':
+      return <LinesWorkedExample exercise={exercise} />
+    case 'problem':
+      return (
+        <LinesWorkedExample exercise={exercise}>
+          <SolutionFigure
+            exercise={exercise}
+            shown={solutionOf(exercise).length}
+          />
+        </LinesWorkedExample>
+      )
+    default:
+      return unknownKind(exercise)
+  }
+}
+
+// L'esercizio sul quaderno con le righe della sua soluzione, uguale per ogni
+// tipo che si svolge per righe.
+function NotebookExample({
+  exercise,
+}: {
+  exercise: NumberExercise<LiteralExpression> | PolynomialExercise
+}) {
   const { lines, marked } = useMemo(() => {
-    const { lines } = solve(exercise.expression)
+    const lines = expressionLines(exercise)
     return { lines, marked: markedSteps(exercise.expression, lines) }
   }, [exercise])
   const [open, setOpen] = useState(() => lines.map(() => 0))
@@ -65,7 +119,7 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
     <Sheet className="h-full p-4 sm:p-6">
       <figure
         ref={ref}
-        aria-label={`Esempio: ${toText(exercise.expression)}`}
+        aria-label={`Esempio: ${promptText(exercise)}`}
         className="flex flex-col gap-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -108,8 +162,8 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
                 seen ? 'animate-write' : 'opacity-0',
               )}
             >
-              <ExpressionFormula
-                expression={exercise.expression}
+              <ExercisePrompt
+                exercise={exercise}
                 className="text-xl sm:text-2xl"
               />
             </div>
@@ -251,6 +305,112 @@ function StepRow({ marked }: { marked: MarkedStep }) {
           via le {bracketName[bracket]}
         </span>
       )}
+      {step.products && (
+        <ul
+          aria-label={
+            step.rule === 'polynomial-quotient'
+              ? 'I quozienti termine per termine'
+              : 'I prodotti a due a due'
+          }
+          className="flex w-full flex-wrap gap-x-4 gap-y-1 text-sm text-lead tabular-nums"
+        >
+          {step.products.map((p, k) => (
+            <li key={k}>{`${toText(p.operation)} = ${toText(p.outcome)}`}</li>
+          ))}
+        </ul>
+      )}
+      {step.formula && (
+        <p className="flex w-full flex-wrap gap-x-4 gap-y-1 text-sm text-lead tabular-nums">
+          <span>{step.formula.text}</span>
+          <span>
+            {step.formula.terms
+              .map((t) => `${t.name} = ${toText(t.term)}`)
+              .join(', ')}
+          </span>
+        </p>
+      )}
     </li>
+  )
+}
+
+// Un esempio svolto di un tipo che non è un'espressione di numeri: la
+// consegna e le righe della soluzione, ciascuna con i suoi passaggi già
+// scritti a margine. Sono le stesse righe del quaderno della pratica.
+function LinesWorkedExample({
+  exercise,
+  children,
+}: {
+  exercise: Exercise
+  /** Ciò che accompagna le righe, come il diagramma di un problema. */
+  children?: ReactNode
+}) {
+  const lines = useMemo(() => solutionOf(exercise), [exercise])
+  const [ref, seen] = useSeen<HTMLElement>()
+  return (
+    <Sheet className="h-full p-4 sm:p-6">
+      <figure
+        ref={ref}
+        aria-label={`Esempio: ${promptText(exercise)}`}
+        className="flex flex-col gap-5"
+      >
+        <Eyebrow className="flex items-center gap-2">
+          <span aria-hidden="true" className="size-2 rounded-full bg-pencil" />
+          Esempio svolto
+        </Eyebrow>
+        <div className={cn('p-1', seen ? 'animate-write' : 'opacity-0')}>
+          <ExercisePrompt exercise={exercise} className="text-xl sm:text-2xl" />
+        </div>
+        <ol className="flex flex-col gap-3">
+          {lines.map((line, i) => (
+            <li
+              key={i}
+              aria-label={`Riga ${i + 1}`}
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'pt-1.5 text-xl text-dim sm:text-2xl',
+                  seen ? ['animate-rise', delay(i)] : 'opacity-0',
+                )}
+              >
+                {line.continues ? '=' : ''}
+              </span>
+              <div
+                className={cn(
+                  'flex min-w-0 flex-col gap-1.5 p-1',
+                  seen ? ['animate-write', delay(i)] : 'opacity-0',
+                )}
+              >
+                <span className="flex flex-wrap items-center gap-3">
+                  <Formula
+                    tex={line.tex}
+                    text={line.text}
+                    className={cn(
+                      'text-xl sm:text-2xl',
+                      i === lines.length - 1 &&
+                        'rounded-full px-3 py-0.5 ring-2 ring-pencil',
+                    )}
+                  />
+                  {i === lines.length - 1 && (
+                    <Note className="text-pencil-ink">risultato</Note>
+                  )}
+                </span>
+                {line.notes.length > 0 && (
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1 border-l-2 border-pencil/70 pl-3">
+                    {line.notes.map((note, j) => (
+                      <li key={j}>
+                        <Note>{note}</Note>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+        {children}
+      </figure>
+    </Sheet>
   )
 }
