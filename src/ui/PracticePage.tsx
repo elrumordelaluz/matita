@@ -5,14 +5,18 @@ import {
   checkStep,
   literal,
   operationStep,
+  operationStepAt,
   parseExpression,
   parseOperationLine,
   solve,
   toText,
   verify,
+  visibleOperation,
   type Exercise,
   type Expression,
   type Outcome,
+  type Path,
+  type Rational,
   type StepCheck,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
@@ -24,6 +28,7 @@ import {
   SolutionLines,
 } from './practice/Notebook.tsx'
 import { OutcomeCard, RunState } from './practice/OutcomeCard.tsx'
+import { TappableLine } from './practice/TappableLine.tsx'
 import { insertAtCursor, symbolKeys } from './symbolRow.ts'
 
 // La pagina di pratica: espressione, risposta, esito, soluzione per righe.
@@ -56,6 +61,19 @@ function bareNumber(e: Expression): Expression | null {
     ? e.inner
     : null
 }
+
+// Il risultato scritto per un conto toccato: un numero, anche fra parentesi.
+function writtenResult(text: string): Rational | null {
+  try {
+    const parsed = parseExpression(text)
+    const value = bareNumber(parsed) ?? parsed
+    return value.kind === 'number' ? value.value : null
+  } catch {
+    return null
+  }
+}
+
+const samePath = (a: Path, b: Path) => a.join() === b.join()
 
 // Il prossimo passo da scrivere sulla riga dello studente, come lo farebbe
 // il risolutore. Null se la riga non ha passaggi o se il passo dà il
@@ -136,6 +154,8 @@ export function PracticePage({
   const [stepHint, setStepHint] = useState<string | null>(null)
   // La riga per cui vale il suggerimento: ripeterlo su di essa non conta.
   const [hintLine, setHintLine] = useState<Expression | null>(null)
+  // L'operatore toccato sulla riga corrente: il campo chiede il suo risultato.
+  const [selected, setSelected] = useState<Path | null>(null)
   const answerId = useId()
   const input = useRef<HTMLInputElement>(null)
   const nextButton = useRef<HTMLButtonElement>(null)
@@ -153,6 +173,9 @@ export function PracticePage({
     stepLines.length > 0
       ? (stepLines[stepLines.length - 1] as Expression)
       : exercise.expression
+  // Si tocca solo la riga ancora da svolgere, e solo a esercizio aperto.
+  const tapping = stepMode && !done
+  const selection = tapping ? selected : null
   const shownLines = stepMode
     ? done
       ? solution.lines
@@ -195,6 +218,7 @@ export function PracticePage({
   function accept(line: Expression) {
     setStepLines((lines) => [...lines, line])
     setAnswer('')
+    setSelected(null)
     setLineMessage(null)
     setStepHint(null)
     setHintLine(null)
@@ -206,10 +230,26 @@ export function PracticePage({
     )
   }
 
-  // La riga in modalità "Passo passo": o è già la risposta finale, o è la
-  // prossima riga del quaderno, per intero o come singolo conto.
+  // Il risultato del conto toccato: diventa la riga nuova, giudicata come una
+  // riga scritta. Se la riga è il risultato, alla verifica va così com'è
+  // scritto.
+  function submitTapped(path: Path, result: Rational, text: string) {
+    const step = operationStepAt(currentLine, path, result)
+    if (!step.ok) return refuse(step)
+    if (step.line.kind === 'number') return grade(text)
+    accept(step.line)
+  }
+
+  // La riga in modalità "Passo passo": il risultato del conto toccato, la
+  // risposta finale, o la prossima riga del quaderno, per intero o come
+  // singolo conto. Con un operatore acceso, ciò che non è un numero si legge
+  // come una riga scritta.
   function submitLine() {
     const text = answer.trim()
+    if (selection) {
+      const result = writtenResult(text)
+      if (result) return submitTapped(selection, result, text)
+    }
     if (answerForm(text)) return grade(text)
     if (text.includes('=')) {
       const written = parseOperationLine(text)
@@ -257,12 +297,27 @@ export function PracticePage({
     setHints((h) => h + 1)
   }
 
+  // Cambiare la scelta svuota il campo: quello scritto era il risultato di
+  // un altro conto, e a scelta spenta varrebbe come risposta finale.
+  function choose(path: Path | null) {
+    setSelected(path)
+    setAnswer('')
+  }
+
+  // Toccare l'operatore acceso lo spegne; toccarne un altro sposta la scelta.
+  // L'ordine non si giudica qui: solo alla verifica della riga.
+  function tapOperator(path: Path) {
+    choose(selection && samePath(selection, path) ? null : path)
+    input.current?.focus()
+  }
+
   function toggleStep() {
     const next = !stepSwitch
     setStepSwitch(next)
     writeStepSwitch(next)
     // A finestra spenta il quaderno torna quello dell'esercizio.
     if (!next) {
+      setSelected(null)
       setStepLines([])
       setLineMessage(null)
       setStepHint(null)
@@ -300,6 +355,7 @@ export function PracticePage({
     setLineMessage(null)
     setStepHint(null)
     setHintLine(null)
+    setSelected(null)
     input.current?.focus()
   }
 
@@ -314,10 +370,19 @@ export function PracticePage({
           Calcola il valore dell’espressione
         </h2>
         <div className="overflow-x-auto py-6 sm:py-8">
-          <ExpressionFormula
-            expression={exercise.expression}
-            className="text-3xl sm:text-4xl lg:text-5xl"
-          />
+          {tapping && stepLines.length === 0 ? (
+            <TappableLine
+              expression={exercise.expression}
+              selected={selection}
+              onTap={tapOperator}
+              className="text-3xl sm:text-4xl lg:text-5xl"
+            />
+          ) : (
+            <ExpressionFormula
+              expression={exercise.expression}
+              className="text-3xl sm:text-4xl lg:text-5xl"
+            />
+          )}
         </div>
 
         {outcome?.kind === 'misconception' && (
@@ -336,10 +401,19 @@ export function PracticePage({
                   =
                 </Note>
                 <span className="max-w-full overflow-x-auto py-1">
-                  <ExpressionFormula
-                    expression={line}
-                    className="text-2xl sm:text-3xl"
-                  />
+                  {tapping && i === stepLines.length - 1 ? (
+                    <TappableLine
+                      expression={line}
+                      selected={selection}
+                      onTap={tapOperator}
+                      className="text-2xl sm:text-3xl"
+                    />
+                  ) : (
+                    <ExpressionFormula
+                      expression={line}
+                      className="text-2xl sm:text-3xl"
+                    />
+                  )}
                 </span>
               </li>
             ))}
@@ -392,29 +466,51 @@ export function PracticePage({
             >
               Risultato
             </label>
-            <input
-              ref={input}
-              id={answerId}
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              readOnly={done}
-              inputMode="text"
-              autoComplete="off"
-              placeholder="?"
-              className={cn(
-                'w-full rounded-2xl border-2 border-hair bg-paper px-4 text-center font-display font-bold text-ink transition outline-none',
-                // Nel passo passo il campo tiene una riga intera: la
-                // misura del solo risultato non gli basta.
-                stepMode ? 'h-14 text-2xl' : 'h-16 text-4xl',
-                'placeholder:text-dim/30 focus:border-pencil focus:ring-4 focus:ring-pencil/25',
-                outcome?.kind === 'correct' &&
-                  'border-ok bg-ok-soft text-ok focus:border-ok focus:ring-ok/20',
-                wrong &&
-                  'animate-shake border-err bg-err-soft text-err focus:border-err focus:ring-err/20',
-                (outcome?.kind === 'invalid' || outcome?.kind === 'rewrite') &&
-                  'border-warn focus:border-warn focus:ring-warn/20',
+            {/* Con un operatore acceso il campo chiede solo il risultato:
+                l'operazione sta davanti, 3 × 7 = ▢. */}
+            <div className="flex items-center gap-3">
+              {selection && (
+                <span
+                  id={`${answerId}-operation`}
+                  className="shrink-0 font-display text-2xl font-bold text-pencil-ink"
+                >
+                  {`${toText(visibleOperation(currentLine, selection))} =`}
+                </span>
               )}
-            />
+              <input
+                ref={input}
+                id={answerId}
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape' && selection) {
+                    e.preventDefault()
+                    choose(null)
+                  }
+                }}
+                aria-describedby={
+                  selection ? `${answerId}-operation` : undefined
+                }
+                readOnly={done}
+                inputMode="text"
+                autoComplete="off"
+                placeholder="?"
+                className={cn(
+                  'w-full min-w-0 rounded-2xl border-2 border-hair bg-paper px-4 text-center font-display font-bold text-ink transition outline-none',
+                  // Nel passo passo il campo tiene una riga intera: la
+                  // misura del solo risultato non gli basta.
+                  stepMode ? 'h-14 text-2xl' : 'h-16 text-4xl',
+                  'placeholder:text-dim/30 focus:border-pencil focus:ring-4 focus:ring-pencil/25',
+                  outcome?.kind === 'correct' &&
+                    'border-ok bg-ok-soft text-ok focus:border-ok focus:ring-ok/20',
+                  wrong &&
+                    'animate-shake border-err bg-err-soft text-err focus:border-err focus:ring-err/20',
+                  (outcome?.kind === 'invalid' ||
+                    outcome?.kind === 'rewrite') &&
+                    'border-warn focus:border-warn focus:ring-warn/20',
+                )}
+              />
+            </div>
           </div>
 
           {/* Sul telefono, sotto il campo: i simboli che la tastiera di

@@ -697,3 +697,134 @@ test('con lo storage che protesta l’interruttore parte spento e funziona', () 
   window.removeEventListener('error', errors)
   expect(errors).not.toHaveBeenCalled()
 })
+
+// Toccare un'operazione sulla riga corrente: l'operazione si accende e il
+// campo chiede solo il suo risultato. Vedi SPEC.md, "Pratica / Passo passo".
+
+// Gli operatori toccabili della riga corrente, da sinistra.
+function operators(symbol: string): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('[data-path]')].filter(
+    (op) => op.textContent === symbol,
+  )
+}
+
+function tap(symbol: string, copy = 0) {
+  const op = operators(symbol)[copy]
+  if (!op) throw new Error(`Nessun ${symbol} da toccare`)
+  fireEvent.click(op)
+}
+
+test('toccato un operatore, il campo chiede solo il suo risultato', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  tap('×')
+  expect(screen.getByText('3 × 4 =')).toBeInTheDocument()
+  line('12')
+  expect(screen.getByRole('math', { name: '2 + 12' })).toBeInTheDocument()
+  expect(screen.queryByText('3 × 4 =')).toBeNull()
+})
+
+// L'operazione evidenziata sulla riga: il segno a matita.
+function highlighted(): string | null {
+  return (
+    document.querySelector('[role="math"] .ring-pencil')?.textContent ?? null
+  )
+}
+
+test('l’evidenziazione segue ciò che si vede, anche su un conto non ancora possibile', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('2 + 3 × 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  switchOn()
+  tap('+')
+  // Il + mostra 2 + 3, non 2 + (3 × 4): la pagina non svela l'ordine.
+  expect(highlighted()).toBe('2+3')
+  expect(screen.getByText('2 + 3 =')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).toBeNull()
+  line('5')
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Ordine sbagliato: controlla 3 × 4.',
+  )
+  expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
+  tap('×')
+  expect(highlighted()).toBe('3×4')
+  line('13')
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Valore sbagliato: controlla 3 × 4.',
+  )
+  line('12')
+  tap('+')
+  line('14')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+  expect(highlighted()).toBeNull()
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ answer: '14', rewrites: 2 }),
+  )
+})
+
+test('toccare di nuovo l’operatore, o Esc, spegne la scelta', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  tap('×')
+  tap('×')
+  expect(highlighted()).toBeNull()
+  expect(screen.queryByText('3 × 4 =')).toBeNull()
+  tap('+')
+  fireEvent.keyDown(screen.getByLabelText('Risultato'), { key: 'Escape' })
+  expect(highlighted()).toBeNull()
+  // Senza scelta un numero è di nuovo la risposta finale.
+  line('14')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+})
+
+test('con un operatore acceso si può ancora scrivere la riga intera', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  tap('+')
+  line('2 + 12')
+  expect(screen.getByRole('math', { name: '2 + 12' })).toBeInTheDocument()
+  expect(highlighted()).toBeNull()
+})
+
+test('fra copie uguali il conto va dove lo studente ha toccato', () => {
+  render(<PracticePage createExercise={() => exercise('2 × 3 + 2 × 3')} />)
+  switchOn()
+  tap('×', 1)
+  line('6')
+  expect(screen.getByRole('math', { name: '2 × 3 + 6' })).toBeInTheDocument()
+  // Sulla riga nuova si tocca di nuovo, anche il segno del conto da fare.
+  tap('×')
+  expect(screen.getByText('2 × 3 =')).toBeInTheDocument()
+})
+
+test('in una catena il conto toccato è quello che si vede: fuori ordine è rifiutato', () => {
+  render(<PracticePage createExercise={() => exercise('10 − 2 − 3')} />)
+  switchOn()
+  tap('−', 1)
+  expect(highlighted()).toBe('2−3')
+  line('5')
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Ordine sbagliato: controlla 10 − 2.',
+  )
+  expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
+})
+
+test('cambiare o spegnere la scelta svuota il campo', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  tap('×')
+  type('12')
+  tap('+')
+  expect(screen.getByLabelText('Risultato')).toHaveValue('')
+  type('5')
+  tap('+')
+  expect(screen.getByLabelText('Risultato')).toHaveValue('')
+  tap('×')
+  type('12')
+  fireEvent.keyDown(screen.getByLabelText('Risultato'), { key: 'Escape' })
+  expect(screen.getByLabelText('Risultato')).toHaveValue('')
+})

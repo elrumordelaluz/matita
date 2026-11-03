@@ -1,8 +1,11 @@
 import {
+  isOperation,
   literal,
+  nodeAt,
   parseExpression,
   toText,
   type Expression,
+  type Path,
 } from './expression.ts'
 import { equals, type Rational } from './rational.ts'
 import { solve, type Step } from './solver.ts'
@@ -50,10 +53,6 @@ export function parseOperationLine(text: string): OperationLine | null {
     return null
   }
 }
-
-// Un percorso dalla radice a un nodo dell'albero.
-
-type Path = readonly ('left' | 'right' | 'inner')[]
 
 function replace(e: Expression, path: Path, node: Expression): Expression {
   const [head, ...rest] = path
@@ -285,6 +284,15 @@ export function checkStep(previous: Expression, next: Expression): StepCheck {
   return { ok: true }
 }
 
+/** Un conto applicato alla riga: la riga nuova, o il motivo del rifiuto. */
+export type OperationStep =
+  | { readonly ok: true; readonly line: Expression }
+  | {
+      readonly ok: false
+      readonly reason: StepRefusalReason
+      readonly operation: Expression | undefined
+    }
+
 /**
  * Applica alla riga `previous` un conto scritto come `3 × 7 = 21`: diventa il
  * risultato scritto la prima occorrenza dove il passaggio è possibile, o la
@@ -294,13 +302,7 @@ export function checkStep(previous: Expression, next: Expression): StepCheck {
 export function operationStep(
   previous: Expression,
   written: OperationLine,
-):
-  | { readonly ok: true; readonly line: Expression }
-  | {
-      readonly ok: false
-      readonly reason: StepRefusalReason
-      readonly operation: Expression | undefined
-    } {
+): OperationStep {
   const settled = settleNumbers(previous)
   const ctx = context(settled)
   if (ctx.zero)
@@ -312,7 +314,48 @@ export function operationStep(
     (p.at(-1) === 'inner' && ctx.allowed.has(p.slice(0, -1).join()))
   const path = paths.find(possible) ?? paths[0]
   if (!path) return { ok: false, reason: 'order', operation: ctx.first }
-  const line = settleNumbers(replace(settled, path, literal(written.result)))
+  return replaceAt(previous, settled, path, written.result)
+}
+
+/**
+ * Applica alla riga `previous` il conto dell'operatore in posizione `path`,
+ * toccato dallo studente: l'operazione diventa `result` esattamente lì, anche
+ * se altrove c'è una copia uguale. Ordine e valore si giudicano qui, non al
+ * tocco, come per una riga intera.
+ */
+export function operationStepAt(
+  previous: Expression,
+  path: Path,
+  result: Rational,
+): OperationStep {
+  // Togliere le parentesi intorno ai numeri non sposta gli operatori: un
+  // operatore non sta mai dentro un gruppo che contiene solo un numero.
+  const settled = settleNumbers(previous)
+  const node = nodeAt(settled, path)
+  // Lo studente vede l'operatore col numero o il gruppo scritto a ciascun
+  // lato: se accanto c'è un'altra operazione, come in 10 − 2 − 3, il conto
+  // che vede non è ancora possibile. Sostituire il nodo varrebbe due conti.
+  if (
+    node.kind === 'binary' &&
+    (isOperation(node.left) || isOperation(node.right))
+  ) {
+    const ctx = context(settled)
+    return ctx.zero
+      ? { ok: false, reason: 'zero-divisor', operation: ctx.zero }
+      : { ok: false, reason: 'order', operation: ctx.first }
+  }
+  return replaceAt(previous, settled, path, result)
+}
+
+// Il nodo in `path` diventa `result`; la riga che ne esce, senza numeri fra
+// parentesi, è giudicata come una riga intera.
+function replaceAt(
+  previous: Expression,
+  settled: Expression,
+  path: Path,
+  result: Rational,
+): OperationStep {
+  const line = settleNumbers(replace(settled, path, literal(result)))
   const check = checkStep(previous, line)
   return check.ok ? { ok: true, line } : check
 }

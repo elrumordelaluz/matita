@@ -44,6 +44,12 @@ export type Expression =
       readonly negated?: true
     }
 
+/**
+ * La posizione di un nodo nell'albero: il percorso dalla radice, un passo per
+ * livello. Distingue le copie uguali di uno stesso conto.
+ */
+export type Path = readonly ('left' | 'right' | 'inner')[]
+
 export function num(value: bigint): Expression {
   return { kind: 'number', value: rational(value) }
 }
@@ -102,6 +108,49 @@ function exponentOf(e: Expression): bigint {
   if (e.kind !== 'number' || e.value.den !== 1n)
     throw new RangeError('Esponente non intero')
   return e.value.num
+}
+
+/** Il nodo in posizione `path`. */
+export function nodeAt(e: Expression, path: Path): Expression {
+  let node = e
+  for (const step of path) {
+    if (step === 'inner' && node.kind === 'group') node = node.inner
+    else if (step !== 'inner' && node.kind === 'binary') node = node[step]
+    else throw new Error('Percorso non valido')
+  }
+  return node
+}
+
+/** Un'operazione da svolgere: un nodo binario che non è una potenza. */
+export function isOperation(
+  e: Expression,
+): e is Extract<Expression, { kind: 'binary' }> {
+  return e.kind === 'binary' && !isPower(e.op)
+}
+
+// L'operatore in `path` e le posizioni del numero o del gruppo scritto subito
+// alla sua sinistra e subito alla sua destra.
+function visibleSides(
+  e: Expression,
+  path: Path,
+): { readonly op: Operator; readonly left: Path; readonly right: Path } {
+  const node = nodeAt(e, path)
+  if (!isOperation(node)) throw new Error('Non è un operatore')
+  const left: Path[number][] = [...path, 'left']
+  while (isOperation(nodeAt(e, left))) left.push('right')
+  const right: Path[number][] = [...path, 'right']
+  while (isOperation(nodeAt(e, right))) right.push('left')
+  return { op: node.op, left, right }
+}
+
+/**
+ * L'operazione come si vede intorno all'operatore in `path`: l'operatore con
+ * il numero o il gruppo scritto a ciascun lato. In 2 + 3 × 4 il + mostra
+ * 2 + 3, non i suoi operandi nell'albero.
+ */
+export function visibleOperation(e: Expression, path: Path): Expression {
+  const { op, left, right } = visibleSides(e, path)
+  return binary(op, nodeAt(e, left), nodeAt(e, right))
 }
 
 const superscriptDigits = '⁰¹²³⁴⁵⁶⁷⁸⁹'
@@ -219,6 +268,46 @@ function renderNumber(
     : text
 }
 
+// I segni della riga che lo studente tocca, solo nella resa KaTeX: le
+// posizioni degli operatori e l'operazione evidenziata, come chiavi.
+interface Marks {
+  readonly operatorPaths: boolean
+  readonly highlight:
+    | {
+        readonly left: string
+        readonly right: string
+        readonly className: string
+      }
+    | undefined
+}
+
+const noMarks: Marks = { operatorPaths: false, highlight: undefined }
+
+const pathKey = (path: Path) => path.join('.')
+
+/** La posizione scritta da `toKatex` in `data-path`; nulla se non lo è. */
+export function readPath(key: string): Path | null {
+  if (key === '') return []
+  const steps = key.split('.')
+  return steps.every((d) => d === 'left' || d === 'right' || d === 'inner')
+    ? steps
+    : null
+}
+
+// L'evidenziazione si apre prima del lato sinistro e si chiude dopo il
+// destro: in mezzo c'è solo l'operatore, perché i lati sono numeri o gruppi.
+function marked(text: string, at: Path, marks: Marks): string {
+  const { highlight } = marks
+  if (!highlight) return text
+  const key = pathKey(at)
+  const open =
+    key === highlight.left
+      ? `\\mathord{\\htmlClass{${highlight.className}}{`
+      : ''
+  const close = key === highlight.right ? '}}' : ''
+  return `${open}${text}${close}`
+}
+
 // La base non sta mai all'inizio: un numero relativo va fra tonde, (−3)².
 // Anche una frazione va fra tonde, (2/3)², perché l'esponente è di tutta la
 // frazione.
@@ -226,8 +315,10 @@ function renderPower(
   base: Expression,
   exponent: Expression,
   symbols: Symbols,
+  at: Path,
+  marks: Marks,
 ): string {
-  const text = render(base, symbols, false)
+  const text = render(base, symbols, false, [...at, 'left'], marks)
   const bareFraction =
     base.kind === 'number' &&
     !isInteger(base.value) &&
@@ -239,28 +330,54 @@ function renderPower(
   )
 }
 
-function render(e: Expression, symbols: Symbols, leading: boolean): string {
+function render(
+  e: Expression,
+  symbols: Symbols,
+  leading: boolean,
+  at: Path = [],
+  marks: Marks = noMarks,
+): string {
   switch (e.kind) {
     case 'number':
-      return renderNumber(e, symbols, leading)
-    case 'binary':
-      if (isPower(e.op)) return renderPower(e.left, e.right, symbols)
-      return `${render(e.left, symbols, leading)} ${symbols.op[e.op]} ${render(e.right, symbols, false)}`
+      return marked(renderNumber(e, symbols, leading), at, marks)
+    case 'binary': {
+      if (isPower(e.op))
+        return marked(
+          renderPower(e.left, e.right, symbols, at, marks),
+          at,
+          marks,
+        )
+      const op = marks.operatorPaths
+        ? `\\mathbin{\\htmlData{path=${pathKey(at)}}{${symbols.op[e.op]}}}`
+        : symbols.op[e.op]
+      const left = render(e.left, symbols, leading, [...at, 'left'], marks)
+      const right = render(e.right, symbols, false, [...at, 'right'], marks)
+      return `${left} ${op} ${right}`
+    }
     case 'group': {
       const tall = hasFraction(e.inner)
+      const inside: Path = [...at, 'inner']
       if (isNegatedPower(e)) {
-        const negated = `${symbols.minus}${render(e.inner, symbols, true)}`
-        return leading ? negated : symbols.enclose('round', negated, tall)
+        const negated = `${symbols.minus}${render(e.inner, symbols, true, inside, marks)}`
+        return marked(
+          leading ? negated : symbols.enclose('round', negated, tall),
+          at,
+          marks,
+        )
       }
       const inner =
         e.negated && e.inner.kind === 'number'
           ? renderNumber(e.inner, symbols, true, true)
-          : render(e.inner, symbols, true)
+          : render(e.inner, symbols, true, inside, marks)
       const text = symbols.enclose(e.bracket, inner, tall)
-      if (!e.negated) return text
+      if (!e.negated) return marked(text, at, marks)
       // Lontano dall'inizio anche il meno davanti al gruppo va fra tonde.
       const negated = `${symbols.minus}${text}`
-      return leading ? negated : symbols.enclose('round', negated, tall)
+      return marked(
+        leading ? negated : symbols.enclose('round', negated, tall),
+        at,
+        marks,
+      )
     }
   }
 }
@@ -273,12 +390,36 @@ export interface RenderOptions {
   readonly leading?: boolean
 }
 
+export interface KatexOptions extends RenderOptions {
+  /**
+   * Ogni operatore porta la sua posizione, con `\htmlData`: è la riga che lo
+   * studente tocca. Si legge con `readPath`.
+   */
+  readonly operatorPaths?: boolean
+  /**
+   * L'operazione intorno all'operatore in `path`, come la vede lo studente
+   * (vedi `visibleOperation`), dentro `\htmlClass{className}`.
+   */
+  readonly highlight?: { readonly path: Path; readonly className: string }
+}
+
 export function toText(e: Expression, { leading = true }: RenderOptions = {}) {
   return render(e, textSymbols, leading)
 }
 
-export function toKatex(e: Expression, { leading = true }: RenderOptions = {}) {
-  return render(e, katexSymbols, leading)
+export function toKatex(
+  e: Expression,
+  { leading = true, operatorPaths = false, highlight }: KatexOptions = {},
+) {
+  const sides = highlight && visibleSides(e, highlight.path)
+  return render(e, katexSymbols, leading, [], {
+    operatorPaths,
+    highlight: sides && {
+      left: pathKey(sides.left),
+      right: pathKey(sides.right),
+      className: highlight.className,
+    },
+  })
 }
 
 // Lettura di un'espressione scritta a mano, per i test e per le lezioni.

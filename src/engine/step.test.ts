@@ -2,10 +2,13 @@ import { describe, expect, test } from 'vitest'
 import {
   checkStep,
   operationStep,
+  operationStepAt,
   parseExpression,
   parseOperationLine,
+  rational,
   toText,
   type Expression,
+  type Path,
 } from './index.ts'
 
 // Il controllo delle righe della modalità "Passo passo", su espressioni da
@@ -16,6 +19,10 @@ const check = (previous: string, next: string) =>
 
 const operation = (previous: string, written: string) =>
   operationStep(parseExpression(previous), parseOperationLine(written)!)
+
+// Un conto toccato sulla riga: la posizione dell'operatore e il risultato.
+const tapped = (previous: string, path: Path, result: bigint) =>
+  operationStepAt(parseExpression(previous), path, rational(result))
 
 // Un rifiuto col suo motivo e il conto da controllare, come si scrive.
 function refusal(
@@ -160,6 +167,91 @@ describe('lo studente non resta bloccato', () => {
     expect(operation('2 × 3 + (2 × 3 + 1)', '2 × 3 = 7')).toMatchObject({
       ok: false,
       reason: 'value',
+    })
+  })
+})
+
+// Il conto toccato sulla riga invece che scritto: la posizione dice quale
+// operatore, anche fra copie uguali, e l'ordine si giudica come sempre.
+describe('un conto toccato', () => {
+  test('diventa il suo risultato dove lo studente ha toccato', () => {
+    const step = tapped('2 + 3 × 4', ['right'], 12n)
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('2 + 12')
+  })
+
+  test('fra copie uguali vale quella toccata, non la prima', () => {
+    const second = tapped('2 × 3 + 2 × 3', ['right'], 6n)
+    expect(second.ok).toBe(true)
+    if (second.ok) expect(toText(second.line)).toBe('2 × 3 + 6')
+    const inner = tapped('2 × 3 + (2 × 3 + 1)', ['right', 'inner', 'left'], 6n)
+    expect(inner.ok).toBe(true)
+    if (inner.ok) expect(toText(inner.line)).toBe('2 × 3 + (6 + 1)')
+  })
+
+  test("la copia che non si può ancora fare è un errore di ordine, anche se l'altra si può", () => {
+    const refused = tapped('2 × 3 + (2 × 3 + 1)', ['left'], 6n)
+    expect(refusal(refused)).toEqual({ reason: 'order', operation: '2 × 3' })
+  })
+
+  test('un operatore con operandi non ancora numeri è un errore di ordine', () => {
+    expect(refusal(tapped('2 + 3 × 4', [], 5n))).toEqual({
+      reason: 'order',
+      operation: '3 × 4',
+    })
+    expect(refusal(tapped('2 + 3 × 4', [], 14n))).toEqual({
+      reason: 'order',
+      operation: '3 × 4',
+    })
+  })
+
+  test('in una catena il conto toccato è quello che si vede, e si giudica l’ordine', () => {
+    // 10 − 2 − 3: il secondo − mostra 2 − 3, che va fatto dopo 10 − 2.
+    for (const result of [5n, 7n])
+      expect(refusal(tapped('10 − 2 − 3', [], result))).toEqual({
+        reason: 'order',
+        operation: '10 − 2',
+      })
+    expect(refusal(tapped('20 : 2 × 5', [], 10n))).toEqual({
+      reason: 'order',
+      operation: '20 : 2',
+    })
+    expect(refusal(tapped('20 : 2 × 5', [], 50n))).toEqual({
+      reason: 'order',
+      operation: '20 : 2',
+    })
+    // Un conto toccato dà una riga sola, non due conti insieme.
+    expect(refusal(tapped('2 + 3 × 4 × 5', ['right'], 60n))).toEqual({
+      reason: 'order',
+      operation: '3 × 4',
+    })
+  })
+
+  test('un risultato sbagliato è un errore di valore', () => {
+    expect(refusal(tapped('2 + 3 × 4', ['right'], 13n))).toEqual({
+      reason: 'value',
+      operation: '3 × 4',
+    })
+  })
+
+  test('il conto dentro le parentesi fa cadere le parentesi', () => {
+    const step = tapped('2 × (3 + 4)', ['right', 'inner'], 7n)
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('2 × 7')
+    const settled = tapped('18 − 9 + (72) : 12', ['right'], 6n)
+    expect(settled.ok).toBe(true)
+    if (settled.ok) expect(toText(settled.line)).toBe('18 − 9 + 6')
+  })
+
+  test("l'ultimo conto lascia il risultato", () => {
+    const step = tapped('2 + 12', [], 14n)
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('14')
+  })
+
+  test('una divisione per zero è rifiutata, senza mai lanciare', () => {
+    expect(refusal(tapped('2 × 3 + 4 : 0', ['left'], 6n))).toMatchObject({
+      reason: 'zero-divisor',
     })
   })
 })

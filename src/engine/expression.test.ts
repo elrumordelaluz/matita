@@ -8,6 +8,7 @@ import {
   parseExpression,
   toKatex,
   toText,
+  visibleOperation,
 } from './expression.ts'
 import { rational } from './rational.ts'
 
@@ -243,5 +244,30 @@ describe('parseExpression legge quello che scrive toText', () => {
     const e = parseExpression(source)
     expect(toText(e)).toBe(source)
     expect(parseExpression(toText(e))).toEqual(e)
+  })
+})
+
+// L'operazione come la vede lo studente intorno a un operatore: l'operatore
+// con il numero o il gruppo scritto a ciascun lato, non i suoi operandi
+// nell'albero. Vedi SPEC.md, "Pratica / Passo passo".
+describe('visibleOperation', () => {
+  const seen = (source: string, path: Parameters<typeof visibleOperation>[1]) =>
+    toText(visibleOperation(parseExpression(source), path))
+
+  test('il + in 2 + 3 × 4 mostra 2 + 3, non 2 + (3 × 4)', () => {
+    expect(seen('2 + 3 × 4', [])).toBe('2 + 3')
+  })
+
+  test('il + in 2 × 3 + 4 mostra 3 + 4', () => {
+    expect(seen('2 × 3 + 4', [])).toBe('3 + 4')
+  })
+
+  test('un gruppo accanto all’operatore si vede tutto', () => {
+    expect(seen('2 × (3 + 4) − 1', ['left'])).toBe('2 × (3 + 4)')
+    expect(seen('2 × (3 + 4) − 1', [])).toBe('(3 + 4) − 1')
+  })
+
+  test('dentro un gruppo vale lo stesso', () => {
+    expect(seen('20 − [2 + 3 × (4 − 1)]', ['right', 'inner'])).toBe('2 + 3')
   })
 })
