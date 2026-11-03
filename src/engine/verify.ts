@@ -1,9 +1,19 @@
+import type { LiteralExpression } from './expression.ts'
 import {
   unknownKind,
   type Exercise,
   type NumberExercise,
+  type PolynomialExercise,
 } from './generators.ts'
+import { recogniseLiteral } from './literalMisconceptions.ts'
+import { solveLiteral } from './literalSolver.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
+import { equalPolynomials } from './polynomial.ts'
+import {
+  readPolynomialAnswer,
+  type PolynomialRewrite,
+  type PolynomialRewriteReason,
+} from './polynomialAnswer.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
 import { verifySymbols } from './relations.ts'
 import type { SetRewriteReason } from './setAnswer.ts'
@@ -11,18 +21,19 @@ import { countResult, countWrongResults } from './setCount.ts'
 import { vennAnswer, vennWrongResults } from './venn.ts'
 import { verifySet } from './setExercise.ts'
 import { setExplanation, type SetMisconceptionId } from './setMisconceptions.ts'
-import { solve } from './solver.ts'
+import { solveWithValues, substitute } from './value.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
 // risposte": una risposta con il valore giusto in una forma non canonica non
 // è né giusta né sbagliata, va riscritta.
 
-/** Perché una risposta con il valore giusto va riscritta. */
-export type RewriteReason = NumberRewriteReason | SetRewriteReason
-
 /** Perché un numero con il valore giusto va riscritto. */
 export type NumberRewriteReason =
   'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
+
+/** Perché una risposta con il valore giusto va riscritta. */
+export type RewriteReason =
+  NumberRewriteReason | SetRewriteReason | PolynomialRewriteReason
 
 /** La risposta come l'ha scritta lo studente, senza normalizzarla. */
 export interface AnswerForm {
@@ -203,6 +214,8 @@ export function verify(answer: string, exercise: Exercise): Outcome {
             )?.id,
           ),
       )
+    case 'polynomial':
+      return verifyPolynomial(answer, exercise)
     default:
       return unknownKind(exercise)
   }
@@ -220,10 +233,17 @@ function setRecognised(id: SetMisconceptionId | undefined): Recognised {
     : null
 }
 
-function verifyNumber(answer: string, exercise: NumberExercise): Outcome {
-  const { result } = solve(exercise.expression)
+function verifyNumber(
+  answer: string,
+  exercise: NumberExercise<LiteralExpression>,
+): Outcome {
+  // Nel valore numerico gli errori si cercano dopo la sostituzione: è lì che
+  // l'espressione diventa di numeri.
+  const substitution = exercise.substitution ?? []
+  const { result } = solveWithValues(exercise.expression, substitution)
+  const numeric = substitute(exercise.expression, substitution)
   return verifyValue(answer, result, (value) => {
-    const misconception = recognise(value, exercise.expression, result)
+    const misconception = recognise(value, numeric, result)
     return misconception
       ? {
           kind: 'misconception',
@@ -256,4 +276,55 @@ export function verifyValue(
     }
   }
   return wrong(reading.value) ?? { kind: 'wrong' }
+}
+
+function polynomialMessage(rewrite: PolynomialRewrite): string {
+  switch (rewrite.reason) {
+    case 'products':
+      return 'Svolgi i prodotti.'
+    case 'normal-form':
+      return 'Scrivi ogni monomio in forma normale.'
+    case 'coefficient-one':
+      return 'Il coefficiente 1 non si scrive.'
+    case 'exponent-one':
+      return 'L’esponente 1 non si scrive.'
+    case 'exponent-zero':
+      return `${rewrite.letter ?? 'a'}⁰ vale 1.`
+    case 'like-terms':
+      return 'Somma i monomi simili.'
+    default:
+      // Il coefficiente si riscrive con le regole di Q.
+      return rewriteMessage(rewrite.reason, rewrite.coefficient ?? rational(1n))
+  }
+}
+
+// La risposta polinomio: il valore è la forma normale, confrontata con il
+// risultato della soluzione. Vedi SPEC.md, "Calcolo letterale", "Risposte".
+function verifyPolynomial(
+  answer: string,
+  exercise: PolynomialExercise,
+): Outcome {
+  const reading = readPolynomialAnswer(answer)
+  if (!reading.ok) return { kind: 'invalid', message: reading.message }
+  const { result } = solveLiteral(exercise.expression)
+  if (!equalPolynomials(reading.value, result)) {
+    const misconception = recogniseLiteral(
+      reading.value,
+      exercise.expression,
+      result,
+    )
+    return misconception
+      ? {
+          kind: 'misconception',
+          misconception: misconception.id,
+          explanation: misconception.explanation,
+        }
+      : { kind: 'wrong' }
+  }
+  if (reading.rewrite === null) return { kind: 'correct' }
+  return {
+    kind: 'rewrite',
+    reason: reading.rewrite.reason,
+    message: polynomialMessage(reading.rewrite),
+  }
 }

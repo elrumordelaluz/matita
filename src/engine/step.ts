@@ -8,7 +8,7 @@ import {
   type Path,
 } from './expression.ts'
 import { equals, type Rational } from './rational.ts'
-import { solve, type Step } from './solver.ts'
+import { solve, type NumberStep } from './solver.ts'
 
 // Il controllo di una riga scritta dallo studente in modalità "Passo passo":
 // una funzione pura che giudica la riga rispetto alla precedente. Vedi
@@ -137,7 +137,7 @@ function zeroDivisor(e: Expression): Expression | null {
 // I conti che si possono fare sulla riga: i passaggi della prima riga della
 // soluzione, ciascuno al suo posto nell'albero.
 interface Context {
-  readonly allowed: ReadonlyMap<string, Step>
+  readonly allowed: ReadonlyMap<string, NumberStep>
   /** Il primo conto da fare: è quello che si nomina quando l'ordine è sbagliato. */
   readonly first: Expression | undefined
   /** La divisione per zero che impedisce di giudicare la riga, se c'è. */
@@ -148,7 +148,7 @@ function context(previous: Expression): Context {
   try {
     const [line] = solve(previous).lines
     if (!line) return { allowed: new Map(), first: undefined, zero: undefined }
-    const allowed = new Map<string, Step>()
+    const allowed = new Map<string, NumberStep>()
     let current = previous
     for (const step of line.steps) {
       const path = diffPath(current, step.expression)

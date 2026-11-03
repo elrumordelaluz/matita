@@ -7,6 +7,7 @@ import {
   isSignChange,
   literal,
   type Expression,
+  type LiteralExpression,
   type Operator,
 } from './expression.ts'
 import {
@@ -16,6 +17,7 @@ import {
   raise,
   type PropertyRule,
 } from './power.ts'
+import type { Polynomial } from './polynomial.ts'
 import { add, div, mul, rational, sub, type Rational } from './rational.ts'
 
 // Il risolutore produce la soluzione come sul quaderno: una riga per livello,
@@ -35,35 +37,69 @@ export type Rule =
   /** Il meno davanti a una potenza: −3² = −9, il meno resta fuori. */
   | 'minus-power'
   | 'power'
+  /** La lettera prende il suo valore: a = −2. Non fa un conto. */
+  | 'substitution'
+  /** Un monomio scritto diventa la sua forma normale: 6a³ab = 6a⁴b. */
+  | 'normal-form'
+  /** Il prodotto di due monomi: 2a² · 3a³ = 6a⁵. */
+  | 'monomial-product'
+  /** Il quoziente di due monomi, quando è un monomio: 4a²b³ : 2b² = 2a²b. */
+  | 'monomial-quotient'
+  /** La potenza di un monomio, con il segno: (−3a²)³ = −27a⁶. */
+  | 'monomial-power'
+  /** Un gruppo di termini simili ridotto a uno: 9x + 5x − 10x + x = 5x. */
+  | 'like-terms'
   | PropertyRule
 
-export interface Step {
+/** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */
+export type Value = Rational | Polynomial
+
+/**
+ * Un passaggio: un'operazione con i suoi operandi e il suo risultato, dentro
+ * una riga. Nei capitoli dei numeri è un conto fra due numeri (vedi
+ * `NumberStep`); nel calcolo letterale gli operandi sono monomi e polinomi,
+ * e possono essere uno solo o tanti.
+ */
+export interface Step<V extends Value = Value> {
   readonly rule: Rule
+  /** I valori su cui lavora il passaggio, nell'ordine in cui sono scritti. */
+  readonly operands: readonly V[]
+  readonly result: V
+  /** Il pezzo svolto, com'era scritto: 3 × (−4), −(−4), 2³, 2⁵ × 2³. */
+  readonly operation: LiteralExpression
+  /** Quello che il pezzo è diventato: un numero, o una potenza se si applica una proprietà. */
+  readonly outcome: LiteralExpression
+  /** L'espressione dopo questo passaggio. */
+  readonly expression: LiteralExpression
+  /** Nella riga della sostituzione, la lettera che prende il valore `result`. */
+  readonly letter?: string
+}
+
+/** Un conto fra due numeri, il passaggio dei capitoli 1-4. */
+export interface NumberStep extends Step<Rational> {
   /**
-   * I valori del passaggio. Nel cambio di segno −x si legge 0 − x: `left` è
-   * 0 e `op` è −; così anche −3², con `right` il valore della potenza. Per
-   * una proprietà sono i valori delle due potenze.
+   * I due operandi e l'operazione. Nel cambio di segno −x si legge 0 − x:
+   * `left` è 0 e `op` è −; così anche −3², con `right` il valore della
+   * potenza. Per una proprietà sono i valori delle due potenze.
    */
   readonly left: Rational
   readonly op: Operator
   readonly right: Rational
-  readonly result: Rational
-  /** Il pezzo svolto, com'era scritto: 3 × (−4), −(−4), 2³, 2⁵ × 2³. */
+  readonly operands: readonly [Rational, Rational]
   readonly operation: Expression
-  /** Quello che il pezzo è diventato: un numero, o una potenza se si applica una proprietà. */
   readonly outcome: Expression
-  /** L'espressione dopo questo passaggio. */
   readonly expression: Expression
 }
 
-export interface Line {
+export interface Line<S extends Step = Step> {
   /** L'espressione dopo aver svolto il livello. */
-  readonly expression: Expression
-  readonly steps: readonly Step[]
+  readonly expression: S['expression']
+  readonly steps: readonly S[]
 }
 
+/** La soluzione di un'espressione di numeri. */
 export interface Solution {
-  readonly lines: readonly Line[]
+  readonly lines: readonly Line<NumberStep>[]
   readonly result: Rational
 }
 
@@ -111,7 +147,7 @@ function contains(e: Expression, level: Level): boolean {
 
 interface Reduction {
   readonly expression: Expression
-  readonly step: Omit<Step, 'expression'>
+  readonly step: Omit<NumberStep, 'expression' | 'operands'>
 }
 
 function reduced(
@@ -246,7 +282,11 @@ function nextLevel(scope: Expression): (e: Expression) => Reduction | null {
 
 // Svolge un livello dentro un ambito: un gruppo più interno o l'intera
 // espressione senza gruppi.
-function solveScope(e: Expression, target: Path, steps: Step[]): Expression {
+function solveScope(
+  e: Expression,
+  target: Path,
+  steps: NumberStep[],
+): Expression {
   const inGroup = isOpenGroup(at(e, target))
   const scope = inGroup ? [...target, 'inner' as const] : target
   const reduce = nextLevel(at(e, scope))
@@ -257,12 +297,17 @@ function solveScope(e: Expression, target: Path, steps: Step[]): Expression {
     const reduction = reduce(at(current, scope))
     if (!reduction) return current
     current = settle(replace(current, scope, reduction.expression), target)
-    steps.push({ ...reduction.step, expression: current })
+    const { left, right } = reduction.step
+    steps.push({
+      ...reduction.step,
+      operands: [left, right],
+      expression: current,
+    })
   }
 }
 
-function solveLevel(e: Expression): Line {
-  const steps: Step[] = []
+function solveLevel(e: Expression): Line<NumberStep> {
+  const steps: NumberStep[] = []
   const targets = hasGroup(e) ? innermostGroups(e) : [[]]
   let current = e
   for (const target of targets) current = solveScope(current, target, steps)
@@ -270,7 +315,7 @@ function solveLevel(e: Expression): Line {
 }
 
 export function solve(e: Expression): Solution {
-  const lines: Line[] = []
+  const lines: Line<NumberStep>[] = []
   let current = e
   while (current.kind !== 'number') {
     const line = solveLevel(current)
@@ -283,6 +328,6 @@ export function solve(e: Expression): Solution {
 }
 
 /** L'operazione svolta in un passaggio, come espressione da rendere. */
-export function stepExpression(step: Step): Expression {
+export function stepExpression(step: Step): LiteralExpression {
   return step.operation
 }

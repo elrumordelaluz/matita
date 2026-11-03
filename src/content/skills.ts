@@ -129,4 +129,34 @@ export const skills: readonly Skill[] = [
     title: 'Problemi con tre insiemi',
     prerequisites: ['set.venn2'],
   },
+  {
+    id: 'mono.value',
+    title: 'Il valore numerico',
+    prerequisites: ['pow.basics', 'q.order'],
+  },
+  {
+    id: 'mono.normal-form',
+    title: 'La forma normale di un monomio',
+    prerequisites: ['pow.properties', 'q.mul-div'],
+  },
+  {
+    id: 'mono.add-sub',
+    title: 'Somma algebrica di monomi',
+    prerequisites: ['mono.normal-form', 'q.add-sub', 'z.minus-group'],
+  },
+  {
+    id: 'mono.mul-div',
+    title: 'Prodotto e quoziente di monomi',
+    prerequisites: ['mono.normal-form'],
+  },
+  {
+    id: 'mono.power',
+    title: 'La potenza di un monomio',
+    prerequisites: ['mono.mul-div'],
+  },
+  {
+    id: 'mono.expressions',
+    title: 'Espressioni con i monomi',
+    prerequisites: ['mono.add-sub', 'mono.power', 'q.brackets'],
+  },
 ]

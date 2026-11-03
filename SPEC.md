@@ -564,7 +564,10 @@ termini si scrivono con + e − fra monomi positivi, come sul libro,
 `3a − 2b` e mai `3a + (−2b)`. Fra tonde va solo un monomio negativo che sia
 un fattore o una base: `2a² · (−4a⁵b³)`, `(−2a)²`. Il testo semplice scrive i
 coefficienti frazionari con la barra e uno spazio, `1/2 ab²`, e KaTeX con la
-frazione a due piani.
+frazione a due piani. In un'espressione con le lettere il prodotto è il
+punto, `2a² · 3a³`, e un gruppo o una potenza fra tonde si attacca al
+fattore che lo precede, `2xy(3y + 5x²)`, `2a(3b)²`. Un monomio alla base di
+una potenza va sempre fra tonde, anche positivo: `(3a²)²`.
 
 **Risolutore.** L'ordine è quello dei capitoli dei numeri, esteso. Dentro un
 ambito, prima le potenze, poi × e : da sinistra a destra, poi la riduzione
@@ -577,11 +580,22 @@ righe a sé restano per le potenze di numeri.
 La riduzione mette insieme termini lontani, quindi non è "+ e − da sinistra
 a destra": un passaggio per ogni gruppo di simili, con il risultato al posto
 del primo termine del gruppo, `3a² + 2b − a² = 2a² + 2b`. Questo passaggio ha
-tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`, e
-il passaggio del motore, che oggi è un'operazione fra due razionali, diventa
-un'operazione con i suoi operandi e il suo risultato, monomi compresi.
+tanti operandi quanti sono i simili del gruppo, `9x + 5x − 10x + x = 5x`:
+il passaggio del motore è un'operazione con i suoi operandi e il suo
+risultato, monomi compresi, e nei capitoli dei numeri resta un conto fra
+due razionali. Un simile con il meno davanti entra con il suo segno, e se il
+gruppo si annulla il termine sparisce.
 L'ordine dei termini nella soluzione è quello di prima comparsa, come nei
 risultati del libro, e le lettere di un monomio sono in ordine alfabetico.
+
+Come con i numeri, un gruppo che si riduce a un monomio perde le parentesi,
+e un monomio negativo resta fra tonde perché è la sua scrittura:
+`5a − (a − 3a) = 5a − (−2a)`. Il meno davanti a un monomio negativo è la
+regola dei segni e si svolge nel giro di × e :, `5a − (−2a) = 5a + 2a`;
+un risultato negativo dopo il più si scrive subito con il meno, senza
+passaggio. Ogni ambito fa un giro per riga, come con i numeri: in
+`(3a²b²)² : 3a³b + 5a²b⁴ : 2ab⁴` il secondo quoziente aspetta la riga di ×
+e :, anche se l'esercizio guida 199 del libro lo anticipa.
 
 Un gruppo che non si riduce a un numero perde le parentesi quando il suo
 interno è in forma normale, nel giro di + e −. Se è preceduto dal più le
@@ -592,8 +606,11 @@ gruppo si moltiplica con la distributiva nel giro di × e :.
 
 Il quaderno segue il libro anche in due righe che non fanno un conto, e solo
 in queste due. La sostituzione, in `mono.value`: `2a² + 3a` per a = −2
-diventa `2 · (−2)² + 3 · (−2)`. È la riga in cui si mettono le tonde al
-negativo, e il suo passaggio porta la lettera e il valore. E la formula del
+diventa `2 × (−2)² + 3 × (−2)`. È la riga in cui si mettono le tonde al
+negativo, con un passaggio per lettera che porta la lettera e il valore. Da
+lì l'espressione è di numeri e si scrive come nei capitoli dei numeri, con
+×; il coefficiente −1 sottinteso resta un meno davanti, `−a²` diventa
+`−(−2)²`. E la formula del
 prodotto notevole: `(2x² + 3y)² = (2x²)² + 2 · 2x² · 3y + (3y)²`, con un
 passaggio che porta la formula e i suoi A e B; la riga dopo calcola. In tutte
 e due la riga è proprio ciò che l'abilità allena: senza, il quaderno
@@ -659,7 +676,11 @@ riscrivere: il libro non vincola né l'uno né l'altro.
 | esponente senza `^`          | `a3`           | `non-valido`    | Scrivi l'esponente con ^.             |
 
 Un prodotto di soli numeri e lettere, `2·3a`, è un monomio non in forma
-normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi.
+normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi. Un numero
+relativo fra tonde, come in `12a²b³(−2)a³`, è un numero e non un gruppo.
+Dopo la barra il coefficiente si giudica come una frazione di Q: `6a/3` vale
+2a ma va riscritto, come `6/3`, mentre `ab²/2` ha il coefficiente 1/2 già
+ridotto.
 I motivi si mostrano nell'ordine in cui si corregge: i prodotti, poi la forma
 normale di ogni monomio, poi i simili, poi i coefficienti con le regole di Q.
 Una risposta in forma non canonica con il valore sbagliato si giudica dal

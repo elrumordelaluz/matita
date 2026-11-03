@@ -1,6 +1,6 @@
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { toKatex, toText, type Expression } from '../engine/index.ts'
+import { toKatex, toText, type LiteralExpression } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 
 // Una formula resa con KaTeX. Il testo semplice fa da nome accessibile.
@@ -41,7 +41,7 @@ export function ExpressionFormula({
   expression,
   className,
 }: {
-  expression: Expression
+  expression: LiteralExpression
   className?: string
 }) {
   return (

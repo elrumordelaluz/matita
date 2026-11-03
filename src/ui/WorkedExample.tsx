@@ -1,19 +1,21 @@
 import { ChevronsDown, Eraser, Plus, RotateCcw } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import {
-  solve,
   toText,
   unknownKind,
   type Bracket,
   type Exercise,
   type Line,
+  type LiteralExpression,
   type NumberExercise,
+  type PolynomialExercise,
   type Rule,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import {
   Consegna,
   consegnaText,
+  expressionLines,
   SolutionFigure,
   solutionOf,
 } from './exerciseView.tsx'
@@ -45,6 +47,12 @@ const ruleNote: Record<Rule, string> = {
   'change-sign': 'il meno cambia il segno',
   'minus-power': 'prima la potenza, il meno resta fuori',
   power: 'prima le potenze',
+  substitution: 'al posto della lettera, il suo valore',
+  'normal-form': 'forma normale: un solo coefficiente, lettere diverse',
+  'monomial-product': 'coefficienti per coefficienti, esponenti sommati',
+  'monomial-quotient': 'coefficienti divisi, esponenti sottratti',
+  'monomial-power': 'si eleva il coefficiente, gli esponenti si moltiplicano',
+  'like-terms': 'i simili: si sommano i coefficienti, le lettere restano',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
@@ -62,7 +70,9 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
   switch (exercise.kind) {
     case undefined:
     case 'number':
-      return <NumberWorkedExample exercise={exercise} />
+      return <NotebookExample exercise={exercise} />
+    case 'polynomial':
+      return <NotebookExample exercise={exercise} />
     case 'set':
     case 'symbols':
     case 'count':
@@ -81,9 +91,15 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
   }
 }
 
-function NumberWorkedExample({ exercise }: { exercise: NumberExercise }) {
+// L'esercizio sul quaderno con le righe della sua soluzione, uguale per ogni
+// tipo che si svolge per righe.
+function NotebookExample({
+  exercise,
+}: {
+  exercise: NumberExercise<LiteralExpression> | PolynomialExercise
+}) {
   const { lines, marked } = useMemo(() => {
-    const { lines } = solve(exercise.expression)
+    const lines = expressionLines(exercise)
     return { lines, marked: markedSteps(exercise.expression, lines) }
   }, [exercise])
   const [open, setOpen] = useState(() => lines.map(() => 0))
@@ -96,7 +112,7 @@ function NumberWorkedExample({ exercise }: { exercise: NumberExercise }) {
     <Sheet className="h-full p-4 sm:p-6">
       <figure
         ref={ref}
-        aria-label={`Esempio: ${toText(exercise.expression)}`}
+        aria-label={`Esempio: ${consegnaText(exercise)}`}
         className="flex flex-col gap-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -139,10 +155,7 @@ function NumberWorkedExample({ exercise }: { exercise: NumberExercise }) {
                 seen ? 'animate-write' : 'opacity-0',
               )}
             >
-              <ExpressionFormula
-                expression={exercise.expression}
-                className="text-xl sm:text-2xl"
-              />
+              <Consegna exercise={exercise} className="text-xl sm:text-2xl" />
             </div>
           </div>
           <ol className="flex flex-col gap-3">

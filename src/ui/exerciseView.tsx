@@ -3,15 +3,23 @@ import {
   literal,
   readSetAnswer,
   setToText,
-  solve,
   solveSet,
+  polynomialExpression,
+  readPolynomialAnswer,
+  solveLiteral,
+  solveWithValues,
+  substitute,
   toKatex,
   toText,
   unknownKind,
   type AnswerForm,
+  type Assignment,
   type Exercise,
   type Expression,
   type Line,
+  type LiteralExpression,
+  type NumberExercise,
+  type PolynomialExercise,
 } from '../engine/index.ts'
 import {
   CountConsegna,
@@ -19,7 +27,7 @@ import {
   countLines,
   countResultText,
 } from './countView.tsx'
-import { ExpressionFormula } from './Formula.tsx'
+import { ExpressionFormula, Formula } from './Formula.tsx'
 import {
   relationLines,
   RelationsConsegna,
@@ -71,6 +79,11 @@ export function wordingOf(exercise: Exercise): {
       return { task: 'Conta gli elementi', question: 'Quanti elementi ha?' }
     case 'problem':
       return { task: 'Risolvi il problema', question: 'Quanti sono?' }
+    case 'polynomial':
+      return {
+        task: 'Svolgi e scrivi il risultato in forma normale',
+        question: 'Che cosa diventa?',
+      }
     default:
       return unknownKind(exercise)
   }
@@ -105,7 +118,12 @@ export function solutionOf(exercise: Exercise): readonly ShownLine[] {
   switch (exercise.kind) {
     case undefined:
     case 'number':
-      return solve(exercise.expression).lines.map(numberLine)
+      return solveWithValues(
+        exercise.expression,
+        exercise.substitution ?? [],
+      ).lines.map(numberLine)
+    case 'polynomial':
+      return solveLiteral(exercise.expression).lines.map(numberLine)
     case 'set':
       return setLines(exercise)
     case 'symbols':
@@ -119,12 +137,40 @@ export function solutionOf(exercise: Exercise): readonly ShownLine[] {
   }
 }
 
+/**
+ * Le righe del risolutore per i tipi che si svolgono su un'espressione: la
+ * lezione le apre un passaggio alla volta.
+ */
+export function expressionLines(
+  exercise: NumberExercise<LiteralExpression> | PolynomialExercise,
+): readonly Line[] {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return solveWithValues(exercise.expression, exercise.substitution ?? [])
+        .lines
+    case 'polynomial':
+      return solveLiteral(exercise.expression).lines
+    default:
+      return unknownKind(exercise)
+  }
+}
+
 /** Il risultato come lo scrive la soluzione, in testo semplice. */
 export function resultText(exercise: Exercise): string {
   switch (exercise.kind) {
     case undefined:
     case 'number':
-      return toText(literal(solve(exercise.expression).result))
+      return toText(
+        literal(
+          solveWithValues(exercise.expression, exercise.substitution ?? [])
+            .result,
+        ),
+      )
+    case 'polynomial':
+      return toText(
+        polynomialExpression(solveLiteral(exercise.expression).result),
+      )
     case 'set':
       return setToText(solveSet(exercise).result)
     case 'symbols':
@@ -138,11 +184,31 @@ export function resultText(exercise: Exercise): string {
   }
 }
 
+// I valori delle lettere come li dà la consegna: per a = −2, b = 3.
+function valuesText(substitution: readonly Assignment[]): string {
+  return substitution
+    .map(({ letter, value }) => `${letter} = ${toText(literal(value))}`)
+    .join(', ')
+}
+
+function valuesKatex(substitution: readonly Assignment[]): string {
+  return substitution
+    .map(({ letter, value }) => `${letter} = ${toKatex(literal(value))}`)
+    .join(',\\; ')
+}
+
 /** La consegna in testo semplice, per i nomi accessibili. */
 export function consegnaText(exercise: Exercise): string {
   switch (exercise.kind) {
     case undefined:
-    case 'number':
+    case 'number': {
+      const text = toText(exercise.expression)
+      const { substitution = [] } = exercise
+      return substitution.length > 0
+        ? `${text}, per ${valuesText(substitution)}`
+        : text
+    }
+    case 'polynomial':
       return toText(exercise.expression)
     case 'set':
       return setConsegnaText(exercise)
@@ -165,7 +231,10 @@ export function stepExpression(exercise: Exercise): Expression | null {
   switch (exercise.kind) {
     case undefined:
     case 'number':
-      return exercise.skill.startsWith('n.') ? exercise.expression : null
+      return exercise.skill.startsWith('n.')
+        ? substitute(exercise.expression, [])
+        : null
+    case 'polynomial':
     case 'set':
     case 'symbols':
     case 'count':
@@ -187,6 +256,10 @@ export function answerPreview(
     case 'count':
     case 'problem':
       return answerForm(answer)
+    case 'polynomial': {
+      const reading = readPolynomialAnswer(answer)
+      return reading.ok ? reading.form : null
+    }
     case 'set': {
       const reading = readSetAnswer(answer)
       return reading.ok ? reading.form : null
@@ -205,6 +278,7 @@ export function keysOf(exercise: Exercise): readonly SymbolKey[] {
     case 'number':
     case 'count':
     case 'problem':
+    case 'polynomial':
       return symbolKeys
     case 'set':
       return setSymbolKeys
@@ -225,7 +299,19 @@ export function Consegna({
   const size = className === undefined ? {} : { className }
   switch (exercise.kind) {
     case undefined:
-    case 'number':
+    case 'number': {
+      const { substitution = [] } = exercise
+      if (substitution.length === 0)
+        return <ExpressionFormula expression={exercise.expression} {...size} />
+      return (
+        <Formula
+          tex={`${toKatex(exercise.expression)} \\quad \\text{per } ${valuesKatex(substitution)}`}
+          text={consegnaText(exercise)}
+          {...size}
+        />
+      )
+    }
+    case 'polynomial':
       return <ExpressionFormula expression={exercise.expression} {...size} />
     case 'set':
       return <SetConsegna exercise={exercise} {...size} />
@@ -249,6 +335,7 @@ export function answerMode(exercise: Exercise): 'text' | 'symbols' {
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'polynomial':
     case 'set':
     case 'count':
     case 'problem':

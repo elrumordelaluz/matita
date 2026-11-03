@@ -1,10 +1,10 @@
 import {
   generate,
-  misconceptions,
+  misconceptionExplanation,
   setMisconceptions,
   unknownKind,
   type Exercise,
-  type Expression,
+  type LiteralExpression,
   type GeneratedSkill,
 } from '../engine/index.ts'
 import { chronological, type Attempt } from './attempt.ts'
@@ -18,8 +18,8 @@ export interface AttemptEntry {
   readonly attempt: Attempt
   /** L’esercizio ricostruito dal seme, se la ricostruzione è fedele. */
   readonly exercise: Exercise | null
-  /** La sua espressione, se è un esercizio di numeri. */
-  readonly expression: Expression | null
+  /** La sua espressione, se il tipo ne ha una: numeri o lettere. */
+  readonly expression: LiteralExpression | null
   /** La spiegazione dell’errore tipico riconosciuto, se il catalogo lo conosce. */
   readonly explanation: string | null
 }
@@ -60,10 +60,11 @@ function rebuild(attempt: Attempt): Exercise | null {
 }
 
 // L’espressione da mostrare accanto alla risposta, se il tipo ne ha una.
-function expressionOf(exercise: Exercise): Expression | null {
+function expressionOf(exercise: Exercise): LiteralExpression | null {
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'polynomial':
       return exercise.expression
     case 'set':
     case 'symbols':
@@ -76,9 +77,11 @@ function expressionOf(exercise: Exercise): Expression | null {
 }
 
 function explanationOf(attempt: Attempt): string | null {
+  if (attempt.misconception === null) return null
   return (
-    [...misconceptions, ...setMisconceptions].find(
-      (m) => m.id === attempt.misconception,
-    )?.explanation ?? null
+    misconceptionExplanation(attempt.misconception) ??
+    setMisconceptions.find((m) => m.id === attempt.misconception)
+      ?.explanation ??
+    null
   )
 }

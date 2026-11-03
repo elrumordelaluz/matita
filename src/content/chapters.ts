@@ -3,7 +3,7 @@ import { skills, type Skill } from './skills.ts'
 // I capitoli del percorso, nell'ordine di SPEC.md, "Percorso". Ogni capitolo
 // raccoglie le sue abilità per prefisso dell'id.
 
-export type ChapterId = 'n' | 'z' | 'q' | 'pow' | 'set'
+export type ChapterId = 'n' | 'z' | 'q' | 'pow' | 'set' | 'mono'
 
 export interface Chapter {
   readonly id: ChapterId
@@ -51,6 +51,13 @@ export const chapters: readonly Chapter[] = [
     title: 'Insiemi',
     blurb: 'Elencazione, operazioni, appartenenza, i diagrammi di Eulero-Venn.',
     skills: skillsOf('set'),
+  },
+  {
+    id: 'mono',
+    number: 6,
+    title: 'Monomi',
+    blurb: 'Il valore numerico, la forma normale, le operazioni con i monomi.',
+    skills: skillsOf('mono'),
   },
 ]
 
