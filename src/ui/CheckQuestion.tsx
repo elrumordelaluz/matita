@@ -9,6 +9,9 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { verify, type Exercise, type Outcome } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import {
+  AnswerChoices,
+  answerMode,
+  answerReady,
   Consegna,
   consegnaText,
   resultText,
@@ -101,6 +104,8 @@ export function CheckQuestion({
   // Il campo prende il colore dell'esito finché la risposta resta quella.
   const fresh = shown && checked.answer === answer ? tones[shown.tone] : null
   const Badge = solved ? CircleCheck : PencilLine
+  // Le scritture da completare si rispondono con i tasti, non nel campo.
+  const choosing = answerMode(exercise) === 'symbols'
 
   return (
     <Panel className={cn('transition-colors', solved && 'border-ok/50')}>
@@ -134,7 +139,24 @@ export function CheckQuestion({
             <Consegna exercise={exercise} className="text-xl" />
           </Sheet>
 
-          <div className="flex items-center gap-2">
+          {choosing && (
+            <div className="flex flex-col gap-3">
+              <AnswerChoices
+                exercise={exercise}
+                answer={answer}
+                onChange={setAnswer}
+                disabled={false}
+              />
+              <Button
+                type="submit"
+                variant="pencil"
+                disabled={!answerReady(exercise, answer)}
+              >
+                Controlla
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-2" hidden={choosing}>
             <label htmlFor={id} className="sr-only">
               Risposta
             </label>

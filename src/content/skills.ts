@@ -105,6 +105,11 @@ export const skills: readonly Skill[] = [
     prerequisites: ['n.mul-div'],
   },
   {
+    id: 'set.relations',
+    title: 'Appartenenza e inclusione',
+    prerequisites: ['set.roster'],
+  },
+  {
     id: 'set.operations',
     title: 'Le operazioni fra insiemi',
     prerequisites: ['set.roster'],

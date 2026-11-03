@@ -7,11 +7,16 @@ import { finiteSet, type FiniteSet } from './finiteSet.ts'
 // l'insieme che lo contiene.
 
 /** Perché un insieme con il valore giusto va riscritto. */
-export type SetRewriteReason = 'missing-braces' | 'repeated-element'
+export type SetRewriteReason =
+  | 'missing-braces'
+  | 'repeated-element'
+  /** Nelle scritture, ⊆ dove si sa se gli insiemi coincidono. */
+  | 'imprecise-subset'
 
 export const setRewriteMessages: Record<SetRewriteReason, string> = {
   'missing-braces': 'Un insieme si scrive fra graffe.',
   'repeated-element': 'Ogni elemento si scrive una volta sola.',
+  'imprecise-subset': 'È vero, ma c’è un simbolo più preciso.',
 }
 
 export type SetReading =

@@ -17,6 +17,7 @@ import {
   zeroAndNegativePowers,
 } from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
+import { generateRelations, type SymbolsExercise } from './relations.ts'
 import { rational, type Rational } from './rational.ts'
 import {
   generateSet,
@@ -36,7 +37,7 @@ import { solve, type Solution } from './solver.ts'
  * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
  * passa inosservato.
  */
-export type Exercise = NumberExercise | SetExercise
+export type Exercise = NumberExercise | SetExercise | SymbolsExercise
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
@@ -688,7 +689,10 @@ const generators = {
 export type NumberSkill = keyof typeof generators
 
 /** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill | SetSkill
+export type GeneratedSkill = NumberSkill | SetSkill | SymbolsSkill
+
+/** Le abilità i cui esercizi chiedono una scelta di simboli. */
+export type SymbolsSkill = SymbolsExercise['skill']
 
 export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
 
@@ -729,9 +733,11 @@ function solvable(expression: Expression): Solution | null {
 // numeri riceve un esercizio di numeri, senza guardarne il tipo.
 export function generate(skill: NumberSkill, seed: number): NumberExercise
 export function generate(skill: SetSkill, seed: number): SetExercise
+export function generate(skill: SymbolsSkill, seed: number): SymbolsExercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
   if (isSetSkill(skill)) return generateSet(skill, seed)
+  if (skill === 'set.relations') return generateRelations(seed)
   return generateNumber(skill, seed)
 }
 

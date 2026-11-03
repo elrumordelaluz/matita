@@ -59,6 +59,38 @@ test('lo zero escluso dai pari è un errore tipico', () => {
   expect(check('{0, 2, 4, 6, 8}')).toHaveTextContent('Esatto!')
 })
 
+test('un esempio di scritture dice per ogni simbolo perché', () => {
+  lesson()
+  const name = 'A = {2, 7, 8, 10}: {2} … A, 7 … A, 3 … A, {7, 2, 3} … A'
+  expect(rows(name)).toEqual(['{2} ⊂ A', '7 ∈ A', '3 ∉ A', '{7, 2, 3} ⊄ A'])
+  const example = screen.getByRole('figure', { name: `Esempio: ${name}` })
+  expect(within(example).getByText('3 non sta in A')).toBeInTheDocument()
+})
+
+test('la domanda sulle scritture si risponde con i tasti', () => {
+  lesson()
+  const group = screen.getByRole('group', {
+    name: 'Domanda: A = {1, 2, 6, 8}: {6, 2, 8, 1} … A, 2 … A, 10 … A, {1, 8} … A',
+  })
+  const check = within(group).getByRole('button', { name: 'Controlla' })
+  expect(check).toBeDisabled()
+  const pick = (symbols: readonly string[]) =>
+    symbols.forEach((symbol, i) => {
+      const row = within(group).getByRole('group', {
+        name: new RegExp(`^Scrittura ${i + 1}:`),
+      })
+      fireEvent.click(within(row).getByRole('button', { name: symbol }))
+    })
+  pick(['⊂', '∈', '∉', '⊂'])
+  fireEvent.click(check)
+  expect(within(group).getByRole('status')).toHaveTextContent(
+    'I due insiemi hanno gli stessi elementi',
+  )
+  pick(['='])
+  fireEvent.click(check)
+  expect(within(group).getByRole('status')).toHaveTextContent('Esatto!')
+})
+
 test('un esempio di operazioni scrive una riga per operazione, con il perché', () => {
   lesson()
   const name =

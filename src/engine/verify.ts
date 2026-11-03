@@ -5,6 +5,7 @@ import {
 } from './generators.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
+import { verifySymbols } from './relations.ts'
 import type { SetRewriteReason } from './setAnswer.ts'
 import { verifySet } from './setExercise.ts'
 import type { SetMisconceptionId } from './setMisconceptions.ts'
@@ -179,6 +180,8 @@ export function verify(answer: string, exercise: Exercise): Outcome {
       return verifyNumber(answer, exercise)
     case 'set':
       return verifySet(answer, exercise)
+    case 'symbols':
+      return verifySymbols(answer, exercise)
     default:
       return unknownKind(exercise)
   }

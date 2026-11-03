@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { chapterById } from '../../content/chapters.ts'
+import { chapterById, chapters } from '../../content/chapters.ts'
 import { skills } from '../../content/skills.ts'
 import { attempt } from '../../progress/fixtures.ts'
 import { skillStates } from '../../progress/skillState.ts'
@@ -51,7 +51,7 @@ test('con il primo capitolo già saputo si lavora sul secondo', () => {
 
 test('con tutto acquisito si resta sull’ultimo capitolo', () => {
   const states = skillStates(skills, [], known(skills.map((s) => s.id)))
-  expect(workingChapter(states).id).toBe('set')
+  expect(workingChapter(states).id).toBe(chapters.at(-1)?.id)
 })
 
 // Un grafo finto con un'abilità senza generatore, così il test non dipende

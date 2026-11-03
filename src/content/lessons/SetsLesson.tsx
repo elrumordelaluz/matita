@@ -50,6 +50,29 @@ const parts: readonly LessonPart[] = [
     question: generate('set.roster', 17), // {x ∈ N | x < 10 e x è pari}
   },
   {
+    id: 'lezione-appartenenza-inclusione',
+    title: 'Appartenenza e inclusione',
+    note: 'un numero ∈, un insieme ⊂',
+    text: (
+      <>
+        <p>
+          Un numero appartiene a un insieme o non gli appartiene: 2 ∈ A, 3 ∉ A.
+          Fra due insiemi si parla invece di inclusione: {'{2}'} ⊂ A vuol dire
+          che ogni elemento di {'{2}'} sta in A e che A ne ha altri. È un
+          sottoinsieme proprio. Se un elemento esce da A si scrive ⊄.
+        </p>
+        <p>
+          Due insiemi con gli stessi elementi sono uguali, anche scritti in un
+          altro ordine: ogni insieme è sottoinsieme improprio di sé stesso, e si
+          scrive =. Il simbolo ⊆ si usa quando non si sa se i due insiemi
+          coincidono; qui lo si sa sempre, quindi si sceglie fra ⊂ e =.
+        </p>
+      </>
+    ),
+    example: generate('set.relations', 5), // A = {2, 7, 8, 10}
+    question: generate('set.relations', 17), // A = {1, 2, 6, 8}
+  },
+  {
     id: 'lezione-unione-intersezione',
     title: 'Unione e intersezione',
     note: '∪ in almeno uno, ∩ in tutti e due',

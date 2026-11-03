@@ -20,7 +20,10 @@ import {
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import {
+  AnswerChoices,
+  answerMode,
   answerPreview,
+  answerReady,
   Consegna,
   keysOf,
   resultText,
@@ -174,6 +177,8 @@ export function PracticePage({
   // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
   const form = answerPreview(exercise, answer)
   const done = closes(outcome)
+  // Le scritture da completare si rispondono con i tasti, non nel campo.
+  const choosing = answerMode(exercise) === 'symbols'
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const stepAvailable = stepStart !== null
   // Dove il passo passo non c'è, l'interruttore acceso aspetta il prossimo
@@ -468,7 +473,13 @@ export function PracticePage({
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
+          <AnswerChoices
+            exercise={exercise}
+            answer={answer}
+            onChange={setAnswer}
+            disabled={done}
+          />
+          <div className="space-y-1.5" hidden={choosing}>
             <label
               htmlFor={answerId}
               className="block text-sm font-semibold text-dim"
@@ -589,6 +600,7 @@ export function PracticePage({
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <Button
                 type="submit"
+                disabled={!answerReady(exercise, answer)}
                 icon={<Check aria-hidden="true" className="size-5" />}
                 className="py-3.5 text-lg"
               >

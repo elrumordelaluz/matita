@@ -59,6 +59,7 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
     case 'number':
       return <NumberWorkedExample exercise={exercise} />
     case 'set':
+    case 'symbols':
       return <LinesWorkedExample exercise={exercise} />
     default:
       return unknownKind(exercise)

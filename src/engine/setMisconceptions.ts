@@ -11,6 +11,9 @@ export type SetMisconceptionId =
   | 'zero-not-even'
   | 'union-intersection-swapped'
   | 'difference-reversed'
+  | 'element-as-subset'
+  | 'subset-as-element'
+  | 'proper-subset-of-equal'
 
 export interface SetMisconception {
   readonly id: SetMisconceptionId
@@ -48,6 +51,21 @@ export const setMisconceptions: readonly SetMisconception[] = [
     id: 'difference-reversed',
     explanation:
       'Hai calcolato B − A al posto di A − B. La differenza non è commutativa: A − B ha gli elementi di A che non stanno in B.',
+  },
+  {
+    id: 'element-as-subset',
+    explanation:
+      'Hai usato l’inclusione per un numero. Un numero è un elemento: appartiene o non appartiene, 2 ∈ A. L’inclusione ⊂ vale fra due insiemi: {2} ⊂ A.',
+  },
+  {
+    id: 'subset-as-element',
+    explanation:
+      'Hai usato l’appartenenza per un insieme. {2} è un insieme, non un elemento di A: si dice che è incluso, {2} ⊂ A. L’appartenenza vale per i numeri: 2 ∈ A.',
+  },
+  {
+    id: 'proper-subset-of-equal',
+    explanation:
+      'I due insiemi hanno gli stessi elementi: sono uguali. ⊂ vuol dire sottoinsieme proprio, che ha meno elementi; fra due insiemi uguali si scrive =.',
   },
 ]
 

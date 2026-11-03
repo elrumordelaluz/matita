@@ -15,6 +15,14 @@ import {
 } from '../engine/index.ts'
 import { ExpressionFormula } from './Formula.tsx'
 import {
+  relationLines,
+  RelationsConsegna,
+  relationsConsegnaText,
+  relationsResultText,
+  SymbolsAnswer,
+  symbolsComplete,
+} from './relationsView.tsx'
+import {
   SetConsegna,
   setConsegnaText,
   setLines,
@@ -41,6 +49,11 @@ export function wordingOf(exercise: Exercise): {
       }
     case 'set':
       return setWording(exercise)
+    case 'symbols':
+      return {
+        task: 'Completa con ∈, ∉, ⊂, ⊆, ⊄ o =',
+        question: 'Quale simbolo va in ogni scrittura?',
+      }
     default:
       return unknownKind(exercise)
   }
@@ -78,6 +91,8 @@ export function solutionOf(exercise: Exercise): readonly ShownLine[] {
       return solve(exercise.expression).lines.map(numberLine)
     case 'set':
       return setLines(exercise)
+    case 'symbols':
+      return relationLines(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -91,6 +106,8 @@ export function resultText(exercise: Exercise): string {
       return toText(literal(solve(exercise.expression).result))
     case 'set':
       return setToText(solveSet(exercise).result)
+    case 'symbols':
+      return relationsResultText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -104,6 +121,8 @@ export function consegnaText(exercise: Exercise): string {
       return toText(exercise.expression)
     case 'set':
       return setConsegnaText(exercise)
+    case 'symbols':
+      return relationsConsegnaText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -119,6 +138,7 @@ export function stepExpression(exercise: Exercise): Expression | null {
     case 'number':
       return exercise.skill.startsWith('n.') ? exercise.expression : null
     case 'set':
+    case 'symbols':
       return null
     default:
       return unknownKind(exercise)
@@ -138,6 +158,8 @@ export function answerPreview(
       const reading = readSetAnswer(answer)
       return reading.ok ? reading.form : null
     }
+    case 'symbols':
+      return null
     default:
       return unknownKind(exercise)
   }
@@ -151,6 +173,8 @@ export function keysOf(exercise: Exercise): readonly SymbolKey[] {
       return symbolKeys
     case 'set':
       return setSymbolKeys
+    case 'symbols':
+      return []
     default:
       return unknownKind(exercise)
   }
@@ -170,7 +194,56 @@ export function Consegna({
       return <ExpressionFormula expression={exercise.expression} {...size} />
     case 'set':
       return <SetConsegna exercise={exercise} {...size} />
+    case 'symbols':
+      return <RelationsConsegna exercise={exercise} {...size} />
     default:
       return unknownKind(exercise)
   }
+}
+
+/**
+ * Come si risponde: scrivendo nel campo, o scegliendo un simbolo per ogni
+ * scrittura con i tasti.
+ */
+export function answerMode(exercise: Exercise): 'text' | 'symbols' {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+    case 'set':
+      return 'text'
+    case 'symbols':
+      return 'symbols'
+    default:
+      return unknownKind(exercise)
+  }
+}
+
+/** Vero quando la risposta si può verificare: ogni scrittura ha un simbolo. */
+export function answerReady(exercise: Exercise, answer: string): boolean {
+  return exercise.kind === 'symbols'
+    ? symbolsComplete(answer, exercise.objects.length)
+    : true
+}
+
+/** I tasti con cui si risponde, per i tipi che non si scrivono nel campo. */
+export function AnswerChoices({
+  exercise,
+  answer,
+  onChange,
+  disabled,
+}: {
+  exercise: Exercise
+  answer: string
+  onChange: (answer: string) => void
+  disabled: boolean
+}) {
+  if (exercise.kind !== 'symbols') return null
+  return (
+    <SymbolsAnswer
+      exercise={exercise}
+      answer={answer}
+      onChange={onChange}
+      disabled={disabled}
+    />
+  )
 }
