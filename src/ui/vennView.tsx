@@ -12,7 +12,7 @@ import {
   type ProblemExercise,
   type VennProblem,
 } from '../engine/index.ts'
-import { numberLine, type ShownLine } from './exerciseView.tsx'
+import { numberLine, type ShownLine } from './shownLine.ts'
 
 // Come le pagine mostrano un problema con il diagramma di Eulero-Venn: il
 // testo, le righe della soluzione e, dopo l'esito, il diagramma con le
@@ -44,14 +44,14 @@ export function problemResultText({ problem }: ProblemExercise): string {
   return String(vennAnswer(problem))
 }
 
-export function problemConsegnaText({ problem }: ProblemExercise): string {
+export function problemPromptText({ problem }: ProblemExercise): string {
   return problemText(problem) ?? ''
 }
 
-export function ProblemConsegna({ exercise }: { exercise: ProblemExercise }) {
+export function ProblemPrompt({ exercise }: { exercise: ProblemExercise }) {
   return (
     <p className="max-w-prose text-lg leading-relaxed text-ink sm:text-xl">
-      {problemConsegnaText(exercise)}
+      {problemPromptText(exercise)}
     </p>
   )
 }

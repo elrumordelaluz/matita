@@ -24,7 +24,7 @@ import {
   answerMode,
   answerPreview,
   answerReady,
-  Consegna,
+  ExercisePrompt,
   keysOf,
   resultText,
   SolutionFigure,
@@ -393,7 +393,7 @@ export function PracticePage({
               className="text-3xl sm:text-4xl lg:text-5xl"
             />
           ) : (
-            <Consegna
+            <ExercisePrompt
               exercise={exercise}
               className="text-3xl sm:text-4xl lg:text-5xl"
             />

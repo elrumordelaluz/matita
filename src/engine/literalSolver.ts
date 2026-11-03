@@ -308,7 +308,7 @@ const hasExponent = (e: LiteralExpression, n: bigint) =>
   e.right.value.den === 1n &&
   e.right.value.num === n
 
-function formulaRiga(
+function formulaLine(
   rule: Rule,
   e: LiteralExpression,
   operands: readonly Polynomial[],
@@ -340,7 +340,7 @@ function squareOfBinomial(e: LiteralExpression): Reduction | null {
   const A = signedNode(a)
   const B = b.node
   const sign = b.minus ? '−' : '+'
-  return formulaRiga(
+  return formulaLine(
     'square-of-binomial',
     e,
     [polynomialValue(e.left)],
@@ -371,7 +371,7 @@ function squareOfTrinomial(e: LiteralExpression): Reduction | null {
   if (!a || !b || !c || rest.length > 0) return null
   const [A, B, C] = [signedNode(a), signedNode(b), signedNode(c)]
   const plus = (node: LiteralExpression) => ({ minus: false, node })
-  return formulaRiga(
+  return formulaLine(
     'square-of-trinomial',
     e,
     [polynomialValue(e.left)],
@@ -404,7 +404,7 @@ function cubeOfBinomial(e: LiteralExpression): Reduction | null {
   const A = signedNode(a)
   const B = b.node
   const sign = b.minus ? '−' : '+'
-  return formulaRiga(
+  return formulaLine(
     'cube-of-binomial',
     e,
     [polynomialValue(e.left)],
@@ -436,7 +436,7 @@ function sumTimesDifference(e: LiteralExpression): Reduction | null {
     return null
   const A = signedNode(a)
   const B = b.node
-  return formulaRiga(
+  return formulaLine(
     'sum-times-difference',
     e,
     [polynomialValue(e.left), polynomialValue(e.right)],

@@ -12,8 +12,8 @@ import {
   AnswerChoices,
   answerMode,
   answerReady,
-  Consegna,
-  consegnaText,
+  ExercisePrompt,
+  promptText,
   resultText,
   wordingOf,
 } from './exerciseView.tsx'
@@ -111,7 +111,7 @@ export function CheckQuestion({
     <Panel className={cn('transition-colors', solved && 'border-ok/50')}>
       <form
         role="group"
-        aria-label={`Domanda: ${consegnaText(exercise)}`}
+        aria-label={`Domanda: ${promptText(exercise)}`}
         onSubmit={submit}
       >
         <div className="flex flex-col gap-4">
@@ -136,7 +136,7 @@ export function CheckQuestion({
           </div>
 
           <Sheet className="overflow-x-auto rounded-2xl px-4 py-5 text-center shadow-none">
-            <Consegna exercise={exercise} className="text-xl" />
+            <ExercisePrompt exercise={exercise} className="text-xl" />
           </Sheet>
 
           {choosing && (

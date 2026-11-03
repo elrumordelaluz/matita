@@ -11,7 +11,7 @@ import {
   type SymbolsExercise,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import type { ShownLine } from './exerciseView.tsx'
+import type { ShownLine } from './shownLine.ts'
 import { Formula } from './Formula.tsx'
 
 // Come le pagine mostrano le scritture da completare con ∈ ∉ ⊂ ⊆ ⊄ =. Vedi
@@ -50,12 +50,12 @@ export function relationsResultText(exercise: SymbolsExercise): string {
     .join(', ')
 }
 
-export function relationsConsegnaText(exercise: SymbolsExercise): string {
+export function relationsPromptText(exercise: SymbolsExercise): string {
   const blanks = exercise.objects.map((o) => `${objectToText(o)} … A`)
   return `${relationSetText(exercise.set)}: ${blanks.join(', ')}`
 }
 
-export function RelationsConsegna({
+export function RelationsPrompt({
   exercise,
   className,
 }: {

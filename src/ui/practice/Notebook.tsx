@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { cn } from '../../lib/cn.ts'
-import type { ShownLine } from '../exerciseView.tsx'
+import type { ShownLine } from '../shownLine.ts'
 import { Formula } from '../Formula.tsx'
 import { Note } from '../kit.tsx'
 

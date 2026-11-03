@@ -460,7 +460,7 @@ centro, poi le regioni di "solo due", poi quelle di "solo uno", poi
 l'esterno; con due insiemi l'intersezione, poi solo A, solo B, l'esterno. Una
 riga può trovare anche un'unione, quando il testo dà il totale e "nessuno":
 in una classe di 28 con 18 a teatro, 22 a fotografia e 3 a nessun laboratorio,
-card(A ∪ B) = 28 − 3 = 25, poi entrambi = 18 + 22 − 25 = 15. Con due insiemi
+almeno uno = 28 − 3 = 25, poi entrambi = 18 + 22 − 25 = 15. Con due insiemi
 la strada della formula è la stessa del libro: almeno uno = 17 + 12 − 5 = 24,
 nessuno = 28 − 24 = 4. Quando un dato fa trovare una regione all'indietro,
 come "Salsa o Break ma non Hip Hop", la riga lo dice. Se la domanda somma più

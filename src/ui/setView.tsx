@@ -12,7 +12,7 @@ import {
   type SetTask,
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
-import type { ShownLine } from './exerciseView.tsx'
+import type { ShownLine } from './shownLine.ts'
 import { Formula } from './Formula.tsx'
 
 // Come le pagine mostrano un esercizio che chiede un insieme: la consegna,
@@ -99,7 +99,7 @@ function givens(task: SetTask) {
   ]
 }
 
-export function setConsegnaText({ task }: SetExercise): string {
+export function setPromptText({ task }: SetExercise): string {
   switch (task.kind) {
     case 'roster':
       return propertyToText(task.property)
@@ -110,7 +110,7 @@ export function setConsegnaText({ task }: SetExercise): string {
   }
 }
 
-export function SetConsegna({
+export function SetPrompt({
   exercise: { task },
   className,
 }: {

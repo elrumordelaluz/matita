@@ -24,7 +24,7 @@ import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
-import { Consegna } from './exerciseView.tsx'
+import { ExercisePrompt } from './exerciseView.tsx'
 import {
   chapterStatus,
   summarize,
@@ -386,7 +386,7 @@ export function ProgressPage({
                                     >
                                       {exercise !== null && (
                                         <>
-                                          <Consegna
+                                          <ExercisePrompt
                                             exercise={exercise}
                                             className="text-sm"
                                           />

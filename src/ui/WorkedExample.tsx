@@ -13,8 +13,8 @@ import {
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import {
-  Consegna,
-  consegnaText,
+  ExercisePrompt,
+  promptText,
   expressionLines,
   SolutionFigure,
   solutionOf,
@@ -119,7 +119,7 @@ function NotebookExample({
     <Sheet className="h-full p-4 sm:p-6">
       <figure
         ref={ref}
-        aria-label={`Esempio: ${consegnaText(exercise)}`}
+        aria-label={`Esempio: ${promptText(exercise)}`}
         className="flex flex-col gap-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -162,7 +162,10 @@ function NotebookExample({
                 seen ? 'animate-write' : 'opacity-0',
               )}
             >
-              <Consegna exercise={exercise} className="text-xl sm:text-2xl" />
+              <ExercisePrompt
+                exercise={exercise}
+                className="text-xl sm:text-2xl"
+              />
             </div>
           </div>
           <ol className="flex flex-col gap-3">
@@ -347,7 +350,7 @@ function LinesWorkedExample({
     <Sheet className="h-full p-4 sm:p-6">
       <figure
         ref={ref}
-        aria-label={`Esempio: ${consegnaText(exercise)}`}
+        aria-label={`Esempio: ${promptText(exercise)}`}
         className="flex flex-col gap-5"
       >
         <Eyebrow className="flex items-center gap-2">
@@ -355,7 +358,7 @@ function LinesWorkedExample({
           Esempio svolto
         </Eyebrow>
         <div className={cn('p-1', seen ? 'animate-write' : 'opacity-0')}>
-          <Consegna exercise={exercise} className="text-xl sm:text-2xl" />
+          <ExercisePrompt exercise={exercise} className="text-xl sm:text-2xl" />
         </div>
         <ol className="flex flex-col gap-3">
           {lines.map((line, i) => (

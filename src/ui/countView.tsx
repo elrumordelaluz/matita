@@ -7,7 +7,7 @@ import {
   toText,
   type CountExercise,
 } from '../engine/index.ts'
-import { numberLine, type ShownLine } from './exerciseView.tsx'
+import { numberLine, type ShownLine } from './shownLine.ts'
 import { Formula } from './Formula.tsx'
 
 // Come le pagine mostrano un conto del capitolo 5: gli insiemi dati per
@@ -47,12 +47,12 @@ export function countResultText(exercise: CountExercise): string {
   return String(countResult(exercise))
 }
 
-export function countConsegnaText(exercise: CountExercise): string {
+export function countPromptText(exercise: CountExercise): string {
   const givens = countGivens(exercise).map((g) => g.text)
   return `${givens.join(', ')}: ${countAsked(exercise).text}`
 }
 
-export function CountConsegna({
+export function CountPrompt({
   exercise,
   className,
 }: {

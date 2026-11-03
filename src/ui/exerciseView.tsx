@@ -22,30 +22,26 @@ import {
   type PolynomialExercise,
 } from '../engine/index.ts'
 import {
-  CountConsegna,
-  countConsegnaText,
+  CountPrompt,
+  countPromptText,
   countLines,
   countResultText,
 } from './countView.tsx'
 import { ExpressionFormula, Formula } from './Formula.tsx'
+import { numberLine, type ShownLine } from './shownLine.ts'
 import {
   relationLines,
-  RelationsConsegna,
-  relationsConsegnaText,
+  RelationsPrompt,
+  relationsPromptText,
   relationsResultText,
   SymbolsAnswer,
   symbolsComplete,
 } from './relationsView.tsx'
-import {
-  SetConsegna,
-  setConsegnaText,
-  setLines,
-  setWording,
-} from './setView.tsx'
+import { SetPrompt, setPromptText, setLines, setWording } from './setView.tsx'
 import { setSymbolKeys, symbolKeys, type SymbolKey } from './symbolRow.ts'
 import {
-  ProblemConsegna,
-  problemConsegnaText,
+  ProblemPrompt,
+  problemPromptText,
   problemLines,
   problemResultText,
   VennDiagram,
@@ -86,31 +82,6 @@ export function wordingOf(exercise: Exercise): {
       }
     default:
       return unknownKind(exercise)
-  }
-}
-
-/**
- * Una riga della soluzione come la scrive il quaderno, qualunque sia il
- * tipo: la formula, e a margine i passaggi.
- */
-export interface ShownLine {
-  readonly tex: string
-  readonly text: string
-  /** La riga continua quella sopra, e a margine porta il segno =. */
-  readonly continues: boolean
-  /** I passaggi, uno per conto, scritti a margine. */
-  readonly notes: readonly string[]
-}
-
-/** Una riga del risolutore dei numeri: l'espressione e i suoi conti. */
-export function numberLine(line: Line): ShownLine {
-  return {
-    tex: toKatex(line.expression),
-    text: toText(line.expression),
-    continues: true,
-    notes: line.steps.map(
-      (step) => `${toText(step.operation)} = ${toText(step.outcome)}`,
-    ),
   }
 }
 
@@ -198,7 +169,7 @@ function valuesKatex(substitution: readonly Assignment[]): string {
 }
 
 /** La consegna in testo semplice, per i nomi accessibili. */
-export function consegnaText(exercise: Exercise): string {
+export function promptText(exercise: Exercise): string {
   switch (exercise.kind) {
     case undefined:
     case 'number': {
@@ -211,13 +182,13 @@ export function consegnaText(exercise: Exercise): string {
     case 'polynomial':
       return toText(exercise.expression)
     case 'set':
-      return setConsegnaText(exercise)
+      return setPromptText(exercise)
     case 'symbols':
-      return relationsConsegnaText(exercise)
+      return relationsPromptText(exercise)
     case 'count':
-      return countConsegnaText(exercise)
+      return countPromptText(exercise)
     case 'problem':
-      return problemConsegnaText(exercise)
+      return problemPromptText(exercise)
     default:
       return unknownKind(exercise)
   }
@@ -289,7 +260,7 @@ export function keysOf(exercise: Exercise): readonly SymbolKey[] {
   }
 }
 
-export function Consegna({
+export function ExercisePrompt({
   exercise,
   className,
 }: {
@@ -306,7 +277,7 @@ export function Consegna({
       return (
         <Formula
           tex={`${toKatex(exercise.expression)} \\quad \\text{per } ${valuesKatex(substitution)}`}
-          text={consegnaText(exercise)}
+          text={promptText(exercise)}
           {...size}
         />
       )
@@ -314,14 +285,14 @@ export function Consegna({
     case 'polynomial':
       return <ExpressionFormula expression={exercise.expression} {...size} />
     case 'set':
-      return <SetConsegna exercise={exercise} {...size} />
+      return <SetPrompt exercise={exercise} {...size} />
     case 'symbols':
-      return <RelationsConsegna exercise={exercise} {...size} />
+      return <RelationsPrompt exercise={exercise} {...size} />
     case 'count':
-      return <CountConsegna exercise={exercise} {...size} />
+      return <CountPrompt exercise={exercise} {...size} />
     case 'problem':
       // Il testo ha la sua misura: quella delle formule sarebbe troppa.
-      return <ProblemConsegna exercise={exercise} />
+      return <ProblemPrompt exercise={exercise} />
     default:
       return unknownKind(exercise)
   }
