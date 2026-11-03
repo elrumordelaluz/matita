@@ -3,7 +3,9 @@ import {
   literal,
   monomial,
   type LiteralExpression,
+  type MonomialNode,
 } from './expression.ts'
+import { solveLiteral, type LiteralSolution } from './literalSolver.ts'
 import { isVisible } from './misconceptions.ts'
 import type { Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
@@ -170,4 +172,142 @@ function cleanValue({ expression, substitution }: ValueBuild): boolean {
 export const valueGenerator: LiteralGenerator<ValueBuild> = {
   version: 1,
   build: (random) => until(random, valueExpression, cleanValue),
+}
+
+// I coefficienti scritti seguono i limiti di Q: interi piccoli, a volte una
+// frazione già ridotta con denominatore fino a 12. Negativi una volta su
+// tre.
+const coefficientDenominators = [2n, 2n, 3n, 3n, 4n, 5n, 6n]
+
+function gcd(a: bigint, b: bigint): bigint {
+  while (b !== 0n) [a, b] = [b, a % b]
+  return abs(a)
+}
+
+function coefficientOf(random: Random): Rational {
+  const sign = random.pick([-1n, 1n, 1n])
+  if (random.pick([true, false, false, false])) {
+    const den = random.pick(coefficientDenominators)
+    const numerators: bigint[] = []
+    for (let n = 1n; n < 2n * den; n++)
+      if (gcd(n, den) === 1n) numerators.push(n)
+    return rational(sign * random.pick(numerators), den)
+  }
+  return rational(sign * random.pick([1n, 2n, 2n, 3n, 3n, 4n, 5n, 6n]))
+}
+
+// Le lettere di un esercizio del capitolo 6: due o tre, come sul libro.
+const monomialLetters = [
+  ['a', 'b'],
+  ['x', 'y'],
+  ['a', 'b', 'c'],
+  ['x', 'y', 'z'],
+] as const
+
+// Un monomio scritto con lettere diverse, in ordine qualsiasi, esponenti
+// fino a 4.
+function plainMonomial(
+  random: Random,
+  letters: readonly string[],
+): MonomialNode {
+  const count = random.int(1n, BigInt(Math.min(3, letters.length)))
+  const pool = [...letters]
+  const chosen: [string, bigint][] = []
+  for (let i = 0n; i < count; i++) {
+    const at = Number(random.int(0n, BigInt(pool.length - 1)))
+    const [letter] = pool.splice(at, 1)
+    if (letter) chosen.push([letter, random.int(1n, 4n)])
+  }
+  return monomial(coefficientOf(random), chosen)
+}
+
+// Un monomio scritto con una lettera ripetuta, come 6a³ab.
+function repeatedMonomial(
+  random: Random,
+  letters: readonly string[],
+): LiteralExpression {
+  const base = plainMonomial(random, letters)
+  const again = random.pick(base.letters)
+  const written = base.letters.map((l) => [l.letter, l.exponent] as const)
+  written.splice(Number(random.int(1n, BigInt(written.length))), 0, [
+    again.letter,
+    random.int(1n, 3n),
+  ])
+  return monomial(base.coefficient, written)
+}
+
+// Due monomi, a volte con un numero negativo in mezzo, come in
+// 12a²b³(−2)a³.
+function productOfMonomials(
+  random: Random,
+  letters: readonly string[],
+): LiteralExpression {
+  const left = plainMonomial(random, letters)
+  const right = plainMonomial(random, letters)
+  if (random.pick([true, false, false, false, false])) {
+    const factor = literal(rational(-random.int(2n, 5n)))
+    return binary('×', binary('×', left, factor), right)
+  }
+  return binary('×', left, right)
+}
+
+function normalFormExercise(random: Random): LiteralExpression {
+  const letters = random.pick(monomialLetters)
+  return random.pick([true, false, false])
+    ? repeatedMonomial(random, letters)
+    : productOfMonomials(random, letters)
+}
+
+// Una lettera che compare due volte, nello stesso monomio o in due.
+function repeatsLetter(e: LiteralExpression): boolean {
+  const seen: string[] = []
+  const visit = (node: LiteralExpression): void => {
+    if (node.kind === 'monomial')
+      seen.push(...node.letters.map((l) => l.letter))
+    else if (node.kind === 'group') visit(node.inner)
+    else if (node.kind === 'binary') {
+      visit(node.left)
+      visit(node.right)
+    }
+  }
+  visit(e)
+  return new Set(seen).size < seen.length
+}
+
+// Coefficienti fino a 60 con denominatore fino a 36, esponenti fino a 12,
+// in ogni passaggio e nel risultato.
+function withinLiteralLimits(solution: LiteralSolution): boolean {
+  const values = [
+    ...solution.lines.flatMap((l) => l.steps.map((s) => s.result)),
+    solution.result,
+  ].flatMap((p) => [...p.values()])
+  return values.every(
+    (m) =>
+      m.coefficient.den <= 36n &&
+      abs(m.coefficient.num) <= 60n &&
+      [...m.letters.values()].every((n) => n <= 12n),
+  )
+}
+
+/** Le abilità i cui esercizi chiedono un polinomio. */
+export type PolynomialSkill = 'mono.normal-form'
+
+export const polynomialGenerators: Record<
+  PolynomialSkill,
+  LiteralGenerator<LiteralExpression>
+> = {
+  'mono.normal-form': {
+    version: 1,
+    // Una lettera ripetuta, così la forma normale ha qualcosa da fare, e una
+    // riga sola.
+    build: (random) =>
+      until(random, normalFormExercise, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          repeatsLetter(e) &&
+          solution.lines.length === 1 &&
+          withinLiteralLimits(solution)
+        )
+      }),
+  },
 }

@@ -2,7 +2,10 @@
 // dallo storage. Vedi SPEC.md, sezione "Motore".
 export * from './expression.ts'
 export * from './generators.ts'
+export * from './literalSolver.ts'
 export * from './misconceptions.ts'
+export * from './polynomial.ts'
+export * from './polynomialAnswer.ts'
 export { powerOfPower, raise, type PropertyRule } from './power.ts'
 export * from './rational.ts'
 export * from './solver.ts'

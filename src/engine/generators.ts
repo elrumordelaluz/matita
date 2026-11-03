@@ -10,7 +10,11 @@ import {
   type LiteralExpression,
   type Operator,
 } from './expression.ts'
-import { valueGenerator } from './literalGenerators.ts'
+import {
+  polynomialGenerators,
+  valueGenerator,
+  type PolynomialSkill,
+} from './literalGenerators.ts'
 import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import {
   basicPowers,
@@ -33,16 +37,19 @@ import type { Assignment } from './value.ts'
  * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
  * passa inosservato.
  */
-export type Exercise = NumberExercise<LiteralExpression>
+export type Exercise = NumberExercise<LiteralExpression> | PolynomialExercise
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
 
 /**
  * Il ramo che nessun tipo raggiunge: chi tratta i tipi di risposta lo mette
- * in fondo allo `switch`, e il compilatore segnala il tipo dimenticato.
+ * in fondo allo `switch`, con l'esercizio, e il compilatore segnala il tipo
+ * dimenticato. Con più tipi lo `switch` restringe l'esercizio intero, non
+ * solo il suo `kind`.
  */
-export function unknownKind(kind: never): never {
+export function unknownKind(exercise: never): never {
+  const { kind } = exercise as { readonly kind?: unknown }
   throw new Error(`Tipo di risposta sconosciuto: ${String(kind)}`)
 }
 
@@ -63,6 +70,18 @@ export interface NumberExercise<E extends LiteralExpression = Expression> {
   readonly expression: E
   /** I valori delle lettere, nell'ordine in cui la consegna li dà. */
   readonly substitution?: readonly Assignment[]
+}
+
+/**
+ * Un'espressione letterale da svolgere, di cui si chiede il risultato in
+ * forma normale: un polinomio. Vedi SPEC.md, "Calcolo letterale".
+ */
+export interface PolynomialExercise {
+  readonly kind: 'polynomial'
+  readonly skill: PolynomialSkill
+  readonly seed: number
+  readonly generatorVersion: number
+  readonly expression: LiteralExpression
 }
 
 interface Generator {
@@ -692,8 +711,10 @@ export type NumberSkill = keyof typeof generators
 /** Le abilità che chiedono il valore numerico di un'espressione letterale. */
 export type ValueSkill = 'mono.value'
 
+export type { PolynomialSkill }
+
 /** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill | ValueSkill
+export type GeneratedSkill = NumberSkill | ValueSkill | PolynomialSkill
 
 /** Le abilità dei capitoli 1-4, quelle delle espressioni di numeri. */
 export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
@@ -741,6 +762,10 @@ export function generate(
   skill: ValueSkill,
   seed: number,
 ): NumberExercise<LiteralExpression>
+export function generate(
+  skill: PolynomialSkill,
+  seed: number,
+): PolynomialExercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
   if (isNumberSkill(skill)) return generateNumber(skill, seed)
@@ -752,7 +777,14 @@ export function generate(skill: GeneratedSkill, seed: number): Exercise {
       generatorVersion: valueGenerator.version,
       ...valueGenerator.build(seededRandom(seed)),
     }
-  throw new RangeError(`Abilità senza generatore: ${String(skill)}`)
+  const generator = polynomialGenerators[skill]
+  return {
+    kind: 'polynomial',
+    skill,
+    seed,
+    generatorVersion: generator.version,
+    expression: generator.build(seededRandom(seed)),
+  }
 }
 
 function generateNumber(skill: NumberSkill, seed: number): NumberExercise {

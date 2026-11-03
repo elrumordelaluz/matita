@@ -104,4 +104,9 @@ export const skills: readonly Skill[] = [
     title: 'Il valore numerico',
     prerequisites: ['pow.basics', 'q.order'],
   },
+  {
+    id: 'mono.normal-form',
+    title: 'La forma normale di un monomio',
+    prerequisites: ['pow.properties', 'q.mul-div'],
+  },
 ]

@@ -21,6 +21,7 @@ import {
 import { cn } from '../lib/cn.ts'
 import {
   Consegna,
+  answerFormOf,
   resultText,
   solutionOf,
   stepExpression,
@@ -170,7 +171,7 @@ export function PracticePage({
   // La riga zero del passo passo, se l'esercizio ne ha uno.
   const stepStart = stepExpression(exercise)
   // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
-  const form = answerForm(answer)
+  const form = answerFormOf(exercise, answer)
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const stepAvailable = stepStart !== null

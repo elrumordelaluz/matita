@@ -1,10 +1,15 @@
 import {
+  answerForm,
   literal,
+  polynomialExpression,
+  readPolynomialAnswer,
+  solveLiteral,
   solveWithValues,
   substitute,
   toKatex,
   toText,
   unknownKind,
+  type AnswerForm,
   type Assignment,
   type Exercise,
   type Expression,
@@ -34,8 +39,13 @@ export function wordingOf(exercise: Exercise): {
         task: 'Calcola il valore dell’espressione',
         question: 'Quanto vale?',
       }
+    case 'polynomial':
+      return {
+        task: 'Svolgi e scrivi il risultato in forma normale',
+        question: 'Che cosa diventa?',
+      }
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -44,8 +54,10 @@ export function solutionOf(exercise: Exercise): ShownSolution {
     case undefined:
     case 'number':
       return solveWithValues(exercise.expression, exercise.substitution ?? [])
+    case 'polynomial':
+      return solveLiteral(exercise.expression)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -60,8 +72,12 @@ export function resultText(exercise: Exercise): string {
             .result,
         ),
       )
+    case 'polynomial':
+      return toText(
+        polynomialExpression(solveLiteral(exercise.expression).result),
+      )
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -89,8 +105,10 @@ export function consegnaText(exercise: Exercise): string {
         ? `${text}, per ${valuesText(substitution)}`
         : text
     }
+    case 'polynomial':
+      return toText(exercise.expression)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -105,8 +123,10 @@ export function stepExpression(exercise: Exercise): Expression | null {
       return exercise.skill.startsWith('n.')
         ? substitute(exercise.expression, [])
         : null
+    case 'polynomial':
+      return null
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -134,7 +154,30 @@ export function Consegna({
         />
       )
     }
+    case 'polynomial':
+      return <ExpressionFormula expression={exercise.expression} {...classes} />
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
+  }
+}
+
+/**
+ * La risposta come l'ha scritta lo studente, per l'anteprima, letta secondo
+ * il tipo di risposta; nulla quando non si legge.
+ */
+export function answerFormOf(
+  exercise: Exercise,
+  answer: string,
+): AnswerForm | null {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return answerForm(answer)
+    case 'polynomial': {
+      const reading = readPolynomialAnswer(answer)
+      return reading.ok ? reading.form : null
+    }
+    default:
+      return unknownKind(exercise)
   }
 }

@@ -652,7 +652,11 @@ riscrivere: il libro non vincola né l'uno né l'altro.
 | esponente senza `^`          | `a3`           | `non-valido`    | Scrivi l'esponente con ^.             |
 
 Un prodotto di soli numeri e lettere, `2·3a`, è un monomio non in forma
-normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi.
+normale e non un prodotto da svolgere: "Svolgi i prodotti" vale per i gruppi. Un numero
+relativo fra tonde, come in `12a²b³(−2)a³`, è un numero e non un gruppo.
+Dopo la barra il coefficiente si giudica come una frazione di Q: `6a/3` vale
+2a ma va riscritto, come `6/3`, mentre `ab²/2` ha il coefficiente 1/2 già
+ridotto.
 I motivi si mostrano nell'ordine in cui si corregge: i prodotti, poi la forma
 normale di ogni monomio, poi i simili, poi i coefficienti con le regole di Q.
 Una risposta in forma non canonica con il valore sbagliato si giudica dal

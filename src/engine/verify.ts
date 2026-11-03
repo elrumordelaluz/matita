@@ -3,8 +3,16 @@ import {
   unknownKind,
   type Exercise,
   type NumberExercise,
+  type PolynomialExercise,
 } from './generators.ts'
+import { solveLiteral } from './literalSolver.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
+import { equalPolynomials } from './polynomial.ts'
+import {
+  readPolynomialAnswer,
+  type PolynomialRewrite,
+  type PolynomialRewriteReason,
+} from './polynomialAnswer.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
 import { solveWithValues, substitute } from './value.ts'
 
@@ -12,9 +20,12 @@ import { solveWithValues, substitute } from './value.ts'
 // risposte": una risposta con il valore giusto in una forma non canonica non
 // è né giusta né sbagliata, va riscritta.
 
-/** Perché una risposta con il valore giusto va riscritta. */
-export type RewriteReason =
+/** Perché una risposta numero con il valore giusto va riscritta. */
+export type NumberRewriteReason =
   'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
+
+/** Perché una risposta con il valore giusto va riscritta. */
+export type RewriteReason = NumberRewriteReason | PolynomialRewriteReason
 
 /** La risposta come l'ha scritta lo studente, senza normalizzarla. */
 export interface AnswerForm {
@@ -44,7 +55,7 @@ type Reading =
       readonly ok: true
       readonly value: Rational
       /** Il motivo per riscriverla, se la forma non è canonica. */
-      readonly rewrite: RewriteReason | null
+      readonly rewrite: NumberRewriteReason | null
       /** La risposta come scritta, per l'anteprima. */
       readonly form: AnswerForm
     }
@@ -103,7 +114,7 @@ export function readAnswer(answer: string): Reading {
       return { ok: false, message: 'Il denominatore non può essere zero.' }
     const value = rational(signed(num, s), signed(den, denS))
     // Il primo motivo che si vede, nell'ordine in cui lo si corregge.
-    const rewrite: RewriteReason | null = denS
+    const rewrite: NumberRewriteReason | null = denS
       ? 'sign-at-denominator'
       : num % den === 0n
         ? 'integer-as-fraction'
@@ -150,7 +161,7 @@ export function answerForm(answer: string): AnswerForm | null {
   return reading.ok ? reading.form : null
 }
 
-function rewriteMessage(reason: RewriteReason, value: Rational): string {
+function rewriteMessage(reason: NumberRewriteReason, value: Rational): string {
   switch (reason) {
     case 'sign-at-denominator':
       return 'Il segno va davanti alla frazione.'
@@ -172,8 +183,10 @@ export function verify(answer: string, exercise: Exercise): Outcome {
     case undefined:
     case 'number':
       return verifyNumber(answer, exercise)
+    case 'polynomial':
+      return verifyPolynomial(answer, exercise)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -204,4 +217,42 @@ function verifyNumber(
       explanation: misconception.explanation,
     }
   return { kind: 'wrong' }
+}
+
+function polynomialMessage(rewrite: PolynomialRewrite): string {
+  switch (rewrite.reason) {
+    case 'products':
+      return 'Svolgi i prodotti.'
+    case 'normal-form':
+      return 'Scrivi ogni monomio in forma normale.'
+    case 'coefficient-one':
+      return 'Il coefficiente 1 non si scrive.'
+    case 'exponent-one':
+      return 'L’esponente 1 non si scrive.'
+    case 'exponent-zero':
+      return `${rewrite.letter ?? 'a'}⁰ vale 1.`
+    case 'like-terms':
+      return 'Somma i monomi simili.'
+    default:
+      // Il coefficiente si riscrive con le regole di Q.
+      return rewriteMessage(rewrite.reason, rewrite.coefficient ?? rational(1n))
+  }
+}
+
+// La risposta polinomio: il valore è la forma normale, confrontata con il
+// risultato della soluzione. Vedi SPEC.md, "Calcolo letterale", "Risposte".
+function verifyPolynomial(
+  answer: string,
+  exercise: PolynomialExercise,
+): Outcome {
+  const reading = readPolynomialAnswer(answer)
+  if (!reading.ok) return { kind: 'invalid', message: reading.message }
+  const { result } = solveLiteral(exercise.expression)
+  if (!equalPolynomials(reading.value, result)) return { kind: 'wrong' }
+  if (reading.rewrite === null) return { kind: 'correct' }
+  return {
+    kind: 'rewrite',
+    reason: reading.rewrite.reason,
+    message: polynomialMessage(reading.rewrite),
+  }
 }

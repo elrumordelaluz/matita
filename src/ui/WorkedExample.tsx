@@ -39,6 +39,8 @@ const ruleNote: Record<Rule, string> = {
   'minus-power': 'prima la potenza, il meno resta fuori',
   power: 'prima le potenze',
   substitution: 'al posto della lettera, il suo valore',
+  'normal-form': 'forma normale: un solo coefficiente, lettere diverse',
+  'monomial-product': 'coefficienti per coefficienti, esponenti sommati',
   'same-base-product': 'stessa base: si sommano gli esponenti',
   'same-base-quotient': 'stessa base: si sottraggono gli esponenti',
   'power-of-power': 'potenza di potenza: si moltiplicano gli esponenti',
@@ -56,9 +58,10 @@ export function WorkedExample({ exercise }: { exercise: Exercise }) {
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'polynomial':
       return <NotebookExample exercise={exercise} />
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 

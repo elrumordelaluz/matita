@@ -56,6 +56,29 @@ test('la domanda sul valore riconosce il negativo senza tonde', () => {
   expect(answer('−5a³ − 3a², per a = −2', '28')).toHaveTextContent('Esatto!')
 })
 
+test('la forma normale è un passaggio solo, con la sua regola', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: 5a²b · 5b²a³',
+  })
+  expect(lines(example)).toEqual(['25a⁵b³'])
+  fireEvent.click(within(example).getByRole('button', { name: 'Apri tutto' }))
+  expect(within(example).getByText('5a²b · 5b²a³ = 25a⁵b³')).toBeInTheDocument()
+  expect(
+    within(example).getByText(
+      'coefficienti per coefficienti, esponenti sommati',
+    ),
+  ).toBeInTheDocument()
+})
+
+test('la domanda sulla forma normale chiede di riscrivere le lettere ripetute', () => {
+  lesson()
+  expect(answer('6c⁴ca³', '6c^4ca^3')).toHaveTextContent(
+    'Scrivi ogni monomio in forma normale.',
+  )
+  expect(answer('6c⁴ca³', '6c^5a^3')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

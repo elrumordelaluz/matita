@@ -17,6 +17,7 @@ import {
   raise,
   type PropertyRule,
 } from './power.ts'
+import type { Polynomial } from './polynomial.ts'
 import { add, div, mul, rational, sub, type Rational } from './rational.ts'
 
 // Il risolutore produce la soluzione come sul quaderno: una riga per livello,
@@ -38,18 +39,26 @@ export type Rule =
   | 'power'
   /** La lettera prende il suo valore: a = −2. Non fa un conto. */
   | 'substitution'
+  /** Un monomio scritto diventa la sua forma normale: 6a³ab = 6a⁴b. */
+  | 'normal-form'
+  /** Il prodotto di due monomi: 2a² · 3a³ = 6a⁵. */
+  | 'monomial-product'
   | PropertyRule
+
+/** Il valore di un operando: un numero, o nel calcolo letterale un polinomio. */
+export type Value = Rational | Polynomial
 
 /**
  * Un passaggio: un'operazione con i suoi operandi e il suo risultato, dentro
  * una riga. Nei capitoli dei numeri è un conto fra due numeri (vedi
- * `NumberStep`); nel calcolo letterale può avere un operando solo o tanti.
+ * `NumberStep`); nel calcolo letterale gli operandi sono monomi e polinomi,
+ * e possono essere uno solo o tanti.
  */
-export interface Step {
+export interface Step<V extends Value = Value> {
   readonly rule: Rule
   /** I valori su cui lavora il passaggio, nell'ordine in cui sono scritti. */
-  readonly operands: readonly Rational[]
-  readonly result: Rational
+  readonly operands: readonly V[]
+  readonly result: V
   /** Il pezzo svolto, com'era scritto: 3 × (−4), −(−4), 2³, 2⁵ × 2³. */
   readonly operation: LiteralExpression
   /** Quello che il pezzo è diventato: un numero, o una potenza se si applica una proprietà. */
@@ -61,7 +70,7 @@ export interface Step {
 }
 
 /** Un conto fra due numeri, il passaggio dei capitoli 1-4. */
-export interface NumberStep extends Step {
+export interface NumberStep extends Step<Rational> {
   /**
    * I due operandi e l'operazione. Nel cambio di segno −x si legge 0 − x:
    * `left` è 0 e `op` è −; così anche −3², con `right` il valore della

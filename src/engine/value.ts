@@ -27,7 +27,7 @@ export interface Assignment {
 
 /** La soluzione di un esercizio sul valore numerico: il risultato è un numero. */
 export interface ValueSolution {
-  readonly lines: readonly Line[]
+  readonly lines: readonly Line<Step<Rational>>[]
   readonly result: Rational
 }
 
@@ -165,7 +165,7 @@ export function solveWithValues(
   e: LiteralExpression,
   substitution: readonly Assignment[],
 ): ValueSolution {
-  const steps: Step[] = []
+  const steps: Step<Rational>[] = []
   let current = e
   for (const { letter, value } of substitution) {
     if (!hasLetter(current, letter)) continue

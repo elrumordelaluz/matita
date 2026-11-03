@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { hasLetters, type LiteralExpression } from './expression.ts'
-import { generate } from './generators.ts'
+import {
+  hasLetters,
+  type LiteralExpression,
+  type MonomialNode,
+} from './expression.ts'
+import { generate, type PolynomialSkill } from './generators.ts'
+import { solveLiteral } from './literalSolver.ts'
 import { isVisible } from './misconceptions.ts'
 import { solveWithValues, substitute } from './value.ts'
 
@@ -62,5 +67,70 @@ describe('mono.value', () => {
       expect(result.den).toBeLessThanOrEqual(12n)
       expect(magnitude(result.num)).toBeLessThanOrEqual(60n)
     }
+  })
+})
+
+// I monomi di un'espressione, per controllare coefficienti ed esponenti scritti.
+function monomials(e: LiteralExpression): MonomialNode[] {
+  if (e.kind === 'monomial') return [e]
+  if (e.kind === 'number') return []
+  if (e.kind === 'group') return monomials(e.inner)
+  return [...monomials(e.left), ...monomials(e.right)]
+}
+
+function expectLiteralLimits(skill: PolynomialSkill) {
+  for (const seed of seeds) {
+    const { expression } = generate(skill, seed)
+    expect(letters(expression).size, `seme ${seed}`).toBeLessThanOrEqual(3)
+    for (const m of monomials(expression)) {
+      expect(m.coefficient.den).toBeLessThanOrEqual(12n)
+      for (const l of m.letters) expect(l.exponent).toBeLessThanOrEqual(5n)
+    }
+    const { lines, result } = solveLiteral(expression)
+    const values = [
+      ...lines.flatMap((l) => l.steps.map((s) => s.result)),
+      result,
+    ].flatMap((p) => [...p.values()])
+    for (const m of values) {
+      expect(m.coefficient.den, `seme ${seed}`).toBeLessThanOrEqual(36n)
+      expect(magnitude(m.coefficient.num), `seme ${seed}`).toBeLessThanOrEqual(
+        60n,
+      )
+      for (const n of m.letters.values()) expect(n).toBeLessThanOrEqual(12n)
+    }
+  }
+}
+
+describe('mono.normal-form', () => {
+  test('stesso seme, stesso esercizio, con la risposta polinomio', () => {
+    expect(generate('mono.normal-form', 42)).toEqual(
+      generate('mono.normal-form', 42),
+    )
+    expect(generate('mono.normal-form', 42).kind).toBe('polynomial')
+  })
+
+  test('il monomio resta com’è scritto, e non è già in forma normale', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('mono.normal-form', seed)
+      const { lines } = solveLiteral(expression)
+      expect(lines, `seme ${seed}`).toHaveLength(1)
+      // Il risultato è un monomio solo.
+      expect(solveLiteral(expression).result.size).toBe(1)
+    }
+  })
+
+  test('a volte una lettera ripetuta in un monomio, a volte un prodotto', () => {
+    const rules = new Set(
+      seeds.flatMap((seed) =>
+        solveLiteral(
+          generate('mono.normal-form', seed).expression,
+        ).lines.flatMap((l) => l.steps.map((s) => s.rule)),
+      ),
+    )
+    expect(rules).toEqual(new Set(['normal-form', 'monomial-product']))
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('mono.normal-form')
   })
 })

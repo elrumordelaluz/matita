@@ -57,9 +57,10 @@ function consegnaOf(exercise: Exercise): LiteralExpression {
   switch (exercise.kind) {
     case undefined:
     case 'number':
+    case 'polynomial':
       return exercise.expression
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
