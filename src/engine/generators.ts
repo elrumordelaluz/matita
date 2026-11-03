@@ -755,7 +755,8 @@ export function generate(skill: GeneratedSkill, seed: number): Exercise {
   if (isSetSkill(skill)) return generateSet(skill, seed)
   if (skill === 'set.relations') return generateRelations(seed)
   if (skill === 'set.parts-product') return generateCount(seed)
-  if (skill === 'set.venn2') return generateVenn(skill, seed)
+  if (skill === 'set.venn2' || skill === 'set.venn3')
+    return generateVenn(skill, seed)
   return generateNumber(skill, seed)
 }
 

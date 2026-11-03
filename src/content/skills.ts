@@ -124,4 +124,9 @@ export const skills: readonly Skill[] = [
     title: 'Problemi con due insiemi',
     prerequisites: ['set.operations', 'n.parens'],
   },
+  {
+    id: 'set.venn3',
+    title: 'Problemi con tre insiemi',
+    prerequisites: ['set.venn2'],
+  },
 ]

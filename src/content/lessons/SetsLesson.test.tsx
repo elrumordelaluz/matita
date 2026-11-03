@@ -174,6 +174,50 @@ test('“almeno uno” al posto di “nessuno” è un errore tipico', () => {
   expect(check('5')).toHaveTextContent('Esatto!')
 })
 
+test('la lezione si chiude con i problemi a tre insiemi', () => {
+  lesson()
+  const headings = screen.getAllByRole('heading', { level: 3 })
+  expect(headings.at(-1)).toHaveTextContent('Problemi con tre insiemi')
+})
+
+test('un problema a tre insiemi dice quando una riga va all’indietro', () => {
+  lesson()
+  const name =
+    'Una compagnia teatrale ha 30 componenti, e ognuno balla, canta o recita: 15 hanno almeno cantato, 20 hanno almeno recitato, 8 hanno almeno ballato e cantato, 3 hanno solo ballato e cantato, 5 hanno solo ballato e recitato, 4 hanno solo ballato e 10 hanno ballato o cantato ma non recitato. Quanti hanno solo recitato?'
+  expect(rows(name)).toEqual([
+    'tutti e tre = 8 − 3 = 5',
+    'solo canto = 10 − (4 + 3) = 10 − 7 = 3',
+    'solo canto e recitazione = 15 − (3 + 3 + 5) = 15 − 11 = 4',
+    'solo recitazione = 20 − (5 + 4 + 5) = 20 − 14 = 6',
+  ])
+  const example = screen.getByRole('figure', { name: `Esempio: ${name}` })
+  expect(
+    within(example).getByText(
+      'all’indietro, dal dato «ballo o canto ma non recitazione»',
+    ),
+  ).toBeInTheDocument()
+  const diagram = within(example).getByRole('group', {
+    name: 'Diagramma di Eulero-Venn',
+  })
+  for (const region of [
+    'tutti e tre: 5',
+    'solo canto: 3',
+    'solo recitazione: 6',
+  ])
+    expect(
+      within(diagram).getByRole('img', { name: region }),
+    ).toBeInTheDocument()
+})
+
+test('il centro non riaggiunto è un errore tipico', () => {
+  lesson()
+  const check = question(
+    'In una scuola di danza ognuno segue almeno un corso fra Salsa, Hip Hop e Break: 19 seguono almeno Salsa, 23 seguono almeno Break, 11 seguono almeno Salsa e Break, 6 seguono solo Salsa, 4 seguono solo Hip Hop, 10 seguono solo Break e 22 seguono Salsa o Break ma non Hip Hop. Quanti sono gli iscritti?',
+  )
+  expect(check('30')).toHaveTextContent('Il centro del diagramma')
+  expect(check('35')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica dell’elencazione', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

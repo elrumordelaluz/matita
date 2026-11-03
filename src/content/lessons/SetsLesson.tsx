@@ -152,6 +152,30 @@ const parts: readonly LessonPart[] = [
     example: generate('set.venn2', 1), // 50 studenti, 9 nessuna lingua
     question: generate('set.venn2', 5), // quanti nessuna lingua?
   },
+  {
+    id: 'lezione-venn-tre',
+    title: 'Problemi con tre insiemi',
+    note: 'dal centro verso l’esterno',
+    text: (
+      <>
+        <p>
+          Con tre insiemi il diagramma ha otto regioni. Si riempie dal centro,
+          chi sta in tutti e tre, poi le tre regioni di chi sta in solo due
+          insiemi, poi quelle di chi sta in uno solo, infine l’esterno. Ogni
+          regione nasce da un dato meno le regioni già scritte: chi sta in
+          almeno A e B, meno il centro, sta in solo A e B.
+        </p>
+        <p>
+          A volte un dato fa trovare una regione all’indietro: da “Salsa o Break
+          ma non Hip Hop”, se solo Salsa e solo Salsa e Break sono già scritte,
+          resta solo Break. Chi usa la formula ricordi che il centro, tolto con
+          ogni coppia, va riaggiunto alla fine.
+        </p>
+      </>
+    ),
+    example: generate('set.venn3', 1), // una riga all'indietro
+    question: generate('set.venn3', 8), // quanti sono gli iscritti?
+  },
 ]
 
 export function SetsLesson({ onPractise }: LessonProps) {

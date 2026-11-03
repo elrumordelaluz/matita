@@ -445,6 +445,10 @@ parole "solo", "almeno", "entrambi", "nessuno" vengono dai modelli, mai
 composte dal generatore. I modelli fanno parte del generatore: cambiarne uno
 cambia cosa produce un seme, e alza la versione.
 
+Con tre insiemi ognuno sta in almeno un insieme, come nei problemi di C3
+(5.78, 5.81): l'apertura del testo dà l'unione, quando la domanda non la
+chiede, e la regione esterna resta vuota.
+
 Prima di rispondere lo studente vede solo il testo: disegnare il diagramma è
 parte del lavoro. La domanda può chiedere una regione ("solo calcio",
 "nessuno") o una quantità che ne somma più d'una ("almeno uno", "una sola

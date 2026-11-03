@@ -122,15 +122,91 @@ const workshops: Setting = {
   },
 }
 
+// Con tre insiemi l'apertura dice che ognuno sta in almeno un insieme, con
+// il numero di chi c'è quando il testo lo dà: è l'unione, e fuori non resta
+// nessuno.
+
+const courses = ['Salsa', 'Hip Hop', 'Break']
+
+const dance: Setting = {
+  words: courses,
+  opening: (u) =>
+    u === null
+      ? 'In una scuola di danza ognuno segue almeno un corso fra Salsa, Hip Hop e Break:'
+      : `Una scuola di danza ha ${u} iscritti, ognuno a uno o più corsi fra Salsa, Hip Hop e Break:`,
+  sentence(role, n) {
+    const w = (i: number) => courses[i] ?? ''
+    if (role.kind === 'at-least')
+      return `${n} seguono almeno ${role.sets.map(w).join(' e ')}`
+    if (role.kind === 'region' && role.inside.length === 3)
+      return `${n} seguono tutti e tre i corsi`
+    if (role.kind === 'region' && role.inside.length > 0)
+      return `${n} seguono solo ${role.inside.map(w).join(' e ')}`
+    if (role.kind === 'either-but-not')
+      return `${n} seguono ${role.sets.map(w).join(' o ')} ma non ${w(role.not)}`
+    return null
+  },
+  question(role) {
+    const w = (i: number) => courses[i] ?? ''
+    if (role.kind === 'region' && role.inside.length === 3)
+      return 'Quanti seguono tutti e tre i corsi?'
+    if (role.kind === 'region' && role.inside.length > 0)
+      return `Quanti seguono solo ${role.inside.map(w).join(' e ')}?`
+    if (role.kind === 'union') return 'Quanti sono gli iscritti?'
+    if (role.kind === 'exactly-one') return 'Quanti seguono un solo corso?'
+    return null
+  },
+}
+
+// C3 5.81 scrive "hanno almeno ballato": il testo usa i verbi, le righe i
+// nomi, "solo ballo e canto".
+const done = ['ballato', 'cantato', 'recitato']
+
+const company: Setting = {
+  words: ['ballo', 'canto', 'recitazione'],
+  opening: (u) =>
+    u === null
+      ? 'In una compagnia teatrale ognuno balla, canta o recita:'
+      : `Una compagnia teatrale ha ${u} componenti, e ognuno balla, canta o recita:`,
+  sentence(role, n) {
+    const w = (i: number) => done[i] ?? ''
+    if (role.kind === 'at-least')
+      return `${n} hanno almeno ${role.sets.map(w).join(' e ')}`
+    if (role.kind === 'region' && role.inside.length === 3)
+      return `${n} hanno fatto tutte e tre le cose`
+    if (role.kind === 'region' && role.inside.length > 0)
+      return `${n} hanno solo ${role.inside.map(w).join(' e ')}`
+    if (role.kind === 'either-but-not')
+      return `${n} hanno ${role.sets.map(w).join(' o ')} ma non ${w(role.not)}`
+    return null
+  },
+  question(role) {
+    const w = (i: number) => done[i] ?? ''
+    if (role.kind === 'region' && role.inside.length === 3)
+      return 'Quanti hanno fatto tutte e tre le cose?'
+    if (role.kind === 'region' && role.inside.length > 0)
+      return `Quanti hanno solo ${role.inside.map(w).join(' e ')}?`
+    if (role.kind === 'union')
+      return 'Quanti sono i componenti della compagnia?'
+    if (role.kind === 'exactly-one') return 'Quanti hanno fatto una cosa sola?'
+    return null
+  },
+}
+
 /** Le ambientazioni, per id: l'id finisce nel problema. */
 export const settings: Readonly<Record<string, Setting>> = {
   languages,
   sports,
   workshops,
+  dance,
+  company,
 }
 
 /** Le ambientazioni con due insiemi. */
 export const twoSetSettings = ['languages', 'sports', 'workshops'] as const
+
+/** Le ambientazioni con tre insiemi. */
+export const threeSetSettings = ['dance', 'company'] as const
 
 export function settingOf(id: string): Setting {
   const setting = settings[id]

@@ -2,7 +2,12 @@ import { binary, group, num, type Expression } from './expression.ts'
 import { seededRandom, type Random } from './random.ts'
 import type { SetMisconceptionId } from './setMisconceptions.ts'
 import { solve, type Solution } from './solver.ts'
-import { settingOf, twoSetSettings, type Role } from './vennSettings.ts'
+import {
+  settingOf,
+  threeSetSettings,
+  twoSetSettings,
+  type Role,
+} from './vennSettings.ts'
 
 // I problemi con i diagrammi di Eulero-Venn. Vedi SPEC.md, "Insiemi",
 // "Problemi". Nel motore un problema è il vettore delle regioni del
@@ -32,7 +37,7 @@ export interface VennProblem {
 /** Un esercizio che è un problema: un testo, e un numero come risposta. */
 export interface ProblemExercise {
   readonly kind: 'problem'
-  readonly skill: 'set.venn2'
+  readonly skill: 'set.venn2' | 'set.venn3'
   readonly seed: number
   readonly generatorVersion: number
   readonly problem: VennProblem
@@ -522,10 +527,18 @@ export function acceptsVenn(problem: VennProblem): boolean {
   const total = problem.regions.reduce((a, b) => a + b, 0n)
   if (total > 60n || problem.regions.some((r) => r > 30n)) return false
   const path = shortestPath(problem)
-  if (!path || path.length < 2) return false
-  const named = quantities(setCount(problem))
+  const k = setCount(problem)
+  if (!path || path.length < k) return false
+  const opening = openingOf(k)
   const used = new Set(solveVenn(problem).flatMap((r) => r.uses))
-  return problem.data.every((q) => q === named.total || used.has(q))
+  return problem.data.every((q) => q === opening || used.has(q))
+}
+
+// Quello che l'apertura del testo dice con un numero: con due insiemi il
+// totale, con tre l'unione, perché ognuno sta in almeno un insieme.
+function openingOf(k: 2 | 3): Quantity {
+  const named = quantities(k)
+  return k === 2 ? named.total : named.union
 }
 
 /** Il ruolo di una quantità nel testo, per scegliere il suo modello di frase. */
@@ -563,11 +576,11 @@ function listed(items: readonly string[]): string {
 export function problemText(problem: VennProblem): string | null {
   const k = setCount(problem)
   const setting = settingOf(problem.setting)
-  const named = quantities(k)
-  const total = problem.data.includes(named.total)
+  const opening = openingOf(k)
+  const stated = problem.data.includes(opening)
   const sentences: string[] = []
   for (const q of problem.data) {
-    if (q === named.total) continue
+    if (q === opening) continue
     const role = roleOf(q, k)
     const sentence = role && setting.sentence(role, valueOf(problem, q))
     if (!sentence) return null
@@ -576,11 +589,72 @@ export function problemText(problem: VennProblem): string | null {
   const role = roleOf(problem.asked, k)
   const question = role && setting.question(role)
   if (!question) return null
-  const opening = setting.opening(total ? valueOf(problem, named.total) : null)
-  return `${opening} ${listed(sentences)}. ${question}`
+  const start = setting.opening(stated ? valueOf(problem, opening) : null)
+  return `${start} ${listed(sentences)}. ${question}`
 }
 
-export const vennVersions = { 'set.venn2': 1 } as const
+export const vennVersions = { 'set.venn2': 1, 'set.venn3': 1 } as const
+
+// La costruzione di un problema con tre insiemi: ognuno sta in almeno un
+// insieme, quindi l'esterno è vuoto e non si chiede. Le regioni sono piccole,
+// il centro più piccolo di tutte, e almeno 2, perché "1 hanno" non si dice. I
+// dati sono da quattro a sei fra "almeno A", "almeno A e B" e le regioni, più
+// un "A o B ma non C" una volta su tre, e l'unione quando la domanda non la
+// chiede.
+export function buildVenn3(random: Random, setting: string): VennProblem {
+  const named = quantities(3)
+  const regions = [
+    0n,
+    random.int(2n, 12n),
+    random.int(2n, 12n),
+    random.int(2n, 8n),
+    random.int(2n, 12n),
+    random.int(2n, 8n),
+    random.int(2n, 8n),
+    random.int(2n, 5n),
+  ]
+  const asked = random.pick([
+    named.region(1),
+    named.region(2),
+    named.region(4),
+    named.region(3),
+    named.region(5),
+    named.region(6),
+    named.union,
+    named.exactlyOne,
+  ])
+  const pairs: [number, number][] = [
+    [0, 1],
+    [0, 2],
+    [1, 2],
+  ]
+  const pool = [
+    named.region(7),
+    ...[0, 1, 2].map((i) => named.atLeast(i)),
+    ...pairs.map(([i, j]) => named.atLeastBoth(i, j)),
+    ...[3, 5, 6, 1, 2, 4].map((r) => named.region(r)),
+  ].filter((q) => q !== asked)
+  const count = Number(random.int(4n, 6n))
+  const chosen: Quantity[] = []
+  while (chosen.length < count) {
+    const q = random.pick(pool)
+    if (!chosen.includes(q)) chosen.push(q)
+  }
+  const [i, j, not] = random.pick([
+    [0, 1, 2],
+    [0, 2, 1],
+    [1, 2, 0],
+  ] as const)
+  const backwards = random.pick([true, false, false])
+    ? [named.eitherButNot(i, j, not)]
+    : []
+  const data = [
+    ...(asked === named.union ? [] : [named.union]),
+    ...pool.filter((q) => chosen.includes(q)),
+    ...backwards,
+  ]
+  return { setting, regions, data, asked }
+}
 
 /** Un problema dal seme: lo stesso seme scarta sempre gli stessi. */
 export function generateVenn(
@@ -589,13 +663,16 @@ export function generateVenn(
 ): ProblemExercise {
   const random = seededRandom(seed)
   for (let i = 0; i < 1000; i++) {
-    const problem = buildVenn2(random, random.pick(twoSetSettings))
+    const problem =
+      skill === 'set.venn2'
+        ? buildVenn2(random, random.pick(twoSetSettings))
+        : buildVenn3(random, random.pick(threeSetSettings))
     if (acceptsVenn(problem))
       return {
         kind: 'problem',
         skill,
         seed,
-        generatorVersion: vennVersions['set.venn2'],
+        generatorVersion: vennVersions[skill],
         problem,
       }
   }
