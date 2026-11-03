@@ -45,8 +45,10 @@ export function TappableLine({
     <span
       onClick={tap}
       // Il segno è piccolo per un dito: l'area da toccare gli sta intorno,
-      // senza arrivare sulle cifre accanto.
-      className="[&_[data-path]]:relative [&_[data-path]]:cursor-pointer [&_[data-path]]:transition-colors [&_[data-path]]:after:absolute [&_[data-path]]:after:-inset-x-1 [&_[data-path]]:after:-inset-y-2 [&_[data-path]]:after:content-[''] [&_[data-path]]:hover:text-pencil-ink"
+      // senza arrivare sulle cifre accanto. Sotto il puntatore il segno
+      // prende una pastiglia gialla tenue, senza il bordo del conto scelto;
+      // l'anello la allarga senza spostare la riga.
+      className="[&_[data-path]]:relative [&_[data-path]]:cursor-pointer [&_[data-path]]:rounded-sm [&_[data-path]]:transition [&_[data-path]]:after:absolute [&_[data-path]]:after:-inset-x-1 [&_[data-path]]:after:-inset-y-2 [&_[data-path]]:after:content-[''] [&_[data-path]]:hover:bg-pencil-soft [&_[data-path]]:hover:text-pencil-ink [&_[data-path]]:hover:ring-2 [&_[data-path]]:hover:ring-pencil-soft"
     >
       <Formula
         marked
