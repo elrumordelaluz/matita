@@ -4,9 +4,11 @@ import { skills } from '../../content/skills.ts'
 import { attempt } from '../../progress/fixtures.ts'
 import { skillStates } from '../../progress/skillState.ts'
 import {
+  missingPrerequisitesText,
   chapterStatus,
   practiceSkill,
   summarize,
+  waitingChaptersText,
   workingChapter,
 } from './chapterProgress.ts'
 
@@ -77,4 +79,42 @@ test('senza progressi letti, o senza nulla in apprendimento, la prima abilità c
   expect(practiceSkill(graph, null, [])).toBe('n.add-sub')
   const states = skillStates(graph, [], known(graph.map((s) => s.id)))
   expect(practiceSkill(graph, states, [])).toBe('n.add-sub')
+})
+
+// Vedi SPEC.md, "Pagina iniziale": una scheda bloccata dice da quali capitoli
+// dipende ciò che manca.
+
+test('un capitolo bloccato aspetta i capitoli dei suoi prerequisiti diretti', () => {
+  const states = skillStates(skills, [])
+  expect(waitingChaptersText(chapterById('poly'), states)).toBe(
+    'Prima: capitolo 6, Monomi',
+  )
+  expect(waitingChaptersText(chapterById('mono'), states)).toBe(
+    'Prima: capitolo 2, Espressioni in Z; capitolo 3, Espressioni in Q; capitolo 4, Potenze',
+  )
+})
+
+test('un capitolo smette di aspettare quelli già acquisiti', () => {
+  const marks = known([...idsOf('n'), ...idsOf('z')])
+  const states = skillStates(skills, [], marks)
+  expect(waitingChaptersText(chapterById('mono'), states)).toBe(
+    'Prima: capitolo 3, Espressioni in Q; capitolo 4, Potenze',
+  )
+  expect(waitingChaptersText(chapterById('n'), states)).toBe('')
+})
+
+test('un’abilità bloccata nomina i prerequisiti che mancano, con il capitolo se è un altro', () => {
+  const states = skillStates(skills, [])
+  const skill = (id: string) => {
+    const found = skills.find((s) => s.id === id)
+    if (!found) throw new Error(id)
+    return found
+  }
+  expect(missingPrerequisitesText(skill('n.order'), states)).toBe(
+    'Prima: Addizioni e sottrazioni, Moltiplicazioni e divisioni',
+  )
+  expect(missingPrerequisitesText(skill('mono.value'), states)).toBe(
+    'Prima: La potenza (cap. 4), Le quattro operazioni con le frazioni (cap. 3)',
+  )
+  expect(missingPrerequisitesText(skill('n.add-sub'), states)).toBe('')
 })

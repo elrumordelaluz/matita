@@ -179,6 +179,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
                 onStart={(items) => setHeld({ items, resume: null })}
                 onOpenLesson={openLesson}
                 onOpenProgress={openProgress}
+                onPractise={practise}
                 onChange={refresh}
               />
             ))}

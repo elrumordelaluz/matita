@@ -1,4 +1,4 @@
-import { chapters, type Chapter } from '../../content/chapters.ts'
+import { chapterOf, chapters, type Chapter } from '../../content/chapters.ts'
 import type { Skill } from '../../content/skills.ts'
 import type { GeneratedSkill } from '../../engine/index.ts'
 import type { Attempt } from '../../progress/attempt.ts'
@@ -60,6 +60,45 @@ export function workingChapter(states: Record<string, SkillState>): Chapter {
     chapters.at(-1) ??
     first
   )
+}
+
+const missing = (skill: Skill, states: Record<string, SkillState>) =>
+  skill.prerequisites.filter((p) => states[p] !== 'mastered')
+
+/**
+ * "Prima: La potenza (cap. 4), …": i prerequisiti diretti dell'abilità non
+ * ancora acquisiti; quelli di un altro capitolo portano il suo numero. Vuoto
+ * quando non manca niente.
+ */
+export function missingPrerequisitesText(
+  skill: Skill,
+  states: Record<string, SkillState>,
+): string {
+  const home = chapterOf(skill.id)
+  const titleOf = (id: string) => {
+    const owner = chapterOf(id)
+    const title = owner?.skills.find((s) => s.id === id)?.title ?? id
+    return owner && owner !== home ? `${title} (cap. ${owner.number})` : title
+  }
+  const titles = missing(skill, states).map(titleOf)
+  return titles.length ? `Prima: ${titles.join(', ')}` : ''
+}
+
+/**
+ * "Prima: capitolo 6, Monomi": i capitoli dei prerequisiti diretti non
+ * acquisiti che stanno fuori dal capitolo, in ordine di percorso. Vuoto
+ * quando il capitolo non aspetta nessuno.
+ */
+export function waitingChaptersText(
+  chapter: Chapter,
+  states: Record<string, SkillState>,
+): string {
+  const owners = new Set(
+    chapter.skills.flatMap((s) => missing(s, states)).map(chapterOf),
+  )
+  const waiting = chapters.filter((c) => c !== chapter && owners.has(c))
+  if (waiting.length === 0) return ''
+  return `Prima: ${waiting.map((c) => `capitolo ${c.number}, ${c.title}`).join('; ')}`
 }
 
 /**

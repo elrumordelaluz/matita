@@ -7,12 +7,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useId, useMemo, useState, type ChangeEvent } from 'react'
-import {
-  chapterById,
-  chapterOf,
-  chapters,
-  type ChapterId,
-} from '../content/chapters.ts'
+import { chapterById, chapters, type ChapterId } from '../content/chapters.ts'
 import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
@@ -26,6 +21,7 @@ import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
 import { ExercisePrompt } from './exerciseView.tsx'
 import {
+  missingPrerequisitesText,
   chapterStatus,
   summarize,
   workingChapter,
@@ -34,18 +30,14 @@ import {
   attemptStats,
   currentStreaks,
   masteryStreak,
+  stateLabel,
+  stateTag,
 } from './home/skillProgress.ts'
 import { Button, Eyebrow, Note, Panel, Ring, Sheet } from './kit.tsx'
 import { useProgress } from './useProgress.ts'
 
 // "I miei progressi": la mappa delle abilità di un capitolo alla volta, con
 // la fila dei capitoli sopra, qualche conto sui tentativi e il backup.
-
-const stateLabel: Record<SkillState, string> = {
-  locked: 'bloccata',
-  learning: 'in apprendimento',
-  mastered: 'acquisita',
-}
 
 // L'esito di un tentativo, con i nomi del glossario.
 const outcomeLabel: Record<AttemptOutcome, string> = {
@@ -59,12 +51,6 @@ const stateCard: Record<SkillState, string> = {
   locked: 'border-dashed border-dim/30 bg-panel/70 shadow-none',
   learning: 'border-pencil ring-4 ring-pencil-soft',
   mastered: 'border-ok/30',
-}
-
-const stateTag: Record<SkillState, string> = {
-  locked: 'bg-paper text-dim',
-  learning: 'bg-pencil-soft text-pencil-ink',
-  mastered: 'bg-ok-soft text-ok',
 }
 
 // Il tratto che entra in un nodo: pieno se il nodo è aperto, tratteggiato se
@@ -204,14 +190,6 @@ export function ProgressPage({
       ? summarize(chapter, progress.states, stored.known)
       : undefined
   const now = new Date()
-  // Un prerequisito di un altro capitolo porta il numero del suo capitolo.
-  const titleOf = (sid: string) => {
-    const title = skills.find((s) => s.id === sid)?.title ?? sid
-    const other = chapterOf(sid)
-    return other && other.id !== chapter?.id
-      ? `${title} (cap. ${other.number})`
-      : title
-  }
 
   return (
     <section aria-labelledby={`${id}-title`} className="space-y-6">
@@ -367,12 +345,7 @@ export function ProgressPage({
                             {state === 'learning' &&
                               `${streak}/${masteryStreak} corretti di fila`}
                             {state === 'locked' &&
-                              `Prima: ${skill.prerequisites
-                                .filter(
-                                  (p) => progress.states[p] !== 'mastered',
-                                )
-                                .map(titleOf)
-                                .join(', ')}`}
+                              missingPrerequisitesText(skill, progress.states)}
                           </span>
                           {history.length > 0 && (
                             <div className="w-full space-y-1.5 border-t border-hair/60 pt-2">
@@ -422,18 +395,22 @@ export function ProgressPage({
                               </ul>
                             </div>
                           )}
-                          {state === 'learning' &&
+                          {state !== 'mastered' &&
                             onPractise &&
                             canPractise(skill.id) && (
                               <Button
-                                variant="pencil"
+                                variant={
+                                  state === 'learning' ? 'pencil' : 'ghost'
+                                }
                                 onClick={() =>
                                   onPractise(skill.id as GeneratedSkill)
                                 }
                                 aria-describedby={titleId}
                                 className="mt-auto px-3 py-1.5 text-sm"
                               >
-                                Allena
+                                {state === 'learning'
+                                  ? 'Allena'
+                                  : 'Allena lo stesso'}
                               </Button>
                             )}
                         </div>

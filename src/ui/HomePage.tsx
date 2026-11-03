@@ -1,8 +1,15 @@
-import { ArrowRight, BookOpen, Lock, Map as MapIcon } from 'lucide-react'
-import { useId, useMemo } from 'react'
+import {
+  ArrowRight,
+  BookOpen,
+  ChevronDown,
+  Lock,
+  Map as MapIcon,
+} from 'lucide-react'
+import { useId, useMemo, useState } from 'react'
 import { chapters, type Chapter, type ChapterId } from '../content/chapters.ts'
 import { lessons } from '../content/lessons/index.ts'
 import type { Skill } from '../content/skills.ts'
+import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import type { Known } from '../progress/known.ts'
 import { dueReviews } from '../progress/review.ts'
@@ -11,19 +18,29 @@ import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { canPractise } from './exercises.ts'
 import {
+  missingPrerequisitesText,
   markChapterKnown,
   summarize,
   unmarkChapterKnown,
+  waitingChaptersText,
   workingChapter,
   type ChapterStatus,
 } from './home/chapterProgress.ts'
-import { groupSession, reasonLabel, type Reason } from './home/skillProgress.ts'
+import {
+  groupSession,
+  reasonLabel,
+  stateLabel,
+  stateTag,
+  type Reason,
+} from './home/skillProgress.ts'
 import { KnownChapter } from './KnownChapter.tsx'
 import { Button, Eyebrow, Note, Panel, Ring, Sheet } from './kit.tsx'
 import { useProgress } from './useProgress.ts'
 
 // La pagina iniziale: quanti ripassi aspettano, cosa c'è nella sessione di
-// oggi e a che punto è il percorso, capitolo per capitolo.
+// oggi e a che punto è il percorso, capitolo per capitolo. Ogni scheda porta
+// a tutto il materiale del suo capitolo, bloccata o no: vedi SPEC.md,
+// "Pagina iniziale" e "Il blocco è un consiglio".
 
 interface Plan {
   readonly due: number
@@ -73,6 +90,7 @@ export function HomePage({
   onStart,
   onOpenLesson,
   onOpenProgress,
+  onPractise,
   onChange,
 }: {
   store: ProgressStore
@@ -80,6 +98,7 @@ export function HomePage({
   onStart: (session: SessionItem[]) => void
   onOpenLesson?: (chapter: ChapterId) => void
   onOpenProgress?: (chapter: ChapterId) => void
+  onPractise?: (skill: GeneratedSkill) => void
   /** Dopo ogni scrittura nel ProgressStore. */
   onChange?: () => void
 }) {
@@ -123,6 +142,7 @@ export function HomePage({
         known={plan.known}
         onOpenLesson={onOpenLesson}
         onOpenProgress={onOpenProgress}
+        onPractise={onPractise}
         onMark={(chapter) =>
           void write(markChapterKnown(store, chapter, Date.now()))
         }
@@ -243,6 +263,7 @@ function Path({
   known,
   onOpenLesson,
   onOpenProgress,
+  onPractise,
   onMark,
   onUnmark,
 }: {
@@ -250,10 +271,13 @@ function Path({
   known: readonly Known[]
   onOpenLesson?: ((chapter: ChapterId) => void) | undefined
   onOpenProgress?: ((chapter: ChapterId) => void) | undefined
+  onPractise?: ((skill: GeneratedSkill) => void) | undefined
   onMark: (chapter: Chapter) => void
   onUnmark: (chapter: Chapter) => void
 }) {
   const working = workingChapter(states)
+  const allSkills = chapters.flatMap((c) => c.skills)
+  const mastered = allSkills.filter((s) => states[s.id] === 'mastered').length
 
   return (
     <Panel
@@ -267,6 +291,9 @@ function Path({
       >
         {chapters.length} capitoli, uno alla volta
       </h2>
+      <p className="mt-1 text-sm text-dim">
+        {`${mastered} di ${allSkills.length} abilità acquisite · in corso: ${working.title}`}
+      </p>
 
       <ol className="mt-5 space-y-3">
         {chapters.map((chapter) => (
@@ -284,6 +311,7 @@ function Path({
             onOpenProgress={
               onOpenProgress ? () => onOpenProgress(chapter.id) : undefined
             }
+            onPractise={onPractise}
             onMark={() => onMark(chapter)}
             onUnmark={() => onUnmark(chapter)}
           />
@@ -300,6 +328,7 @@ function ChapterCard({
   working,
   onOpenLesson,
   onOpenProgress,
+  onPractise,
   onMark,
   onUnmark,
 }: {
@@ -309,13 +338,19 @@ function ChapterCard({
   working: boolean
   onOpenLesson?: (() => void) | undefined
   onOpenProgress?: (() => void) | undefined
+  onPractise?: ((skill: GeneratedSkill) => void) | undefined
   onMark: () => void
   onUnmark: () => void
 }) {
   const titleId = useId()
+  const listId = useId()
+  // Aperta all'inizio solo la scheda del capitolo in corso, così sul
+  // telefono il percorso resta corto.
+  const [expanded, setExpanded] = useState(working)
   const summary = summarize(chapter, states, known)
   const { status, mastered, total } = summary
   const locked = status === 'locked'
+  const waiting = locked ? waitingChaptersText(chapter, states) : ''
 
   return (
     <li
@@ -358,6 +393,7 @@ function ChapterCard({
             {chapter.title}
           </p>
           <p className="text-sm text-dim">{chapter.blurb}</p>
+          {waiting && <p className="mt-1 text-sm font-semibold">{waiting}</p>}
           {!locked && (
             <p className="mt-1 text-sm font-semibold">
               {mastered}/{total} acquisite
@@ -377,7 +413,7 @@ function ChapterCard({
         ))}
       </div>
       <div className="mt-4 flex flex-wrap items-start gap-2">
-        {!locked && onOpenLesson && (
+        {onOpenLesson && (
           <Button
             variant="ghost"
             onClick={onOpenLesson}
@@ -388,7 +424,7 @@ function ChapterCard({
             Apri la lezione
           </Button>
         )}
-        {!locked && onOpenProgress && (
+        {onOpenProgress && (
           <Button
             variant="ghost"
             onClick={onOpenProgress}
@@ -399,6 +435,22 @@ function ChapterCard({
             Vedi la mappa
           </Button>
         )}
+        <Button
+          variant="ghost"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          aria-controls={listId}
+          aria-describedby={titleId}
+          icon={
+            <ChevronDown
+              aria-hidden="true"
+              className={cn('size-4 transition', expanded && 'rotate-180')}
+            />
+          }
+          className="px-3 py-2 text-sm"
+        >
+          Abilità
+        </Button>
         <KnownChapter
           summary={summary}
           onMark={onMark}
@@ -406,6 +458,70 @@ function ChapterCard({
           describedBy={titleId}
         />
       </div>
+      <ul id={listId} hidden={!expanded} className="mt-4 space-y-2">
+        {chapter.skills.map((skill) => (
+          <SkillRow
+            key={skill.id}
+            skill={skill}
+            states={states}
+            onPractise={onPractise}
+          />
+        ))}
+      </ul>
+    </li>
+  )
+}
+
+// Un'abilità nella scheda del suo capitolo: nome, stato e il pulsante per
+// allenarla. Su un'abilità bloccata il pulsante dice "Allena lo stesso" e
+// sotto il nome ci sono i prerequisiti che mancano.
+function SkillRow({
+  skill,
+  states,
+  onPractise,
+}: {
+  skill: Skill
+  states: Record<string, SkillState>
+  onPractise?: ((skill: GeneratedSkill) => void) | undefined
+}) {
+  const titleId = useId()
+  const state = states[skill.id] ?? 'locked'
+  const locked = state === 'locked'
+  // Un nome a parte perché la guardia di canPractise arrivi fino al click.
+  const id = skill.id
+  return (
+    <li
+      aria-labelledby={titleId}
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-panel/80 px-3 py-2"
+    >
+      <div className="min-w-0 flex-1">
+        <p id={titleId} className={cn('font-medium', locked && 'text-ink/70')}>
+          {skill.title}
+        </p>
+        {locked && (
+          <p className="text-xs text-dim">
+            {missingPrerequisitesText(skill, states)}
+          </p>
+        )}
+      </div>
+      <span
+        className={cn(
+          'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+          stateTag[state],
+        )}
+      >
+        {stateLabel[state]}
+      </span>
+      {onPractise && canPractise(id) && (
+        <Button
+          variant={locked ? 'ghost' : 'pencil'}
+          onClick={() => onPractise(id)}
+          aria-describedby={titleId}
+          className="px-3 py-1.5 text-sm"
+        >
+          {locked ? 'Allena lo stesso' : 'Allena'}
+        </Button>
+      )}
     </li>
   )
 }
