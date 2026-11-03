@@ -18,6 +18,44 @@ function question(name: string) {
   }
 }
 
+test('la lezione comincia dalla riduzione ai minimi termini', () => {
+  lesson()
+  const [first] = screen.getAllByRole('heading', { level: 3 })
+  expect(first).toHaveTextContent('La riduzione ai minimi termini')
+  const track = screen.getByRole('navigation', {
+    name: 'Percorso della lezione',
+  })
+  const [link] = within(track).getAllByRole('link')
+  expect(link).toHaveAttribute('href', '#lezione-minimi-termini')
+})
+
+test('un esempio svolto scrive come intero la frazione che vale un intero', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: 1/3 + 4/3 + 4/3',
+  })
+  const [first] = within(example).getAllByRole('listitem', { name: /^Riga/ })
+  if (!first) throw new Error('Manca la riga')
+  expect(within(first).getByRole('math', { name: '3' })).toBeInTheDocument()
+  const open = within(first).getByRole('button', {
+    name: 'Mostra un passaggio',
+  })
+  fireEvent.click(open)
+  expect(within(first).getByText('1/3 + 4/3 = 5/3')).toBeInTheDocument()
+  fireEvent.click(open)
+  expect(within(first).getByText('5/3 + 4/3 = 3')).toBeInTheDocument()
+})
+
+test('un prodotto non ridotto va riscritto, prima il segno e poi i minimi termini', () => {
+  lesson()
+  const check = question('2/3 × (−1/2)')
+  expect(check('2/-6')).toHaveTextContent('Il segno va davanti alla frazione.')
+  const status = check('-2/6')
+  expect(status).toHaveTextContent('Riduci ai minimi termini.')
+  expect(status).toHaveTextContent('Il valore è giusto')
+  expect(check('-1/3')).toHaveTextContent('Esatto!')
+})
+
 test('un esempio svolto scrive le frazioni ridotte, passaggio per passaggio', () => {
   lesson()
   const example = screen.getByRole('figure', {

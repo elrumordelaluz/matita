@@ -3,13 +3,31 @@ import { chapterById } from '../chapters.ts'
 import { Lesson, type LessonPart, type LessonProps } from './Lesson.tsx'
 
 // La lezione del capitolo "Espressioni in Q". Il quaderno scrive ogni conto
-// fra frazioni come un passaggio solo: il minimo comune multiplo, la
-// semplificazione in croce e il reciproco li spiega il testo. Vedi SPEC.md,
-// "Risolutore".
+// fra frazioni come un passaggio solo, con il risultato già ridotto: la
+// riduzione ai minimi termini, il minimo comune multiplo, la semplificazione
+// in croce e il reciproco li spiega il testo. Vedi SPEC.md, "Risolutore".
 
 const chapter = chapterById('q')
 
 const parts: readonly LessonPart[] = [
+  {
+    id: 'lezione-minimi-termini',
+    title: 'La riduzione ai minimi termini',
+    note: 'dividi sopra e sotto per il MCD',
+    text: (
+      <p>
+        Una frazione è ridotta ai minimi termini quando il massimo comune
+        divisore (MCD) di numeratore e denominatore è 1. Per ridurla si dividono
+        tutti e due per il loro MCD: in 12/18 il MCD è 6, e 12/18 = 2/3. Se il
+        denominatore arriva a 1 resta un intero, e si scrive come intero: 6/3 =
+        2. Il segno va davanti alla frazione, mai al denominatore: 2/−3 si
+        scrive −2/3. Sul quaderno la riduzione non ha una riga sua: 5/3 + 4/3 fa
+        9/3, e si scrive subito 3.
+      </p>
+    ),
+    example: generate('q.add-sub', 17), // 1/3 + 4/3 + 4/3
+    question: generate('q.mul-div', 89), // 2/3 × (−1/2)
+  },
   {
     id: 'lezione-mcm',
     title: 'La somma con il minimo comune multiplo',
