@@ -4,9 +4,11 @@ import {
   type Attempt,
 } from '../../progress/attempt.ts'
 import type { SessionItem } from '../../progress/session.ts'
+import type { SkillState } from '../../progress/skillState.ts'
 
-// Quello che home e progressi mostrano oltre allo stato: la serie verso
-// l'acquisizione, qualche conto onesto sui tentativi, la sessione raggruppata.
+// Quello che home e progressi mostrano di ogni abilità: lo stato con il suo
+// tag, la serie verso l'acquisizione, qualche conto onesto sui tentativi, la
+// sessione raggruppata.
 
 /** Tre corretti consecutivi senza aiuti. Vedi SPEC.md, "Stato di un'abilità". */
 export const masteryStreak = 3
@@ -39,6 +41,19 @@ export function attemptStats(attempts: readonly Attempt[]): AttemptStats {
     days: new Set(attempts.map((a) => new Date(a.answeredAt).toDateString()))
       .size,
   }
+}
+
+/** Lo stato di un'abilità con i nomi del glossario, e il colore del suo tag. */
+export const stateLabel: Record<SkillState, string> = {
+  locked: 'bloccata',
+  learning: 'in apprendimento',
+  mastered: 'acquisita',
+}
+
+export const stateTag: Record<SkillState, string> = {
+  locked: 'bg-paper text-dim',
+  learning: 'bg-pencil-soft text-pencil-ink',
+  mastered: 'bg-ok-soft text-ok',
 }
 
 export type Reason = SessionItem['reason']

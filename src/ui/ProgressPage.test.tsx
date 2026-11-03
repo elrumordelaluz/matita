@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { skills } from '../content/skills.ts'
 import { exportBackup } from '../progress/backup.ts'
 import { attempt } from '../progress/fixtures.ts'
@@ -194,4 +194,28 @@ test('un tentativo che non si può ricostruire mostra risposta, esito e data', a
   expect(row.getByText('7')).toBeInTheDocument()
   expect(row.getByText('sbagliato')).toBeInTheDocument()
   expect(row.getByText('14 settembre')).toBeInTheDocument()
+})
+
+// Vedi SPEC.md, "Il blocco è un consiglio".
+test('un’abilità bloccata si allena lo stesso, e la scheda dice cosa manca', async () => {
+  const onPractise = vi.fn()
+  render(
+    <ProgressPage
+      store={createMemoryStore()}
+      skills={skills}
+      onPractise={onPractise}
+    />,
+  )
+  const order = await stateOf('Le quattro operazioni insieme')
+  expect(order.getByText('bloccata')).toBeInTheDocument()
+  expect(
+    order.getByText(
+      'Prima: Addizioni e sottrazioni, Moltiplicazioni e divisioni',
+    ),
+  ).toBeInTheDocument()
+  fireEvent.click(order.getByRole('button', { name: 'Allena lo stesso' }))
+  expect(onPractise).toHaveBeenCalledWith('n.order')
+
+  const addSub = await stateOf('Addizioni e sottrazioni')
+  expect(addSub.getByRole('button', { name: 'Allena' })).toBeInTheDocument()
 })

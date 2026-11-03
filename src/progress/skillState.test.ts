@@ -94,3 +94,16 @@ test('un’abilità acquisita resta acquisita: da lì la segue il ripasso', () =
   ]
   expect(skillStates(graph, attempts)['n.add-sub']).toBe('mastered')
 })
+
+// Vedi SPEC.md, "Il blocco è un consiglio": i tentativi su un'abilità
+// bloccata contano come tutti gli altri.
+test('un’abilità bloccata si acquisisce lo stesso, e sblocca chi la richiede', () => {
+  const attempts = [1, 2, 3].map(() =>
+    attempt({ skill: 'n.order', outcome: 'correct' }),
+  )
+  const states = skillStates(graph, attempts)
+  expect(states['n.add-sub']).toBe('learning')
+  expect(states['n.mul-div']).toBe('learning')
+  expect(states['n.order']).toBe('mastered')
+  expect(states['n.parens']).toBe('learning')
+})

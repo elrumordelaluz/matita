@@ -784,6 +784,16 @@ acquisita con tre tentativi corretti consecutivi senza aiuti, oppure quando
 lo studente segna il suo capitolo come saputo (vedi
 [Già saputo](#già-saputo)). Da lì la programma il ripasso.
 
+**Il blocco è un consiglio.** Bloccata vuol dire "conviene prima fare
+altro", non "vietato". La sessione propone solo abilità sbloccate, ma lo
+studente può aprire la lezione di ogni capitolo e allenare ogni abilità,
+anche bloccata: chi ha la verifica sui polinomi giovedì non deve aspettare le
+potenze, e nemmeno segnarle come sapute senza saperle. Dove si apre
+un'abilità bloccata, la pagina dice quali prerequisiti mancano. I tentativi
+su un'abilità bloccata contano come tutti gli altri: tre corretti di fila
+senza aiuti la rendono acquisita, il ripasso la segue e le abilità che la
+richiedono possono sbloccarsi, anche se i suoi prerequisiti restano da fare.
+
 **Ripasso spaziato.** Lo scheduling è FSRS (libreria `ts-fsrs`) e la carta è
 l'abilità, non l'esercizio: quando un'abilità scade, il generatore produce un
 esercizio nuovo che la allena. L'esito diventa un voto FSRS:
@@ -806,6 +816,38 @@ persistenza si può cambiare senza toccare il resto. Si salvano solo i
 tentativi e i segni di già saputo; stato e carte si ricalcolano. Esportazione
 e importazione di un file JSON con tutti e due: senza account, il backup è
 l'unica difesa contro un browser ripulito.
+
+## Pagina iniziale
+
+La pagina iniziale risponde a due domande: cosa faccio oggi, e dove trovo
+tutto il resto. Ha due pannelli.
+
+**Oggi.** I ripassi in attesa, la sessione di oggi esercizio per esercizio
+con il motivo di ciascuno (ripasso, in corso, nuova) e il pulsante per
+cominciarla.
+
+**Percorso.** In testa una riga di stato dice a che punto è lo studente:
+"18 di 37 abilità acquisite · in corso: Potenze". Il capitolo in corso è il
+primo con un'abilità in apprendimento; con tutto acquisito, l'ultimo. I
+ripassi non si ripetono qui, li conta già Oggi.
+
+Sotto, una scheda per capitolo, e ogni scheda porta a tutto il suo
+materiale, bloccata o no (vedi
+[Il blocco è un consiglio](#ripasso-e-tracking)): "Apri la lezione" quando
+la lezione esiste, "Vedi la mappa", "Lo so già". Una scheda bloccata tiene il
+lucchetto e il bordo tratteggiato, e dice da quali capitoli dipende ciò che
+manca: "Prima: capitolo 6, Monomi". Sono i capitoli dei prerequisiti diretti
+non acquisiti che stanno fuori dal capitolo.
+
+Ogni scheda si apre sull'elenco delle sue abilità, con nome, stato e
+"Allena". Su un'abilità bloccata il pulsante dice "Allena lo stesso" e
+accanto ci sono i prerequisiti mancanti, come nella mappa. Un'abilità senza
+generatore mostra lo stato e niente pulsante. All'apertura della pagina è
+aperta solo la scheda del capitolo in corso, così sul telefono il percorso
+resta corto.
+
+La pagina iniziale è il posto dove si sceglie cosa fare; la mappa resta il
+posto della storia, con gli ultimi tentativi e la scadenza di ogni ripasso.
 
 ## Lezioni
 

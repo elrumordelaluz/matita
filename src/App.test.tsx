@@ -253,3 +253,15 @@ test('la lezione si apre sul capitolo su cui si lavora', async () => {
     await screen.findByText(/Segnato come già saputo il/),
   ).toBeInTheDocument()
 })
+
+// Vedi SPEC.md, "Il blocco è un consiglio".
+test('dalla pagina iniziale si allena un’abilità bloccata', async () => {
+  render(<App />)
+  const first = await chapterCard('Espressioni in N')
+  const order = within(
+    first.getByRole('listitem', { name: 'Le quattro operazioni insieme' }),
+  )
+  fireEvent.click(order.getByRole('button', { name: 'Allena lo stesso' }))
+  expect(screen.getByText('Le quattro operazioni insieme')).toBeInTheDocument()
+  expect(screen.getByLabelText('Risultato')).toBeInTheDocument()
+})
