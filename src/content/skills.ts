@@ -99,4 +99,9 @@ export const skills: readonly Skill[] = [
     title: 'Espressioni con le potenze',
     prerequisites: ['pow.zero-negative', 'q.brackets'],
   },
+  {
+    id: 'set.roster',
+    title: 'Dalla proprietà all’elencazione',
+    prerequisites: ['n.mul-div'],
+  },
 ]

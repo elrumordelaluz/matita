@@ -5,6 +5,9 @@ import {
 } from './generators.ts'
 import { recognise, type MisconceptionId } from './misconceptions.ts'
 import { equals, isInteger, rational, type Rational } from './rational.ts'
+import type { SetRewriteReason } from './setAnswer.ts'
+import { verifySet } from './setExercise.ts'
+import type { SetMisconceptionId } from './setMisconceptions.ts'
 import { solve } from './solver.ts'
 
 // Il giudizio su una risposta. Vedi SPEC.md, "Verifica" e "Politica delle
@@ -12,7 +15,10 @@ import { solve } from './solver.ts'
 // è né giusta né sbagliata, va riscritta.
 
 /** Perché una risposta con il valore giusto va riscritta. */
-export type RewriteReason =
+export type RewriteReason = NumberRewriteReason | SetRewriteReason
+
+/** Perché un numero con il valore giusto va riscritto. */
+export type NumberRewriteReason =
   'sign-at-denominator' | 'integer-as-fraction' | 'not-reduced' | 'decimal'
 
 /** La risposta come l'ha scritta lo studente, senza normalizzarla. */
@@ -32,7 +38,7 @@ export type Outcome =
     }
   | {
       readonly kind: 'misconception'
-      readonly misconception: MisconceptionId
+      readonly misconception: MisconceptionId | SetMisconceptionId
       readonly explanation: string
     }
   | { readonly kind: 'wrong' }
@@ -43,7 +49,7 @@ type Reading =
       readonly ok: true
       readonly value: Rational
       /** Il motivo per riscriverla, se la forma non è canonica. */
-      readonly rewrite: RewriteReason | null
+      readonly rewrite: NumberRewriteReason | null
       /** La risposta come scritta, per l'anteprima. */
       readonly form: AnswerForm
     }
@@ -102,7 +108,7 @@ export function readAnswer(answer: string): Reading {
       return { ok: false, message: 'Il denominatore non può essere zero.' }
     const value = rational(signed(num, s), signed(den, denS))
     // Il primo motivo che si vede, nell'ordine in cui lo si corregge.
-    const rewrite: RewriteReason | null = denS
+    const rewrite: NumberRewriteReason | null = denS
       ? 'sign-at-denominator'
       : num % den === 0n
         ? 'integer-as-fraction'
@@ -149,7 +155,7 @@ export function answerForm(answer: string): AnswerForm | null {
   return reading.ok ? reading.form : null
 }
 
-function rewriteMessage(reason: RewriteReason, value: Rational): string {
+function rewriteMessage(reason: NumberRewriteReason, value: Rational): string {
   switch (reason) {
     case 'sign-at-denominator':
       return 'Il segno va davanti alla frazione.'
@@ -171,8 +177,10 @@ export function verify(answer: string, exercise: Exercise): Outcome {
     case undefined:
     case 'number':
       return verifyNumber(answer, exercise)
+    case 'set':
+      return verifySet(answer, exercise)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 

@@ -1,0 +1,66 @@
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { expect, test, vi } from 'vitest'
+import { SetsLesson } from './SetsLesson.tsx'
+
+function lesson(onPractise = vi.fn()) {
+  render(<SetsLesson onPractise={onPractise} />)
+  return onPractise
+}
+
+function question(name: string) {
+  const group = screen.getByRole('group', { name: `Domanda: ${name}` })
+  const input = within(group).getByLabelText('Risposta')
+  const check = within(group).getByRole('button', { name: 'Controlla' })
+  return (answer: string) => {
+    fireEvent.change(input, { target: { value: answer } })
+    fireEvent.click(check)
+    return within(group).getByRole('status')
+  }
+}
+
+function rows(name: string) {
+  const example = screen.getByRole('figure', { name: `Esempio: ${name}` })
+  return within(example)
+    .getAllByRole('listitem', { name: /^Riga/ })
+    .map((li) => within(li).getAllByRole('math')[0]?.getAttribute('aria-label'))
+}
+
+test('la lezione comincia dalle rappresentazioni', () => {
+  lesson()
+  const [first] = screen.getAllByRole('heading', { level: 3 })
+  expect(first).toHaveTextContent('Tre modi di scrivere un insieme')
+  const track = screen.getByRole('navigation', {
+    name: 'Percorso della lezione',
+  })
+  const [link] = within(track).getAllByRole('link')
+  expect(link).toHaveAttribute('href', '#lezione-rappresentazioni')
+})
+
+test('un esempio svolto elenca gli elementi in ordine crescente', () => {
+  lesson()
+  expect(rows('{x ∈ N | 5 < x ≤ 11}')).toEqual(['{6, 7, 8, 9, 10, 11}'])
+  expect(rows('{x ∈ N | x ≤ 6 e x è pari}')).toEqual(['{0, 2, 4, 6}'])
+})
+
+test('l’ordine non conta, ma le graffe sì', () => {
+  lesson()
+  const check = question('{x ∈ N | 1 < x ≤ 5}')
+  const status = check('2, 3, 4, 5')
+  expect(status).toHaveTextContent('Un insieme si scrive fra graffe.')
+  expect(status).toHaveTextContent('Il valore è giusto')
+  expect(check('{5, 4, 3, 2}')).toHaveTextContent('Esatto!')
+})
+
+test('lo zero escluso dai pari è un errore tipico', () => {
+  lesson()
+  const check = question('{x ∈ N | x < 10 e x è pari}')
+  expect(check('{2, 4, 6, 8}')).toHaveTextContent('Lo zero è pari')
+  expect(check('{0, 2, 4, 6, 8, 10}')).toHaveTextContent('Hai scambiato < e ≤.')
+  expect(check('{0, 2, 4, 6, 8}')).toHaveTextContent('Esatto!')
+})
+
+test('dalla lezione si passa alla pratica dell’elencazione', () => {
+  const onPractise = lesson()
+  fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))
+  expect(onPractise).toHaveBeenCalledWith('set.roster')
+})

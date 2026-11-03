@@ -18,6 +18,12 @@ import {
 } from './powerGenerators.ts'
 import { seededRandom, type Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
+import {
+  generateSet,
+  isSetSkill,
+  type SetExercise,
+  type SetSkill,
+} from './setExercise.ts'
 import { solve, type Solution } from './solver.ts'
 
 // Un generatore per abilità: dal seme all'esercizio, con i vincoli del
@@ -30,7 +36,7 @@ import { solve, type Solution } from './solver.ts'
  * usa un esercizio guarda `kind` e tratta ogni tipo, così un tipo nuovo non
  * passa inosservato.
  */
-export type Exercise = NumberExercise
+export type Exercise = NumberExercise | SetExercise
 
 /** Cosa chiede l'esercizio. Vedi GLOSSARY.md, "tipo di risposta". */
 export type AnswerKind = NonNullable<Exercise['kind']>
@@ -39,7 +45,8 @@ export type AnswerKind = NonNullable<Exercise['kind']>
  * Il ramo che nessun tipo raggiunge: chi tratta i tipi di risposta lo mette
  * in fondo allo `switch`, e il compilatore segnala il tipo dimenticato.
  */
-export function unknownKind(kind: never): never {
+export function unknownKind(exercise: never): never {
+  const { kind } = exercise as { readonly kind?: unknown }
   throw new Error(`Tipo di risposta sconosciuto: ${String(kind)}`)
 }
 
@@ -681,7 +688,7 @@ const generators = {
 export type NumberSkill = keyof typeof generators
 
 /** Le abilità con un generatore, di qualunque tipo di risposta. */
-export type GeneratedSkill = NumberSkill
+export type GeneratedSkill = NumberSkill | SetSkill
 
 export const numberSkills = Object.keys(generators) as readonly NumberSkill[]
 
@@ -721,8 +728,10 @@ function solvable(expression: Expression): Solution | null {
 // Ogni tipo di risposta ha il suo sovraccarico: chi chiede un'abilità di
 // numeri riceve un esercizio di numeri, senza guardarne il tipo.
 export function generate(skill: NumberSkill, seed: number): NumberExercise
+export function generate(skill: SetSkill, seed: number): SetExercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise
 export function generate(skill: GeneratedSkill, seed: number): Exercise {
+  if (isSetSkill(skill)) return generateSet(skill, seed)
   return generateNumber(skill, seed)
 }
 

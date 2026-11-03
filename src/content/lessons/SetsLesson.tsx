@@ -1,0 +1,83 @@
+import { generate } from '../../engine/index.ts'
+import { chapterById } from '../chapters.ts'
+import { Lesson, type LessonPart, type LessonProps } from './Lesson.tsx'
+
+// La lezione del capitolo "Insiemi", con la notazione di Matematica C3. Gli
+// insiemi sono di naturali; la risposta si scrive per elencazione, in un
+// ordine qualsiasi. Vedi SPEC.md, "Insiemi".
+
+const chapter = chapterById('set')
+
+const parts: readonly LessonPart[] = [
+  {
+    id: 'lezione-rappresentazioni',
+    title: 'Tre modi di scrivere un insieme',
+    note: 'l’ordine non conta, ogni elemento una volta',
+    text: (
+      <>
+        <p>
+          Un insieme si scrive per elencazione, con gli elementi fra graffe
+          separati da virgole: {'{1, 3, 5}'}. L’ordine non conta, {'{1, 3, 5}'}{' '}
+          e {'{5, 1, 3}'} sono lo stesso insieme, e ogni elemento si scrive una
+          volta sola. L’insieme vuoto, che non ha elementi, si scrive ∅ oppure{' '}
+          {'{}'}.
+        </p>
+        <p>
+          Lo stesso insieme si può dare per proprietà caratteristica, con la
+          condizione a parole: {'{x ∈ N | 5 < x ≤ 11}'} si legge “gli x di N
+          tali che x è maggiore di 5 e minore o uguale a 11”. Il terzo modo è il
+          diagramma di Eulero-Venn, una linea chiusa con gli elementi dentro.
+        </p>
+      </>
+    ),
+    example: generate('set.roster', 3), // {x ∈ N | 5 < x ≤ 11}
+    question: generate('set.roster', 23), // {x ∈ N | 1 < x ≤ 5}
+  },
+  {
+    id: 'lezione-elencazione',
+    title: 'Dalla proprietà all’elencazione',
+    note: '< lascia fuori l’estremo, ≤ lo tiene',
+    text: (
+      <p>
+        Per elencare un insieme dato per proprietà si passano i naturali in
+        ordine, dallo zero, e si tengono quelli che rispettano la condizione.
+        Attenzione agli estremi: x {'<'} 6 lascia fuori il 6, x ≤ 6 lo
+        comprende. Lo zero è un naturale, N = {'{0, 1, 2, …}'}, ed è pari: 0 = 2
+        × 0. Per la stessa ragione è multiplo di ogni numero.
+      </p>
+    ),
+    example: generate('set.roster', 12), // {x ∈ N | x ≤ 6 e x è pari}
+    question: generate('set.roster', 17), // {x ∈ N | x < 10 e x è pari}
+  },
+]
+
+export function SetsLesson({ onPractise }: LessonProps) {
+  return (
+    <Lesson
+      chapter={chapter}
+      heading={
+        <>
+          Gli{' '}
+          <span className="underline decoration-pencil decoration-6 underline-offset-[6px]">
+            insiemi
+          </span>
+        </>
+      }
+      intro={
+        <p>
+          Un insieme è una raccolta di oggetti scelti con un criterio preciso:
+          di ogni oggetto si deve poter dire se ci sta o no. Qui gli oggetti
+          sono numeri naturali. Si scrive un insieme con una lettera maiuscola,
+          A, e si dice che 3 appartiene ad A, 3 ∈ A, quando 3 è uno dei suoi
+          elementi.
+        </p>
+      }
+      parts={parts}
+      practice={{
+        skill: 'set.roster',
+        text: 'Si comincia dall’elencazione: dalla proprietà caratteristica agli elementi.',
+      }}
+      onPractise={onPractise}
+    />
+  )
+}

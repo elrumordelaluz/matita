@@ -4,6 +4,7 @@ import type { LessonProps } from './Lesson.tsx'
 import { NExpressionsLesson } from './NExpressionsLesson.tsx'
 import { PowersLesson } from './PowersLesson.tsx'
 import { QExpressionsLesson } from './QExpressionsLesson.tsx'
+import { SetsLesson } from './SetsLesson.tsx'
 import { ZExpressionsLesson } from './ZExpressionsLesson.tsx'
 
 // La lezione di ogni capitolo. Un capitolo senza lezione non compare qui.
@@ -12,4 +13,5 @@ export const lessons: Partial<Record<ChapterId, ComponentType<LessonProps>>> = {
   z: ZExpressionsLesson,
   q: QExpressionsLesson,
   pow: PowersLesson,
+  set: SetsLesson,
 }

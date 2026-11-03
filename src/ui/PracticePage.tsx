@@ -20,7 +20,9 @@ import {
 } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import {
+  answerPreview,
   Consegna,
+  keysOf,
   resultText,
   solutionOf,
   stepExpression,
@@ -35,7 +37,7 @@ import {
 } from './practice/Notebook.tsx'
 import { OutcomeCard, RunState } from './practice/OutcomeCard.tsx'
 import { TappableLine } from './practice/TappableLine.tsx'
-import { insertAtCursor, symbolKeys } from './symbolRow.ts'
+import { insertAtCursor } from './symbolRow.ts'
 
 // La pagina di pratica: espressione, risposta, esito, soluzione per righe.
 // La pagina non salva nulla: quando un esercizio si chiude lo riferisce con
@@ -166,11 +168,11 @@ export function PracticePage({
   const input = useRef<HTMLInputElement>(null)
   const nextButton = useRef<HTMLButtonElement>(null)
 
-  const solution = solutionOf(exercise)
+  const solutionLines = solutionOf(exercise)
   // La riga zero del passo passo, se l'esercizio ne ha uno.
   const stepStart = stepExpression(exercise)
   // L'anteprima è una funzione del solo campo: uguale anche a esercizio chiuso.
-  const form = answerForm(answer)
+  const form = answerPreview(exercise, answer)
   const done = closes(outcome)
   const wrong = outcome?.kind === 'wrong' || outcome?.kind === 'misconception'
   const stepAvailable = stepStart !== null
@@ -183,11 +185,11 @@ export function PracticePage({
   const selection = tapping ? selected : null
   const shownLines = stepMode
     ? done
-      ? solution.lines
+      ? solutionLines
       : []
     : done
-      ? solution.lines
-      : solution.lines.slice(0, hints)
+      ? solutionLines
+      : solutionLines.slice(0, hints)
 
   // A esercizio chiuso, Invio porta al successivo.
   useEffect(() => {
@@ -428,13 +430,13 @@ export function PracticePage({
         )}
         <SolutionLines
           lines={shownLines}
-          total={solution.lines.length}
+          total={solutionLines.length}
           written={hints}
           pause={outcome?.kind === 'misconception' ? 1 : 0}
           checked={outcome?.kind === 'correct'}
           titleId={`${answerId}-solution`}
         />
-        {!done && (stepMode || hints < solution.lines.length) && <NextLine />}
+        {!done && (stepMode || hints < solutionLines.length) && <NextLine />}
       </Sheet>
 
       <Panel
@@ -524,7 +526,7 @@ export function PracticePage({
               sistema nasconde. Da sm in su la riga non c'è. */}
           {!done && (
             <div className="flex justify-center gap-2 sm:hidden">
-              {symbolKeys.map(({ symbol, label }) => (
+              {keysOf(exercise).map(({ symbol, label }) => (
                 <button
                   key={symbol}
                   type="button"
@@ -598,7 +600,7 @@ export function PracticePage({
                 disabled={
                   stepMode
                     ? !currentLine || nextHint(currentLine) === null
-                    : hints >= solution.lines.length
+                    : hints >= solutionLines.length
                 }
                 icon={<Lightbulb aria-hidden="true" className="size-4" />}
               >
@@ -609,7 +611,7 @@ export function PracticePage({
 
           {!done && !stepMode && hints > 0 && (
             <p className="text-center text-sm text-dim">
-              {`Righe svelate sul quaderno: ${hints} di ${solution.lines.length}`}
+              {`Righe svelate sul quaderno: ${hints} di ${solutionLines.length}`}
             </p>
           )}
         </form>

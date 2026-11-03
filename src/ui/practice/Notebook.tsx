@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react'
-import { toText, type Line } from '../../engine/index.ts'
 import { cn } from '../../lib/cn.ts'
-import { ExpressionFormula } from '../Formula.tsx'
+import type { ShownLine } from '../exerciseView.tsx'
+import { Formula } from '../Formula.tsx'
 import { Note } from '../kit.tsx'
 
 // Quello che si scrive sul quaderno sotto l'espressione: la nota sull'errore
@@ -42,7 +42,7 @@ export function SolutionLines({
   titleId,
 }: {
   /** Le righe da mostrare. */
-  lines: readonly Line[]
+  lines: readonly ShownLine[]
   /** Quante righe ha la soluzione intera. */
   total: number
   /** Le righe già scritte dai suggerimenti: non si riscrivono. */
@@ -77,12 +77,13 @@ export function SolutionLines({
               )}
             >
               <Note aria-hidden="true" className="text-5xl text-pencil-ink">
-                =
+                {line.continues ? '=' : ''}
               </Note>
               <span className="flex min-w-0 items-center gap-3">
                 <span className="max-w-full overflow-x-auto py-1">
-                  <ExpressionFormula
-                    expression={line.expression}
+                  <Formula
+                    tex={line.tex}
+                    text={line.text}
                     className={cn(
                       'text-2xl sm:text-3xl',
                       result && 'rounded-lg bg-pencil-soft px-2',
@@ -101,11 +102,9 @@ export function SolutionLines({
                 )}
               </span>
               <ul className="col-start-2 flex flex-wrap gap-x-5">
-                {line.steps.map((step, j) => (
+                {line.notes.map((note, j) => (
                   <li key={j}>
-                    <Note className="text-2xl">
-                      {`${toText(step.operation)} = ${toText(step.outcome)}`}
-                    </Note>
+                    <Note className="text-2xl">{note}</Note>
                   </li>
                 ))}
               </ul>

@@ -1,13 +1,24 @@
 import {
+  answerForm,
   literal,
+  propertyToKatex,
+  propertyToText,
+  readSetAnswer,
+  setToKatex,
+  setToText,
   solve,
+  solveSet,
+  toKatex,
   toText,
   unknownKind,
+  type AnswerForm,
   type Exercise,
   type Expression,
-  type Solution,
+  type Line,
+  type SetExercise,
 } from '../engine/index.ts'
-import { ExpressionFormula } from './Formula.tsx'
+import { ExpressionFormula, Formula } from './Formula.tsx'
+import { setSymbolKeys, symbolKeys, type SymbolKey } from './symbolRow.ts'
 
 // Ciò che le pagine mostrano di un esercizio, secondo il suo tipo di risposta
 // (SPEC.md, "Tipi di risposta"): la consegna, le parole che la presentano, la
@@ -26,18 +37,59 @@ export function wordingOf(exercise: Exercise): {
         task: 'Calcola il valore dell’espressione',
         question: 'Quanto vale?',
       }
+    case 'set':
+      return {
+        task: 'Scrivi l’insieme per elencazione',
+        question: 'Quali elementi ha?',
+      }
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
-export function solutionOf(exercise: Exercise): Solution {
+/**
+ * Una riga della soluzione come la scrive il quaderno, qualunque sia il
+ * tipo: la formula, e a margine i passaggi.
+ */
+export interface ShownLine {
+  readonly tex: string
+  readonly text: string
+  /** La riga continua quella sopra, e a margine porta il segno =. */
+  readonly continues: boolean
+  /** I passaggi, uno per conto, scritti a margine. */
+  readonly notes: readonly string[]
+}
+
+/** Una riga del risolutore dei numeri: l'espressione e i suoi conti. */
+export function numberLine(line: Line): ShownLine {
+  return {
+    tex: toKatex(line.expression),
+    text: toText(line.expression),
+    continues: true,
+    notes: line.steps.map(
+      (step) => `${toText(step.operation)} = ${toText(step.outcome)}`,
+    ),
+  }
+}
+
+function setLines(exercise: SetExercise): ShownLine[] {
+  return solveSet(exercise).lines.map((line) => ({
+    tex: setToKatex(line.result),
+    text: setToText(line.result),
+    continues: true,
+    notes: [],
+  }))
+}
+
+export function solutionOf(exercise: Exercise): readonly ShownLine[] {
   switch (exercise.kind) {
     case undefined:
     case 'number':
-      return solve(exercise.expression)
+      return solve(exercise.expression).lines.map(numberLine)
+    case 'set':
+      return setLines(exercise)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -47,8 +99,10 @@ export function resultText(exercise: Exercise): string {
     case undefined:
     case 'number':
       return toText(literal(solve(exercise.expression).result))
+    case 'set':
+      return setToText(solveSet(exercise).result)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -58,8 +112,10 @@ export function consegnaText(exercise: Exercise): string {
     case undefined:
     case 'number':
       return toText(exercise.expression)
+    case 'set':
+      return propertyToText(exercise.task.property)
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }
 
@@ -72,8 +128,41 @@ export function stepExpression(exercise: Exercise): Expression | null {
     case undefined:
     case 'number':
       return exercise.skill.startsWith('n.') ? exercise.expression : null
+    case 'set':
+      return null
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
+  }
+}
+
+/** La risposta come scritta, per l'anteprima, o nulla se non si legge. */
+export function answerPreview(
+  exercise: Exercise,
+  answer: string,
+): AnswerForm | null {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return answerForm(answer)
+    case 'set': {
+      const reading = readSetAnswer(answer)
+      return reading.ok ? reading.form : null
+    }
+    default:
+      return unknownKind(exercise)
+  }
+}
+
+/** I tasti della riga simboli sul telefono, quelli che servono al tipo. */
+export function keysOf(exercise: Exercise): readonly SymbolKey[] {
+  switch (exercise.kind) {
+    case undefined:
+    case 'number':
+      return symbolKeys
+    case 'set':
+      return setSymbolKeys
+    default:
+      return unknownKind(exercise)
   }
 }
 
@@ -84,16 +173,20 @@ export function Consegna({
   exercise: Exercise
   className?: string
 }) {
+  const size = className === undefined ? {} : { className }
   switch (exercise.kind) {
     case undefined:
     case 'number':
+      return <ExpressionFormula expression={exercise.expression} {...size} />
+    case 'set':
       return (
-        <ExpressionFormula
-          expression={exercise.expression}
-          {...(className === undefined ? {} : { className })}
+        <Formula
+          tex={propertyToKatex(exercise.task.property)}
+          text={propertyToText(exercise.task.property)}
+          {...size}
         />
       )
     default:
-      return unknownKind(exercise.kind)
+      return unknownKind(exercise)
   }
 }

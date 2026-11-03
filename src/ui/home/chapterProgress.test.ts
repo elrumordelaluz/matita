@@ -51,7 +51,7 @@ test('con il primo capitolo già saputo si lavora sul secondo', () => {
 
 test('con tutto acquisito si resta sull’ultimo capitolo', () => {
   const states = skillStates(skills, [], known(skills.map((s) => s.id)))
-  expect(workingChapter(states).id).toBe('pow')
+  expect(workingChapter(states).id).toBe('set')
 })
 
 // Un grafo finto con un'abilità senza generatore, così il test non dipende
