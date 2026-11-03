@@ -1,5 +1,5 @@
 intake:
-  pull_request: { line: pr-review, on: ready }
+  pull_request: { line: pr-review, on: label }
 sandbox: { image: fab-sandbox:ui }
 lines:
   pr-review:
