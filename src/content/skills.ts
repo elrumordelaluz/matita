@@ -189,4 +189,9 @@ export const skills: readonly Skill[] = [
     title: 'Quadrato di un trinomio, cubo di un binomio',
     prerequisites: ['poly.square'],
   },
+  {
+    id: 'poly.expressions',
+    title: 'Espressioni con i polinomi e i prodotti notevoli',
+    prerequisites: ['poly.sum-diff', 'poly.more-notable', 'mono.expressions'],
+  },
 ]

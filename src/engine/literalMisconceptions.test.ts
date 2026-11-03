@@ -113,6 +113,16 @@ describe('somma algebrica di polinomi', () => {
     )
   })
 
+  test('anche davanti a un prodotto che diventa un polinomio: 5x − 2x(x + 3)', () => {
+    // Giusto: 5x − 2x² − 6x = −2x² − x. Con i segni lasciati: 5x − 2x² + 6x.
+    expect(recognised('5x − 2x(x + 3)', '−2x² + 11x')).toBe(
+      'minus-group-signs-kept',
+    )
+    expect(recognised('1 − (x + 2)²', '−x² + 4x + 5')).toBe(
+      'minus-group-signs-kept',
+    )
+  })
+
   test('dopo il più le parentesi non cambiano niente', () => {
     const e = parseLiteralExpression('3a + (2a − b)')
     expect(

@@ -183,6 +183,30 @@ test('la domanda sul quadrato di un trinomio riconosce la potenza distribuita', 
   )
 })
 
+test('un’espressione con i polinomi: la formula, i conti, le parentesi, i simili', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: 2a(a + 3) − (2a + 3)²',
+  })
+  expect(lines(example)).toEqual([
+    '2a(a + 3) − [(2a)² + 2 · 2a · 3 + 3²]',
+    '2a(a + 3) − [4a² + 2 · 2a · 3 + 9]',
+    '2a(a + 3) − [4a² + 12a + 9]',
+    '2a² + 6a − [4a² + 12a + 9]',
+    '2a² + 6a − 4a² − 12a − 9',
+    '−2a² − 6a − 9',
+  ])
+})
+
+test('la domanda sulle espressioni riconosce i segni lasciati dopo il meno', () => {
+  lesson()
+  const name = '3y(2y + 5) − (2y − 5)² + y²'
+  expect(answer(name, '3y^2 - 5y + 25')).toHaveTextContent(
+    'Hai tolto una parentesi preceduta dal meno senza cambiare i segni dentro.',
+  )
+  expect(answer(name, '3y^2 + 35y - 25')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

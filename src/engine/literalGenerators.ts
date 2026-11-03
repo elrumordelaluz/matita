@@ -12,12 +12,13 @@ import { isVisibleLiteral } from './literalMisconceptions.ts'
 import { solveLiteral, type LiteralSolution } from './literalSolver.ts'
 import {
   asMonomial,
+  letterPart as monomialLetterPart,
   monomialOf,
   multiplyMonomials,
   polynomialValue,
   type Monomial,
 } from './polynomial.ts'
-import { isVisible } from './misconceptions.ts'
+import { isVisible, type MisconceptionId } from './misconceptions.ts'
 import type { Random } from './random.ts'
 import { rational, type Rational } from './rational.ts'
 import { solveWithValues, substitute, type Assignment } from './value.ts'
@@ -848,6 +849,131 @@ function moreNotable(random: Random): LiteralExpression {
     : power(binomial(binomialTerms(random)), 3n)
 }
 
+// Le espressioni con i polinomi: due o tre termini che si riducono fra loro,
+// ciascuno un prodotto notevole, una distributiva o un monomio, nelle stesse
+// lettere; a volte gli ultimi due fra quadre dopo il meno, come
+// x² − [(x + 1)² − 2x].
+
+// Un binomio di primo grado nelle lettere dell'esercizio: 2x − 3, a + 2b.
+function linearBinomial(
+  random: Random,
+  [x = 'x', y]: readonly string[],
+): PolynomialTerm[] {
+  return [
+    { coefficient: rational(random.pick([1n, 1n, 2n, 3n])), part: [[x, 1n]] },
+    {
+      coefficient: rational(
+        random.pick([1n, -1n]) * random.pick([1n, 2n, 3n, 4n, 5n]),
+      ),
+      part: y ? [[y, 1n]] : [],
+    },
+  ]
+}
+
+const flipped = ([a, b]: readonly PolynomialTerm[]): PolynomialTerm[] =>
+  a && b
+    ? [
+        a,
+        { ...b, coefficient: rational(-b.coefficient.num, b.coefficient.den) },
+      ]
+    : []
+
+function expressionTerm(
+  random: Random,
+  letters: readonly string[],
+): LiteralExpression {
+  const [x = 'x', y] = letters
+  const terms = linearBinomial(random, letters)
+  return random.pick([
+    () => power(binomial(terms), 2n),
+    () => power(binomial(terms), 2n),
+    () => binary('×', binomial(terms), binomial(flipped(terms))),
+    () =>
+      binary(
+        '×',
+        monomial(
+          rational(random.pick([1n, 2n, 3n])),
+          y && random.pick([true, false]) ? [[y, 1n]] : [[x, 1n]],
+        ),
+        binomial(terms),
+      ),
+    () =>
+      binary('×', binomial(terms), binomial(linearBinomial(random, letters))),
+    () => power(binomial(terms), 3n),
+    () =>
+      monomial(
+        rational(random.pick([1n, 2n, 3n, 4n])),
+        y
+          ? [
+              [x, 1n],
+              [y, 1n],
+            ]
+          : [[x, random.pick([1n, 2n])]],
+      ),
+  ])()
+}
+
+function polynomialExpressions(random: Random): LiteralExpression {
+  const letters = random.pick([['x'], ['a'], ['y'], ['a', 'b'], ['x', 'y']])
+  const count = Number(random.int(2n, 3n))
+  const terms = Array.from({ length: count }, () =>
+    expressionTerm(random, letters),
+  )
+  const ops = terms.map(() => random.pick(addSub))
+  const [first, second, third] = terms
+  if (!first || !second) throw new RangeError('Nessun termine')
+  if (third && random.pick([true, false, false]))
+    return binary(
+      '-',
+      first,
+      group('square', binary(ops[2] ?? '-', second, third)),
+    )
+  return terms
+    .slice(1)
+    .reduce<LiteralExpression>(
+      (sum, t, i) => binary(ops[i + 1] ?? '-', sum, t),
+      first,
+    )
+}
+
+// Gli errori tipici del capitolo 7 che l'espressione può far vedere, da
+// come è scritta.
+function polynomialErrors(e: LiteralExpression): MisconceptionId[] {
+  const found = new Set<MisconceptionId>()
+  const isPolynomial = (n: LiteralExpression) =>
+    n.kind === 'group' && polynomialValue(n).size > 1
+  const visit = (n: LiteralExpression, afterMinus: boolean): void => {
+    if (afterMinus && polynomialValue(n).size > 1)
+      found.add('minus-group-signs-kept')
+    if (n.kind === 'group') return visit(n.inner, false)
+    if (n.kind !== 'binary') return
+    if (n.op === '^' && isPolynomial(n.left)) {
+      found.add('power-of-sum')
+      const [, second, ...rest] = polynomialValue(n.left).values()
+      const square = n.right.kind === 'number' && n.right.value.num === 2n
+      if (square && rest.length === 0 && second && second.coefficient.num < 0n)
+        found.add('square-of-difference-sign')
+    }
+    if (n.op === '×' && isPolynomial(n.left) && isPolynomial(n.right)) {
+      const [a, b] = polynomialValue(n.left).values()
+      const [c, d] = polynomialValue(n.right).values()
+      const same = (m?: Monomial, k?: Monomial, sign = 1n) =>
+        m !== undefined &&
+        k !== undefined &&
+        monomialLetterPart(m) === monomialLetterPart(k) &&
+        m.coefficient.num * k.coefficient.den ===
+          sign * k.coefficient.num * m.coefficient.den
+      if (same(a, c) && same(b, d, -1n)) found.add('sum-times-difference-plus')
+    }
+    if (n.op === '×' && isPolynomial(n.left) !== isPolynomial(n.right))
+      found.add('distributive-first-term-only')
+    visit(n.left, false)
+    visit(n.right, n.op === '-')
+  }
+  visit(e, false)
+  return [...found]
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
   | 'mono.normal-form'
@@ -861,6 +987,7 @@ export type PolynomialSkill =
   | 'poly.square'
   | 'poly.sum-diff'
   | 'poly.more-notable'
+  | 'poly.expressions'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -1035,6 +1162,28 @@ export const polynomialGenerators: Record<
           writtenWithin(e) &&
           withinLiteralLimits(solution) &&
           isVisibleLiteral('power-of-sum', e, solution.result)
+        )
+      }),
+  },
+  'poly.expressions': {
+    version: 1,
+    // Più righe che finiscono nella riduzione dei simili; ogni errore
+    // tipico del capitolo 7 che l'espressione può far vedere cambia il
+    // risultato, e così gli esponenti sommati fra simili.
+    build: (random) =>
+      until(random, polynomialExpressions, (e) => {
+        const solution = solveLiteral(e)
+        const last = solution.lines.at(-1)
+        return (
+          solution.lines.length >= 3 &&
+          (last?.steps.every((s) => s.rule === 'like-terms') ?? false) &&
+          solution.result.size > 0 &&
+          solution.result.size <= 6 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          [...polynomialErrors(e), 'like-terms-exponents-added' as const].every(
+            (id) => isVisibleLiteral(id, e, solution.result),
+          )
         )
       }),
   },

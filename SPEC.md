@@ -674,6 +674,11 @@ sul primo termine soltanto (`2x(3y + 5x²) = 6xy + 5x²`), il quadrato di una
 differenza con il segno sbagliato (`(a − b)² = a² − 2ab − b²`), la somma per
 differenza con il più (`(a + b)(a − b) = a² + b²`), il negativo sostituito
 senza tonde (a = −2, `a² = −4`). Il confronto avviene fra forme normali.
+Il meno che non cambia i segni vale anche davanti a un prodotto o a una
+potenza che diventa un polinomio, perché il quaderno lo mette fra
+parentesi: `5x − 2x(x + 3)` letto come `5x − 2x² + 6x`. Nella potenza di un
+polinomio `(a + b)² = a² + b²` vale anche per il cubo e per il trinomio, e
+il segno sbagliato del quadrato di una differenza solo per il binomio.
 
 **Risposte.** Lo studente scrive un polinomio come `3a^2b - 1/2ab^2` o con le
 cifre ad apice. Le lettere attaccate si moltiplicano, `ab` è a · b. La barra

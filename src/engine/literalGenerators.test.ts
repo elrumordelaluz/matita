@@ -5,6 +5,7 @@ import {
   type LiteralExpression,
   type MonomialNode,
 } from './expression.ts'
+import { toText } from './expression.ts'
 import { generate, type PolynomialSkill } from './generators.ts'
 import { isVisibleLiteral } from './literalMisconceptions.ts'
 import { solveLiteral } from './literalSolver.ts'
@@ -538,5 +539,112 @@ describe('poly.more-notable', () => {
     }
     expect(largest('(2x + 3)³')).toBe(54n)
     expect(largest('(3x + 4)³')).toBeGreaterThan(60n)
+  })
+})
+
+// Gli errori tipici del capitolo 7 che un'espressione può far vedere,
+// guardando come è scritta: una potenza di un polinomio fra parentesi, un
+// prodotto per un polinomio, un termine che non è un monomio dopo il meno.
+function chapter7Errors(e: LiteralExpression): Set<MisconceptionId> {
+  const found = new Set<MisconceptionId>()
+  const isPolynomial = (n: LiteralExpression) =>
+    n.kind === 'group' && n.inner.kind === 'binary'
+  const visit = (n: LiteralExpression, afterMinus: boolean): void => {
+    if (afterMinus && n.kind !== 'monomial' && n.kind !== 'number')
+      found.add('minus-group-signs-kept')
+    if (n.kind === 'group') return visit(n.inner, false)
+    if (n.kind !== 'binary') return
+    if (n.op === '^' && isPolynomial(n.left)) {
+      found.add('power-of-sum')
+      if (
+        n.left.kind === 'group' &&
+        n.left.inner.kind === 'binary' &&
+        n.left.inner.op === '-' &&
+        n.left.inner.left.kind !== 'binary' &&
+        n.right.kind === 'number' &&
+        n.right.value.num === 2n
+      )
+        found.add('square-of-difference-sign')
+    }
+    if (n.op === '×' && isPolynomial(n.left) && isPolynomial(n.right)) {
+      const [l, r] = [toText(n.left), toText(n.right)]
+      if (l !== r && (l.replace('+', '−') === r || r.replace('+', '−') === l))
+        found.add('sum-times-difference-plus')
+    }
+    if (n.op === '×' && isPolynomial(n.left) !== isPolynomial(n.right))
+      found.add('distributive-first-term-only')
+    visit(n.left, false)
+    visit(n.right, n.op === '-')
+  }
+  visit(e, false)
+  return found
+}
+
+const chapter7Ids: readonly MisconceptionId[] = [
+  'minus-group-signs-kept',
+  'distributive-first-term-only',
+  'power-of-sum',
+  'square-of-difference-sign',
+  'sum-times-difference-plus',
+]
+
+describe('poly.expressions', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('poly.expressions', 42)).toEqual(
+      generate('poly.expressions', 42),
+    )
+  })
+
+  test('più righe, e alla fine i simili si riducono', () => {
+    for (const seed of seeds) {
+      const { lines, result } = solveLiteral(
+        generate('poly.expressions', seed).expression,
+      )
+      expect(lines.length, `seme ${seed}`).toBeGreaterThanOrEqual(3)
+      expect(
+        lines.at(-1)?.steps.every((s) => s.rule === 'like-terms'),
+        `seme ${seed}`,
+      ).toBe(true)
+      expect(result.size, `seme ${seed}`).toBeGreaterThan(0)
+      expect(result.size, `seme ${seed}`).toBeLessThanOrEqual(6)
+    }
+  })
+
+  test('ogni errore tipico del capitolo 7 che l’espressione può far vedere cambia il risultato', () => {
+    for (const seed of seeds) {
+      const { expression } = generate('poly.expressions', seed)
+      const { result } = solveLiteral(expression)
+      for (const id of chapter7Errors(expression))
+        expect(
+          isVisibleLiteral(id, expression, result),
+          `${id}, seme ${seed}: ${toText(expression)}`,
+        ).toBe(true)
+    }
+  })
+
+  test('tutti gli errori tipici del capitolo 7 compaiono, e a volte un gruppo', () => {
+    const exercises = seeds.map((seed) => generate('poly.expressions', seed))
+    for (const id of chapter7Ids)
+      expect(
+        exercises.some((e) => chapter7Errors(e.expression).has(id)),
+        id,
+      ).toBe(true)
+    expect(exercises.some((e) => toText(e.expression).includes('['))).toBe(true)
+  })
+
+  test('prodotti notevoli e distributiva insieme', () => {
+    const rules = rulesOf('poly.expressions')
+    for (const rule of [
+      'square-of-binomial',
+      'sum-times-difference',
+      'distributive',
+      'minus-group',
+      'like-terms',
+    ] as const)
+      expect(rules).toContain(rule)
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('poly.expressions')
   })
 })

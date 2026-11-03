@@ -141,6 +141,30 @@ const parts: readonly LessonPart[] = [
     example: generate('poly.more-notable', 13), // (y + 2)³
     question: generate('poly.more-notable', 8), // (2a − 3b + 4)²
   },
+  {
+    id: 'lezione-espressioni-polinomi',
+    title: 'Espressioni con i polinomi',
+    note: 'formule, potenze, prodotti, parentesi, simili',
+    text: (
+      <>
+        <p>
+          In un’espressione con i polinomi l’ordine è quello di sempre, con una
+          riga in più all’inizio: prima si scrivono le formule dei prodotti
+          notevoli, poi si calcolano le potenze, poi × e : con la distributiva,
+          poi cadono le parentesi, infine si sommano i simili. Si parte sempre
+          dal gruppo più interno.
+        </p>
+        <p>
+          Attenzione al meno davanti a un prodotto notevole o a una
+          distributiva: il risultato va fra parentesi, e quando le parentesi
+          cadono cambia segno ogni termine. 1 − (x + 2)² = 1 − (x² + 4x + 4) = 1
+          − x² − 4x − 4.
+        </p>
+      </>
+    ),
+    example: generate('poly.expressions', 0), // 2a(a + 3) − (2a + 3)²
+    question: generate('poly.expressions', 26), // 3y(2y + 5) − (2y − 5)² + y²
+  },
 ]
 
 export function PolynomialsLesson({ onPractise }: LessonProps) {

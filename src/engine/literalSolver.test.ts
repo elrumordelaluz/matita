@@ -568,3 +568,53 @@ describe('il quadrato di un trinomio e il cubo di un binomio', () => {
     expect(result('(x² + x + 1)²')).toBe('x⁴ + 3x² + 1 + 2x³ + 2x')
   })
 })
+
+describe('espressioni con i polinomi', () => {
+  // Un'espressione come quelle del libro, con i prodotti notevoli e la
+  // distributiva. Il libro scrive x² + 4x + 4 − (x² − 1) − 2x² − 6x =
+  // −2x² − 2x + 5; il quaderno fa un giro per riga, il gruppo più interno
+  // per primo.
+  test('(x + 2)² − (x − 1)(x + 1) − 2x(x + 3), riga per riga', () => {
+    const solution = solved('(x + 2)² − (x − 1)(x + 1) − 2x(x + 3)')
+    expect(rows(solution)).toEqual([
+      {
+        line: 'x² + 2 · x · 2 + 2² − [x² − 1²] − 2x(x + 3)',
+        steps: [
+          '(x + 2)² = x² + 2 · x · 2 + 2² (square-of-binomial)',
+          '(x − 1)(x + 1) = x² − 1² (sum-times-difference)',
+        ],
+      },
+      {
+        line: 'x² + 2 · x · 2 + 2² − [x² − 1] − 2x(x + 3)',
+        steps: ['1² = 1 (power)'],
+      },
+      {
+        line: 'x² + 2 · x · 2 + 4 − [x² − 1] − 2x(x + 3)',
+        steps: ['2² = 4 (power)'],
+      },
+      {
+        line: 'x² + 4x + 4 − [x² − 1] − (2x² + 6x)',
+        steps: [
+          '2 · x = 2x (monomial-product)',
+          '2x · 2 = 4x (monomial-product)',
+          '2x(x + 3) = 2x² + 6x (distributive)',
+        ],
+      },
+      {
+        line: 'x² + 4x + 4 − x² + 1 − 2x² − 6x',
+        steps: [
+          '−[x² − 1] = −x² + 1 (minus-group)',
+          '−(2x² + 6x) = −2x² − 6x (minus-group)',
+        ],
+      },
+      {
+        line: '−2x² − 2x + 5',
+        steps: [
+          'x² − x² − 2x² = −2x² (like-terms)',
+          '4x − 6x = −2x (like-terms)',
+          '4 + 1 = 5 (like-terms)',
+        ],
+      },
+    ])
+  })
+})

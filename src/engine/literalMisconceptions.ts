@@ -170,6 +170,20 @@ function termsOf(e: LiteralExpression, rules: Rules): Term[] {
         written: node,
       }
     const value = evaluate(node, rules)
+    // Dopo il meno anche un prodotto o una potenza che diventa un polinomio
+    // va fra parentesi: 5x − 2x(x + 3) = 5x − (2x² + 6x). I suoi termini li
+    // scrive il risolutore, già ridotti: si sommano con la regola giusta.
+    if (minus && value.size > 1)
+      return {
+        value: rules.minusGroup(
+          [...value.values()].map((m) => ({
+            value: polynomialOf([m]),
+            written: monomialExpression(m),
+          })),
+          correctSum,
+        ),
+        written: node,
+      }
     return { value: minus ? negatePolynomial(value) : value, written: node }
   })
 }
