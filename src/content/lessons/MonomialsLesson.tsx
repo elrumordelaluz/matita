@@ -2,8 +2,9 @@ import { generate } from '../../engine/index.ts'
 import { chapterById } from '../chapters.ts'
 import { Lesson, type LessonPart, type LessonProps } from './Lesson.tsx'
 
-// La lezione del capitolo "Monomi": le lettere al posto dei numeri, il valore
-// numerico di un'espressione letterale. Vedi SPEC.md, "Calcolo letterale".
+// La lezione del capitolo "Monomi": il valore numerico di un'espressione
+// letterale, la forma normale, la somma, il prodotto, il quoziente e la
+// potenza di monomi, le espressioni. Vedi SPEC.md, "Calcolo letterale".
 
 const chapter = chapterById('mono')
 
@@ -118,6 +119,30 @@ const parts: readonly LessonPart[] = [
     ),
     example: generate('mono.power', 7), // (−3b³a²)² · (−2a²b³)
     question: generate('mono.power', 20), // (−3x²y³)²
+  },
+  {
+    id: 'lezione-espressioni-monomi',
+    title: 'Espressioni con i monomi',
+    note: 'potenze, poi × e :, poi i simili',
+    text: (
+      <>
+        <p>
+          Un’espressione con i monomi si svolge con l’ordine di sempre. Si parte
+          dal gruppo più interno; dentro, prima le potenze, poi × e : da
+          sinistra a destra, infine si sommano i monomi simili. Quando un gruppo
+          diventa un monomio le parentesi cadono, e se il monomio è negativo
+          resta fra tonde.
+        </p>
+        <p>
+          La regola dei segni vale anche qui: − (−5a⁴b²) diventa + 5a⁴b². Per
+          sommare i simili il libro a volte scrive una riga in più, (1/2 − 1)
+          ab², per mettere in evidenza la parte letterale: è il modo di fare il
+          conto, e sul quaderno si può saltare.
+        </p>
+      </>
+    ),
+    example: generate('mono.expressions', 1), // −1/2 a(4a² + 4a²) + (2a)³ + (3a)³
+    question: generate('mono.expressions', 7), // a³ · (−2a³) + (3a²)³ − (−2a³)²
   },
 ]
 

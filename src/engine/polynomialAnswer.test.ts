@@ -143,6 +143,16 @@ describe('la politica delle risposte polinomio', () => {
   test('in forma non canonica con il valore sbagliato si giudica dal valore', () => {
     expect(judge('3a + 2a', '6a')).toEqual({ kind: 'wrong' })
   })
+
+  // Bergamini, esercizio guida 159.
+  test('la risposta di un’espressione con i monomi: 3a¹²x⁶', () => {
+    const es159 = '(−1/2 a⁶x³)² + (5/4 a²)(−1/2 a⁴x)² · (−2a²x⁴) − (−3/2 a⁴x²)³'
+    expect(judge('3a^12x^6', es159)).toEqual({ kind: 'correct' })
+    expect(judge('3x⁶a¹²', es159)).toEqual({ kind: 'correct' })
+    expect(judge('24/8a^12x^6', es159)).toMatchObject({
+      reason: 'integer-as-fraction',
+    })
+  })
 })
 
 describe('la lettura', () => {

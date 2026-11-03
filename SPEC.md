@@ -575,6 +575,15 @@ gruppo si annulla il termine sparisce.
 L'ordine dei termini nella soluzione è quello di prima comparsa, come nei
 risultati del libro, e le lettere di un monomio sono in ordine alfabetico.
 
+Come con i numeri, un gruppo che si riduce a un monomio perde le parentesi,
+e un monomio negativo resta fra tonde perché è la sua scrittura:
+`5a − (a − 3a) = 5a − (−2a)`. Il meno davanti a un monomio negativo è la
+regola dei segni e si svolge nel giro di × e :, `5a − (−2a) = 5a + 2a`;
+un risultato negativo dopo il più si scrive subito con il meno, senza
+passaggio. Ogni ambito fa un giro per riga, come con i numeri: in
+`(3a²b²)² : 3a³b + 5a²b⁴ : 2ab⁴` il secondo quoziente aspetta la riga di ×
+e :, anche se l'esercizio guida 199 del libro lo anticipa.
+
 Un gruppo che non si riduce a un numero perde le parentesi quando il suo
 interno è in forma normale, nel giro di + e −. Se è preceduto dal più le
 parentesi cadono e basta; se è preceduto dal meno cadono cambiando il segno

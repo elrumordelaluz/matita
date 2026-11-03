@@ -3,11 +3,13 @@ import {
   group,
   isMulDiv,
   literal,
+  nodeAt,
   isNegatedPower,
   isPower,
   type LiteralExpression,
   type MonomialNode,
   type Operator,
+  type Path,
 } from './expression.ts'
 import {
   addPolynomials,
@@ -99,6 +101,13 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
     const value = polynomialValue(e)
     return reduced(rule, e, [polynomialValue(base)], value)
   }
+  // La regola dei segni, nel giro di × e : come con i numeri: il meno
+  // davanti a un monomio fra parentesi cambia il suo segno, −(−2a) = 2a, e
+  // in una somma − (−27/8 a¹²x⁶) diventa + 27/8 a¹²x⁶.
+  if (level === 'mul-div') {
+    const signChange = changeSign(e)
+    if (signChange) return signChange
+  }
   if (e.kind !== 'binary' || levelOf(e.op) !== level) return null
   if (!isLeaf(e.left) || !isLeaf(e.right)) return null
   const numbers = e.left.kind === 'number' && e.right.kind === 'number'
@@ -132,6 +141,55 @@ function reduceHere(e: LiteralExpression, level: Level): Reduction | null {
     default:
       return null
   }
+}
+
+const isNegativeLeaf = (e: LiteralExpression) =>
+  (e.kind === 'number' && e.value.num < 0n) ||
+  (e.kind === 'monomial' && e.coefficient.num < 0n)
+
+// Il monomio o il numero con il segno cambiato.
+function opposite(leaf: LiteralExpression): LiteralExpression {
+  return written(negatePolynomial(polynomialValue(leaf)))
+}
+
+function changeSign(e: LiteralExpression): Reduction | null {
+  if (e.kind === 'group' && e.negated && isLeaf(e.inner)) {
+    const value = polynomialValue(e.inner)
+    return reduced('change-sign', e, [value], negatePolynomial(value))
+  }
+  if (e.kind !== 'binary' || e.op !== '-' || !isNegativeLeaf(e.right))
+    return null
+  const value = polynomialValue(e.right)
+  const operation = group('round', e.right, { negated: true })
+  const outcome = opposite(e.right)
+  return {
+    expression: binary('+', e.left, outcome),
+    step: {
+      rule: 'change-sign',
+      operands: [value],
+      result: negatePolynomial(value),
+      operation,
+      outcome,
+    },
+  }
+}
+
+/**
+ * In una somma i termini sono monomi positivi fra + e −, come sul libro:
+ * un risultato negativo dopo il più si scrive con il meno, 3a − 2b e mai
+ * 3a + (−2b). È la scrittura del termine, non un passaggio.
+ */
+function positiveTerms(e: LiteralExpression): LiteralExpression {
+  if (e.kind === 'group')
+    return group(e.bracket, positiveTerms(e.inner), {
+      negated: e.negated === true,
+    })
+  if (e.kind !== 'binary') return e
+  const left = positiveTerms(e.left)
+  const right = positiveTerms(e.right)
+  if (e.op === '+' && isNegativeLeaf(right))
+    return binary('-', left, opposite(right))
+  return left === e.left && right === e.right ? e : binary(e.op, left, right)
 }
 
 // Svolge il primo passaggio del giro, da sinistra, senza entrare nei gruppi.
@@ -254,26 +312,113 @@ function reduceLevel(e: LiteralExpression, level: Level): Reduction | null {
   return level === 'add-sub' ? reduceLikeTerms(e) : reduceFirst(e, level)
 }
 
-// Una riga: il primo giro che ha qualcosa da fare, svolto tutto.
-function solveLevel(e: LiteralExpression): Line<LiteralStep> | null {
-  const level = levels.find((l) => reduceLevel(e, l) !== null)
-  if (!level) return null
-  const steps: LiteralStep[] = []
-  let current = e
+// Gli ambiti: si lavora dentro i gruppi più interni, o sull'intera
+// espressione se non ce ne sono, come con i numeri.
+
+function replace(
+  e: LiteralExpression,
+  [head, ...rest]: Path,
+  node: LiteralExpression,
+): LiteralExpression {
+  if (head === undefined) return node
+  if (head === 'inner' && e.kind === 'group')
+    return group(e.bracket, replace(e.inner, rest, node), {
+      negated: e.negated === true,
+    })
+  if (e.kind === 'binary') {
+    if (head === 'left')
+      return binary(e.op, replace(e.left, rest, node), e.right)
+    if (head === 'right')
+      return binary(e.op, e.left, replace(e.right, rest, node))
+  }
+  throw new Error('Percorso non valido')
+}
+
+// Un gruppo da svolgere: non il meno davanti a una potenza, −3a², e non il
+// meno davanti a un monomio, −(−2a), che è un cambio di segno.
+function isOpenGroup(e: LiteralExpression): boolean {
+  return (
+    e.kind === 'group' &&
+    !isNegatedPower(e) &&
+    !(e.negated === true && isLeaf(e.inner))
+  )
+}
+
+function hasGroup(e: LiteralExpression): boolean {
+  if (e.kind === 'group')
+    return isOpenGroup(e) || (isNegatedPower(e) && hasGroup(e.inner))
+  return e.kind === 'binary' && (hasGroup(e.left) || hasGroup(e.right))
+}
+
+// I gruppi che non contengono altri gruppi, da sinistra a destra.
+function innermostGroups(e: LiteralExpression, path: Path = []): Path[] {
+  if (e.kind === 'number' || e.kind === 'monomial') return []
+  if (e.kind === 'group') {
+    if (!isOpenGroup(e))
+      return isNegatedPower(e)
+        ? innermostGroups(e.inner, [...path, 'inner'])
+        : []
+    return hasGroup(e.inner)
+      ? innermostGroups(e.inner, [...path, 'inner'])
+      : [path]
+  }
+  return [
+    ...innermostGroups(e.left, [...path, 'left']),
+    ...innermostGroups(e.right, [...path, 'right']),
+  ]
+}
+
+// Un gruppo ridotto a un monomio o a un numero perde le parentesi; se è
+// negativo resta fra tonde, perché è la sua scrittura: 5a − (−2a). Davanti
+// a un gruppo preceduto dal meno le parentesi restano: −(−2a).
+function settle(e: LiteralExpression, target: Path): LiteralExpression {
+  const node = nodeAt(e, target)
+  return node.kind === 'group' && !node.negated && isLeaf(node.inner)
+    ? positiveTerms(replace(e, target, node.inner))
+    : e
+}
+
+// Svolge un giro dentro un ambito: le potenze, poi × e :, poi i simili.
+function solveScope(
+  e: LiteralExpression,
+  target: Path,
+  steps: LiteralStep[],
+): LiteralExpression {
+  const inGroup = isOpenGroup(nodeAt(e, target))
+  const scope: Path = inGroup ? [...target, 'inner'] : target
+  const level = levels.find((l) => reduceLevel(nodeAt(e, scope), l) !== null)
+  let current = settle(e, target)
   for (;;) {
-    const reduction = reduceLevel(current, level)
-    if (!reduction) return { expression: current, steps }
-    current = reduction.expression
+    // Il gruppo è caduto: l'ambito non c'è più.
+    if (inGroup && !isOpenGroup(nodeAt(current, target))) return current
+    const reduction = level && reduceLevel(nodeAt(current, scope), level)
+    if (!reduction) return current
+    current = settle(
+      positiveTerms(replace(current, scope, reduction.expression)),
+      target,
+    )
     steps.push({ ...reduction.step, expression: current })
   }
+}
+
+// Una riga: in ogni ambito il primo giro che ha qualcosa da fare.
+function solveLevel(e: LiteralExpression): Line<LiteralStep> {
+  const steps: LiteralStep[] = []
+  const targets = hasGroup(e) ? innermostGroups(e) : [[]]
+  let current = e
+  for (const target of targets) current = solveScope(current, target, steps)
+  return { expression: current, steps }
 }
 
 /** La soluzione per righe di un'espressione letterale. */
 export function solveLiteral(e: LiteralExpression): LiteralSolution {
   const lines: Line<LiteralStep>[] = []
   let current = e
-  for (let line = solveLevel(current); line; line = solveLevel(current)) {
-    lines.push(line)
+  for (;;) {
+    const line = solveLevel(current)
+    if (line.expression === current) break
+    // Una riga senza passaggi ha solo tolto parentesi.
+    if (line.steps.length > 0) lines.push(line)
     current = line.expression
   }
   return { lines, result: polynomialValue(current) }

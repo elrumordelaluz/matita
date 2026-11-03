@@ -138,6 +138,28 @@ test('la domanda sulla potenza riconosce il coefficiente non elevato e il segno'
   expect(answer('(−3x²y³)²', '9x^4y^6')).toHaveTextContent('Esatto!')
 })
 
+test('un’espressione con i monomi: gruppo, potenze, prodotti, simili', () => {
+  lesson()
+  const example = screen.getByRole('figure', {
+    name: 'Esempio: −1/2 a(4a² + 4a²) + (2a)³ + (3a)³',
+  })
+  expect(lines(example)).toEqual([
+    '−1/2 a · 8a² + (2a)³ + (3a)³',
+    '−1/2 a · 8a² + 8a³ + 27a³',
+    '−4a³ + 8a³ + 27a³',
+    '31a³',
+  ])
+})
+
+test('la domanda sulle espressioni riconosce gli esponenti sommati fra simili', () => {
+  lesson()
+  const name = 'a³ · (−2a³) + (3a²)³ − (−2a³)²'
+  expect(answer(name, '21a^18')).toHaveTextContent(
+    'Fra monomi simili hai sommato anche gli esponenti.',
+  )
+  expect(answer(name, '21a^6')).toHaveTextContent('Esatto!')
+})
+
 test('dalla lezione si passa alla pratica della prima abilità', () => {
   const onPractise = lesson()
   fireEvent.click(screen.getByRole('button', { name: 'Inizia la pratica' }))

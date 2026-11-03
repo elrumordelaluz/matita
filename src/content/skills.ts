@@ -124,4 +124,9 @@ export const skills: readonly Skill[] = [
     title: 'La potenza di un monomio',
     prerequisites: ['mono.mul-div'],
   },
+  {
+    id: 'mono.expressions',
+    title: 'Espressioni con i monomi',
+    prerequisites: ['mono.add-sub', 'mono.power', 'q.brackets'],
+  },
 ]

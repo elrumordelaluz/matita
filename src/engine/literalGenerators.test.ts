@@ -261,3 +261,53 @@ describe('mono.add-sub', () => {
     expectLiteralLimits('mono.add-sub')
   })
 })
+
+describe('mono.expressions', () => {
+  test('stesso seme, stesso esercizio', () => {
+    expect(generate('mono.expressions', 42)).toEqual(
+      generate('mono.expressions', 42),
+    )
+  })
+
+  test('più righe, e alla fine i simili si riducono', () => {
+    for (const seed of seeds) {
+      const { lines, result } = solveLiteral(
+        generate('mono.expressions', seed).expression,
+      )
+      expect(lines.length, `seme ${seed}`).toBeGreaterThanOrEqual(2)
+      expect(lines.at(-1)?.steps[0]?.rule, `seme ${seed}`).toBe('like-terms')
+      expect(result.size, `seme ${seed}`).toBeGreaterThan(0)
+    }
+  })
+
+  test('potenze, prodotti, quozienti e gruppi', () => {
+    const rules = rulesOf('mono.expressions')
+    for (const rule of [
+      'monomial-power',
+      'monomial-product',
+      'monomial-quotient',
+      'like-terms',
+    ] as const)
+      expect(rules).toContain(rule)
+    // Un gruppo con dentro una somma di simili, come (3a − 5a).
+    const hasSumGroup = (e: LiteralExpression): boolean => {
+      if (e.kind === 'group') return e.inner.kind === 'binary'
+      return (
+        e.kind === 'binary' && (hasSumGroup(e.left) || hasSumGroup(e.right))
+      )
+    }
+    expect(
+      seeds.some((seed) =>
+        hasSumGroup(generate('mono.expressions', seed).expression),
+      ),
+    ).toBe(true)
+  })
+
+  test('gli esponenti sommati fra simili cambiano sempre il risultato', () => {
+    expectVisibleLiteral('mono.expressions', ['like-terms-exponents-added'])
+  })
+
+  test('i numeri restano nei limiti del calcolo letterale', () => {
+    expectLiteralLimits('mono.expressions')
+  })
+})

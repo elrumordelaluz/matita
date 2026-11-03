@@ -199,3 +199,73 @@ describe('la riduzione dei termini simili', () => {
     expect(result('−1/4 a + 2b² − 1/2 a + 1/3 b²')).toBe('−3/4 a + 7/3 b²')
   })
 })
+
+describe('espressioni con i monomi', () => {
+  const lines = (text: string) =>
+    solved(text).lines.map((l) => toText(l.expression))
+
+  // Esercizio guida 95, senza la riga di raccoglimento (1/2 − 1)ab².
+  test('es. 95: (3/8 ab)(−4/3 a)(−6b) + b²(1/2 a) − ab²', () => {
+    expect(lines('(3/8 ab)(−4/3 a)(−6b) + b²(1/2 a) − ab²')).toEqual([
+      '3a²b² + 1/2 ab² − ab²',
+      '3a²b² − 1/2 ab²',
+    ])
+  })
+
+  // Esercizio guida 159: prima le potenze, poi i prodotti con la regola dei
+  // segni, poi i simili; il risultato è 3a¹²x⁶.
+  test('es. 159: (−1/2 a⁶x³)² + (5/4 a²)(−1/2 a⁴x)²(−2a²x⁴) − (−3/2 a⁴x²)³', () => {
+    const text = '(−1/2 a⁶x³)² + (5/4 a²)(−1/2 a⁴x)² · (−2a²x⁴) − (−3/2 a⁴x²)³'
+    expect(lines(text)).toEqual([
+      '1/4 a¹²x⁶ + 5/4 a² · 1/4 a⁸x² · (−2a²x⁴) − (−27/8 a¹²x⁶)',
+      '1/4 a¹²x⁶ − 5/8 a¹²x⁶ + 27/8 a¹²x⁶',
+      '3a¹²x⁶',
+    ])
+    expect(result(text)).toBe('3a¹²x⁶')
+  })
+
+  test('il meno davanti a un monomio negativo è la regola dei segni, nel giro di × e :', () => {
+    const [, second] = solved(
+      '(−1/2 a⁶x³)² + (5/4 a²)(−1/2 a⁴x)² · (−2a²x⁴) − (−3/2 a⁴x²)³',
+    ).lines
+    expect(
+      second?.steps.map((s) => `${toText(s.operation)} = ${toText(s.outcome)}`),
+    ).toEqual([
+      '5/4 a² · 1/4 a⁸x² = 5/16 a¹⁰x²',
+      '5/16 a¹⁰x² · (−2a²x⁴) = −5/8 a¹²x⁶',
+      '−(−27/8 a¹²x⁶) = 27/8 a¹²x⁶',
+    ])
+  })
+
+  // Esercizio guida 199: ogni ambito fa un giro alla volta, come con i
+  // numeri, quindi il quoziente del terzo termine aspetta la riga di × e :.
+  test('es. 199: (3a²b²)² : 3a³b − 2a(3b)² + 5a²b⁴ : 2ab⁴ + 5bab²', () => {
+    expect(lines('(3a²b²)² : 3a³b − 2a(3b)² + 5a²b⁴ : 2ab⁴ + 5bab²')).toEqual([
+      '9a⁴b⁴ : 3a³b − 2a · 9b² + 5a²b⁴ : 2ab⁴ + 5ab³',
+      '3ab³ − 18ab² + 5/2 a + 5ab³',
+      '8ab³ − 18ab² + 5/2 a',
+    ])
+  })
+
+  test('il gruppo più interno per primo; ridotto a un monomio, le parentesi cadono', () => {
+    expect(lines('2a · (3a − 5a) + (a − 3a)²')).toEqual([
+      '2a · (−2a) + (−2a)²',
+      '2a · (−2a) + 4a²',
+      '−4a² + 4a²',
+      '0',
+    ])
+  })
+
+  test('un gruppo dopo il meno che diventa un monomio negativo: la regola dei segni', () => {
+    expect(lines('5a − (a − 3a)')).toEqual(['5a − (−2a)', '5a + 2a', '7a'])
+  })
+
+  test('tonde dentro quadre', () => {
+    expect(lines('[2a · (a + 2a)]² : 4a³')).toEqual([
+      '[2a · 3a]² : 4a³',
+      '(6a²)² : 4a³',
+      '36a⁴ : 4a³',
+      '9a',
+    ])
+  })
+})

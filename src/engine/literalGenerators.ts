@@ -1,5 +1,6 @@
 import {
   binary,
+  group,
   literal,
   monomial,
   negatedPower,
@@ -436,9 +437,162 @@ function sumOfMonomials(random: Random): LiteralExpression {
   )
 }
 
+// Le espressioni con i monomi, come gli esercizi guida del libro: due o tre
+// termini che diventano simili, ciascuno con il suo conto (una potenza, un
+// prodotto, un quoziente, un gruppo di simili per un monomio), a volte un
+// termine che resta da solo. La parte letterale comune si sceglie prima, e
+// ogni termine si costruisce per arrivarci.
+
+type LetterPart = readonly (readonly [string, bigint])[]
+
+const smallCoefficient = (random: Random): Rational =>
+  random.pick([true, true, true, false])
+    ? rational(random.pick([-3n, -2n, -1n, 1n, 2n, 3n, 4n]))
+    : random.pick([rational(1n, 2n), rational(-1n, 2n), rational(3n, 2n)])
+
+// Una parte letterale con una o due lettere, esponenti fino a 4 o 6.
+function targetPart(random: Random): LetterPart {
+  const letters = random.pick(monomialLetters)
+  const [x = 'a', y = 'b'] = letters
+  const exponent = () => random.pick([2n, 2n, 3n, 4n, 6n])
+  return random.pick([true, false])
+    ? [[x, exponent()]]
+    : [
+        [x, exponent()],
+        [y, random.pick([1n, 2n, 3n])],
+      ]
+}
+
+// (c · base)ⁿ con la parte letterale data: ogni esponente diviso per n.
+function powerTerm(random: Random, part: LetterPart): LiteralExpression | null {
+  const exponents = [2n, 3n].filter((n) => part.every(([, e]) => e % n === 0n))
+  if (exponents.length === 0) return null
+  const n = random.pick(exponents)
+  const base = monomial(
+    random.pick([
+      rational(2n),
+      rational(-2n),
+      rational(3n),
+      rational(-1n, 2n),
+      rational(-1n),
+    ]),
+    part.map(([l, e]) => [l, e / n] as const),
+  )
+  return power(base, n)
+}
+
+// Due monomi il cui prodotto ha la parte letterale data.
+function productTerm(
+  random: Random,
+  part: LetterPart,
+): LiteralExpression | null {
+  const left: [string, bigint][] = []
+  const right: [string, bigint][] = []
+  for (const [l, e] of part) {
+    const k = random.int(0n, e)
+    if (k > 0n) left.push([l, k])
+    if (e - k > 0n) right.push([l, e - k])
+  }
+  if (left.length === 0 || right.length === 0) return null
+  return binary(
+    '×',
+    monomial(smallCoefficient(random), left),
+    monomial(smallCoefficient(random), right),
+  )
+}
+
+// Un quoziente esatto con la parte letterale data.
+function quotientTerm(
+  random: Random,
+  part: LetterPart,
+): LiteralExpression | null {
+  const divisor = part
+    .filter(([, e]) => e < 5n)
+    .map(([l, e]) => [l, random.int(1n, 5n - e)] as const)
+  if (divisor.length === 0) return null
+  const k = random.pick([2n, 3n, 4n])
+  const dividend = part.map(([l, e]) => {
+    const d = divisor.find(([m]) => m === l)?.[1] ?? 0n
+    return [l, e + d] as const
+  })
+  return binary(
+    ':',
+    monomial(rational(k * random.pick([-3n, -1n, 1n, 2n, 3n])), dividend),
+    monomial(rational(random.pick([-1n, 1n]) * k), divisor),
+  )
+}
+
+// Un monomio per un gruppo di simili: 2a · (3a − 5a).
+function groupTerm(random: Random, part: LetterPart): LiteralExpression | null {
+  const outside: [string, bigint][] = []
+  const inside: [string, bigint][] = []
+  for (const [l, e] of part) {
+    const k = random.int(0n, e)
+    if (k > 0n) outside.push([l, k])
+    if (e - k > 0n) inside.push([l, e - k])
+  }
+  if (outside.length === 0 || inside.length === 0) return null
+  const first = random.int(1n, 5n)
+  const second = random.int(1n, 5n)
+  const sum = binary(
+    random.pick(addSub),
+    monomial(rational(first), inside),
+    monomial(rational(second), inside),
+  )
+  return binary(
+    '×',
+    monomial(smallCoefficient(random), outside),
+    group('round', sum),
+  )
+}
+
+const termShapes = [powerTerm, productTerm, quotientTerm, groupTerm]
+
+function likeTerm(random: Random, part: LetterPart): LiteralExpression {
+  for (;;) {
+    const term = random.pick(termShapes)(random, part)
+    if (term) return term
+  }
+}
+
+function monomialExpressions(random: Random): LiteralExpression {
+  const part = targetPart(random)
+  const terms = Array.from({ length: Number(random.int(2n, 3n)) }, () =>
+    likeTerm(random, part),
+  )
+  if (random.pick([true, false, false])) {
+    const letters = part.map(([l]) => l)
+    terms.splice(
+      Number(random.int(0n, BigInt(terms.length))),
+      0,
+      monomial(smallCoefficient(random), [[letters[0] ?? 'a', 1n]]),
+    )
+  }
+  const [first, ...rest] = terms
+  if (!first) throw new RangeError('Nessun termine')
+  return rest.reduce<LiteralExpression>(
+    (sum, term) => binary(random.pick(addSub), sum, term),
+    first,
+  )
+}
+
+// I numeri scritti seguono i limiti: esponenti fino a 5, denominatori fino
+// a 12.
+function writtenWithin(e: LiteralExpression): boolean {
+  if (e.kind === 'monomial')
+    return e.coefficient.den <= 12n && e.letters.every((l) => l.exponent <= 5n)
+  if (e.kind === 'number') return e.value.den <= 12n
+  if (e.kind === 'group') return writtenWithin(e.inner)
+  return writtenWithin(e.left) && writtenWithin(e.right)
+}
+
 /** Le abilità i cui esercizi chiedono un polinomio. */
 export type PolynomialSkill =
-  'mono.normal-form' | 'mono.mul-div' | 'mono.power' | 'mono.add-sub'
+  | 'mono.normal-form'
+  | 'mono.mul-div'
+  | 'mono.power'
+  | 'mono.add-sub'
+  | 'mono.expressions'
 
 export const polynomialGenerators: Record<
   PolynomialSkill,
@@ -498,6 +652,23 @@ export const polynomialGenerators: Record<
           (
             ['implicit-coefficient-zero', 'like-terms-exponents-added'] as const
           ).every((id) => isVisibleLiteral(id, e, solution.result))
+        )
+      }),
+  },
+  'mono.expressions': {
+    version: 1,
+    // Alla fine si riducono i simili, e gli esponenti sommati fra simili
+    // cambiano il risultato.
+    build: (random) =>
+      until(random, monomialExpressions, (e) => {
+        const solution = solveLiteral(e)
+        return (
+          solution.lines.length >= 2 &&
+          solution.lines.at(-1)?.steps[0]?.rule === 'like-terms' &&
+          solution.result.size > 0 &&
+          writtenWithin(e) &&
+          withinLiteralLimits(solution) &&
+          isVisibleLiteral('like-terms-exponents-added', e, solution.result)
         )
       }),
   },
