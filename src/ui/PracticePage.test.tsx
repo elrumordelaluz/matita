@@ -578,3 +578,30 @@ test('spegnere l’interruttore pulisce riga e suggerimento', () => {
   expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
   expect(screen.queryByRole('alert')).toBeNull()
 })
+
+test('il conto che dà il risultato scritto come operazione è la risposta finale', () => {
+  const onAttempt = vi.fn()
+  render(
+    <PracticePage
+      createExercise={() => exercise('2 + 3 × 4')}
+      onAttempt={onAttempt}
+    />,
+  )
+  switchOn()
+  line('3 × 4 = 12')
+  line('2 + 12 = 14')
+  expect(screen.getByRole('status')).toHaveTextContent('Corretto!')
+  expect(onAttempt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ answer: '14' }),
+  )
+})
+
+test('il risultato di un conto finale va alla verifica così com’è scritto', () => {
+  render(<PracticePage createExercise={() => exercise('2 + 3 × 4')} />)
+  switchOn()
+  line('3 × 4 = 12')
+  line('2 + 12 = 14/1')
+  expect(screen.getByRole('status')).not.toHaveTextContent('Corretto!')
+  expect(screen.getByLabelText('Risultato')).not.toHaveAttribute('readonly')
+  expect(screen.queryByRole('alert')).toBeNull()
+})

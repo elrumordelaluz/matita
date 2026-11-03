@@ -190,8 +190,11 @@ export function PracticePage({
       const written = parseOperationLine(text)
       if (!written) return unreadableLine()
       const result = operationStep(currentLine, written)
-      if (result.ok) return accept(result.line)
-      return refuse(result)
+      if (!result.ok) return refuse(result)
+      // Il conto che dà il risultato chiude l'esercizio: alla verifica va il
+      // risultato così come è scritto, 14/1 compreso.
+      if (result.line.kind === 'number') return grade(written.written)
+      return accept(result.line)
     }
     let parsed: Expression
     try {

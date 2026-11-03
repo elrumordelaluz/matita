@@ -32,6 +32,8 @@ export type StepCheck =
 export interface OperationLine {
   readonly operation: Expression
   readonly result: Rational
+  /** Il risultato come lo studente l'ha scritto: va alla verifica così. */
+  readonly written: string
 }
 
 /** Legge `3 × 7 = 21` (anche `3*7=21`); nulla se non è un conto. */
@@ -43,7 +45,7 @@ export function parseOperationLine(text: string): OperationLine | null {
     const operation = parseExpression(written)
     const result = parseExpression(outcome)
     if (result.kind !== 'number') return null
-    return { operation, result: result.value }
+    return { operation, result: result.value, written: outcome.trim() }
   } catch {
     return null
   }
@@ -81,20 +83,27 @@ function sameShape(a: Expression, b: Expression): boolean {
   )
 }
 
-// La prima occorrenza di `target` nell'albero, da sinistra.
-function findPath(
-  e: Expression,
-  target: Expression,
-  path: Path = [],
-): Path | null {
-  if (sameShape(e, target)) return path
-  if (e.kind === 'group') return findPath(e.inner, target, [...path, 'inner'])
+// Le occorrenze di `target` nell'albero, da sinistra.
+function findPaths(e: Expression, target: Expression, path: Path = []): Path[] {
+  if (sameShape(e, target)) return [path]
+  if (e.kind === 'group') return findPaths(e.inner, target, [...path, 'inner'])
   if (e.kind === 'binary')
-    return (
-      findPath(e.left, target, [...path, 'left']) ??
-      findPath(e.right, target, [...path, 'right'])
-    )
-  return null
+    return [
+      ...findPaths(e.left, target, [...path, 'left']),
+      ...findPaths(e.right, target, [...path, 'right']),
+    ]
+  return []
+}
+
+// Un numero fra parentesi, (72), è un numero: le parentesi cadono, come fa il
+// risolutore quando un gruppo si riduce. Il meno davanti resta, −(4) è un
+// cambio di segno.
+function settleNumbers(e: Expression): Expression {
+  if (e.kind === 'binary')
+    return { ...e, left: settleNumbers(e.left), right: settleNumbers(e.right) }
+  if (e.kind !== 'group') return e
+  const inner = settleNumbers(e.inner)
+  return inner.kind === 'number' && !e.negated ? inner : { ...e, inner }
 }
 
 // Dove due espressioni diverse differiscono: il posto del conto svolto.
@@ -260,10 +269,13 @@ function match(
  * Le parentesi, di qualunque tipo, non contano.
  */
 export function checkStep(previous: Expression, next: Expression): StepCheck {
-  const ctx = context(previous)
-  if (ctx.zero && !sameShape(previous, next))
+  // I passaggi si cercano sulla riga senza numeri fra parentesi: (72) : 12 è
+  // già 72 : 12, e togliere quelle parentesi non è un conto.
+  const settled = settleNumbers(previous)
+  const ctx = context(settled)
+  if (ctx.zero && !sameShape(settled, next))
     return { ok: false, reason: 'zero-divisor', operation: ctx.zero }
-  const verdict = match(previous, next, [], ctx)
+  const verdict = match(settled, next, [], ctx)
   if (verdict.status === 'refused')
     return { ok: false, reason: verdict.reason, operation: verdict.operation }
   if (verdict.status === 'same')
@@ -274,9 +286,10 @@ export function checkStep(previous: Expression, next: Expression): StepCheck {
 }
 
 /**
- * Applica alla riga `previous` un conto scritto come `3 × 7 = 21`: la prima
- * occorrenza dell'operazione diventa il risultato scritto. La riga che ne
- * esce è giudicata come una riga intera.
+ * Applica alla riga `previous` un conto scritto come `3 × 7 = 21`: diventa il
+ * risultato scritto la prima occorrenza dove il passaggio è possibile, o la
+ * prima in assoluto se non lo è da nessuna parte. La riga che ne esce, senza
+ * numeri fra parentesi, è giudicata come una riga intera.
  */
 export function operationStep(
   previous: Expression,
@@ -288,12 +301,18 @@ export function operationStep(
       readonly reason: StepRefusalReason
       readonly operation: Expression | undefined
     } {
-  const ctx = context(previous)
+  const settled = settleNumbers(previous)
+  const ctx = context(settled)
   if (ctx.zero)
     return { ok: false, reason: 'zero-divisor', operation: ctx.zero }
-  const path = findPath(previous, written.operation)
+  const paths = findPaths(settled, written.operation)
+  // Il conto dentro un gruppo che si riduce ha il passaggio sul gruppo.
+  const possible = (p: Path) =>
+    ctx.allowed.has(p.join()) ||
+    (p.at(-1) === 'inner' && ctx.allowed.has(p.slice(0, -1).join()))
+  const path = paths.find(possible) ?? paths[0]
   if (!path) return { ok: false, reason: 'order', operation: ctx.first }
-  const line = replace(previous, path, literal(written.result))
+  const line = settleNumbers(replace(settled, path, literal(written.result)))
   const check = checkStep(previous, line)
   return check.ok ? { ok: true, line } : check
 }

@@ -123,3 +123,43 @@ describe('righe accettate', () => {
     expect(check('(2 + 3) × 4', '[2 + 3] × 4')).toEqual({ ok: true })
   })
 })
+
+// Le righe da cui lo studente deve poter andare avanti: un numero rimasto fra
+// parentesi non blocca né il conto successivo né la riga del risolutore.
+describe('lo studente non resta bloccato', () => {
+  test('un conto scritto come operazione fa cadere le parentesi del risultato', () => {
+    const step = operation('2 × (3 + 4)', '3 + 4 = 7')
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('2 × 7')
+  })
+
+  test('un numero rimasto fra parentesi non blocca il conto che lo usa', () => {
+    const step = operation('18 − 9 + (72) : 12', '72 : 12 = 6')
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('18 − 9 + 6')
+  })
+
+  test('un numero rimasto fra parentesi non sposta i passaggi della riga', () => {
+    expect(check('2 × (7) + (3 × 5 + 1)', '2 × 7 + (15 + 1)')).toEqual({
+      ok: true,
+    })
+    expect(check('2 × {10} + 6 : 2', '20 + 3')).toEqual({ ok: true })
+  })
+
+  test('togliere le parentesi intorno a un numero è una riga valida', () => {
+    expect(check('2 × (7) + 1', '2 × 7 + 1')).toEqual({ ok: true })
+  })
+
+  test('un conto scritto come operazione va dove il passaggio è possibile', () => {
+    const step = operation('2 × 3 + (2 × 3 + 1)', '2 × 3 = 6')
+    expect(step.ok).toBe(true)
+    if (step.ok) expect(toText(step.line)).toBe('2 × 3 + (6 + 1)')
+    const inner = operation('3 + 4 + (3 + 4)', '3 + 4 = 7')
+    expect(inner.ok).toBe(true)
+    if (inner.ok) expect(toText(inner.line)).toBe('3 + 4 + 7')
+    expect(operation('2 × 3 + (2 × 3 + 1)', '2 × 3 = 7')).toMatchObject({
+      ok: false,
+      reason: 'value',
+    })
+  })
+})

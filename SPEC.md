@@ -316,10 +316,13 @@ delle operazioni: 2 × 3 + 4 × 5 può diventare 2 × 3 + 20, ma 2 + 3 + 4 non p
 diventare 2 + 7 e 2 + 3 × 1 non può diventare 5 × 1. Il tipo di parentesi non
 conta. Una riga rifiutata dice se l'ordine o il valore è sbagliato e quale
 conto controllare, resta da scrivere e rende il tentativo aiutato. Oltre alla
-riga intera si può scrivere un conto solo, come 3 × 7 = 21 o 3*7=21: la prima
-occorrenza del conto diventa il risultato scritto. Una riga che si legge come
-un numero, anche fra parentesi, è la risposta finale e va alla verifica così
-com'è stata scritta. Il suggerimento scrive il prossimo passo della riga dello
+riga intera si può scrivere un conto solo, come 3 × 7 = 21 o 3*7=21: diventa
+il risultato scritto la prima occorrenza del conto dove il passaggio è
+possibile. Un numero fra parentesi, (72), vale come il numero: le parentesi
+cadono e non bloccano il conto successivo. Una riga che si legge come un
+numero, anche fra parentesi, è la risposta finale e va alla verifica così
+com'è stata scritta; lo stesso vale per il risultato del conto che chiude
+l'espressione, come 2 + 12 = 14. Il suggerimento scrive il prossimo passo della riga dello
 studente, tranne quello che dà il risultato.
 
 ## Ripasso e tracking
