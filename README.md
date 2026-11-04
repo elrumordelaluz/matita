@@ -4,6 +4,8 @@ Spiegazioni ed esercizi di matematica per le superiori, con ripasso spaziato.
 Si comincia dalle espressioni con numeri naturali, interi e razionali. Il
 progetto è descritto in [SPEC.md](SPEC.md).
 
+Serve Node 24, la versione fissata in `.nvmrc`.
+
 ```sh
 pnpm install
 pnpm dev
