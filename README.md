@@ -7,6 +7,7 @@ progetto è descritto in [SPEC.md](SPEC.md).
 Serve Node 24, la versione fissata da `.nvmrc`.
 
 ```sh
+# Node 24, come da .nvmrc
 pnpm install
 pnpm dev
 ```
