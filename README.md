@@ -4,10 +4,10 @@ Spiegazioni ed esercizi di matematica per le superiori, con ripasso spaziato.
 Si comincia dalle espressioni con numeri naturali, interi e razionali. Il
 progetto è descritto in [SPEC.md](SPEC.md).
 
-Serve Node 24, la versione fissata da `.nvmrc`.
+Occorrono Node 24, la versione fissata in `.nvmrc`, e pnpm 11.8.0, quella
+dichiarata in `package.json`.
 
 ```sh
-# Node 24, come da .nvmrc
 pnpm install
 pnpm dev
 ```
