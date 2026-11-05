@@ -2,8 +2,4 @@ intake:
   pull_request: { line: pr-review, on: label }
 sandbox: { image: fab-sandbox:ui }
 lines:
-  pr-review:
-    stations:
-      01-intake: { model: claude }
-      02-review: { model: claude }
-      03-delivery: { model: claude }
+  pr-review: { model: claude }
