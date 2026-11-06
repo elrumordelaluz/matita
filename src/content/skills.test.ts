@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest'
+import { chapterOf, chapters } from './chapters.ts'
 import { skills } from './skills.ts'
 
 test('gli id delle abilità sono unici', () => {
@@ -45,4 +46,20 @@ test('il grafo dei prerequisiti non ha cicli', () => {
     visit(skill.id)
   }
   expect(cycles).toEqual([])
+})
+
+test('ogni abilità sta in un capitolo', () => {
+  const inChapter = new Set(chapters.flatMap((c) => c.skills.map((s) => s.id)))
+  expect(skills.filter((s) => !inChapter.has(s.id)).map((s) => s.id)).toEqual(
+    [],
+  )
+})
+
+test('l’id di ogni abilità inizia con l’id del suo capitolo', () => {
+  expect(
+    skills.flatMap((s) => {
+      const chapter = chapterOf(s.id)
+      return !chapter || s.id.startsWith(`${chapter.id}.`) ? [] : [s.id]
+    }),
+  ).toEqual([])
 })
