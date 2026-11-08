@@ -7,3 +7,13 @@ test('ogni capitolo ha almeno un’abilità', () => {
     .map((c) => `${c.id} (${c.title})`)
   expect(empty).toEqual([])
 })
+
+test('i numeri dei capitoli seguono l’ordine dell’elenco', () => {
+  expect(
+    chapters.flatMap((c, i) =>
+      c.number === i + 1
+        ? []
+        : [`${c.id} (${c.title}): numero ${c.number}, atteso ${i + 1}`],
+    ),
+  ).toEqual([])
+})
