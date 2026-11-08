@@ -2,4 +2,4 @@ intake:
   pull_request: { line: pr-review, on: label }
 sandbox: { image: fab-sandbox:ui }
 lines:
-  pr-review: { model: claude, harness: claude-code-dh }
+  pr-review: { model: claude, harness: claude-code }
