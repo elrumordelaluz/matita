@@ -18,6 +18,7 @@ export function seededRandom(seed: number): Random {
   }
   return {
     int(min, max) {
+      if (max < min) throw new RangeError('Intervallo vuoto')
       const span = Number(max - min + 1n)
       return min + BigInt(Math.floor(next() * span))
     },
