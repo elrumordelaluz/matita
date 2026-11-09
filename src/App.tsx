@@ -8,11 +8,13 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { ChapterId } from './content/chapters.ts'
+import { flashcards } from './content/flashcards.ts'
 import { skills } from './content/skills.ts'
 import { generate, type GeneratedSkill } from './engine/index.ts'
 import { cn } from './lib/cn.ts'
+import type { FlashcardGrade } from './progress/flashcards.ts'
+import type { QueueItem } from './progress/queue.ts'
 import { attemptFromPractice } from './progress/record.ts'
-import type { SessionItem } from './progress/session.ts'
 import { skillStates } from './progress/skillState.ts'
 import { createMemoryStore, type ProgressStore } from './progress/store.ts'
 import { randomSeed } from './ui/exercises.ts'
@@ -29,7 +31,7 @@ type View = 'home' | 'lesson' | 'practice' | 'progress'
 // La sessione in corso: le sue voci e, quando se n'è aperta la lezione di
 // un'abilità nuova, da dove riprendere al ritorno.
 interface HeldSession {
-  readonly items: readonly SessionItem[]
+  readonly items: readonly QueueItem[]
   readonly resume: SessionSnapshot | null
 }
 
@@ -72,6 +74,10 @@ export default function App({ store: given }: { store?: ProgressStore }) {
         }),
       )
       .then(reload)
+  }
+
+  function saveFlashcard(review: { card: string; grade: FlashcardGrade }) {
+    void store.putFlashcardReviews([{ ...review, at: Date.now() }]).then(reload)
   }
 
   function practise(skill: GeneratedSkill) {
@@ -167,7 +173,9 @@ export default function App({ store: given }: { store?: ProgressStore }) {
               <SessionPage
                 items={held.items}
                 skills={skills}
+                flashcards={flashcards}
                 onAttempt={save}
+                onFlashcardReview={saveFlashcard}
                 onDone={() => setHeld(null)}
                 onOpenLesson={openSessionLesson}
                 resume={held.resume}
@@ -176,6 +184,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
               <HomePage
                 store={store}
                 skills={skills}
+                flashcards={flashcards}
                 onStart={(items) => setHeld({ items, resume: null })}
                 onOpenLesson={openLesson}
                 onOpenProgress={openProgress}
@@ -187,6 +196,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
             <LessonPage
               store={store}
               skills={skills}
+              flashcards={flashcards}
               chapter={
                 lessonChapter ?? (states ? workingChapter(states).id : 'n')
               }
@@ -208,6 +218,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
             <ProgressPage
               store={store}
               skills={skills}
+              flashcards={flashcards}
               chapter={mapChapter}
               onPractise={practise}
             />

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import type { ChapterId } from '../content/chapters.ts'
 import { NExpressionsLesson } from '../content/lessons/NExpressionsLesson.tsx'
+import { flashcards } from '../content/flashcards.ts'
 import { skills } from '../content/skills.ts'
 import { createMemoryStore, type ProgressStore } from '../progress/store.ts'
 import { LessonPage } from './LessonPage.tsx'
@@ -19,6 +20,7 @@ function Harness({ store }: { store: ProgressStore }) {
     <LessonPage
       store={store}
       skills={skills}
+      flashcards={flashcards}
       chapter={chapter}
       onChapter={setChapter}
       onPractise={() => {}}
@@ -63,4 +65,74 @@ test('dalla testata della lezione si segna il capitolo come già saputo', async 
     await screen.findByRole('button', { name: 'Lo so già' }),
   ).toBeInTheDocument()
   expect(await store.known()).toEqual([])
+})
+
+// Un IntersectionObserver finto: il test decide quando la sentinella entra in
+// vista.
+function stubObserver() {
+  const callbacks: IntersectionObserverCallback[] = []
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(callback: IntersectionObserverCallback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
+  return () =>
+    act(() => {
+      for (const cb of callbacks)
+        cb(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        )
+    })
+}
+
+const nCards = flashcards.filter((f) => f.chapter === 'n').map((f) => f.id)
+
+test('le flashcard del capitolo si introducono quando la sentinella entra in vista', async () => {
+  const reach = stubObserver()
+  const store = createMemoryStore()
+  render(<Harness store={store} />)
+  await screen.findByRole('button', { name: 'Lo so già' })
+  expect(await store.introduced()).toEqual([])
+
+  reach()
+  await waitFor(async () =>
+    expect((await store.introduced()).map((i) => i.card).sort()).toEqual(
+      [...nCards].sort(),
+    ),
+  )
+  vi.unstubAllGlobals()
+})
+
+test('«Lo so già» introduce le flashcard del capitolo', async () => {
+  stubObserver()
+  const store = createMemoryStore()
+  render(<Harness store={store} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Lo so già' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Sì, lo so già' }))
+  await screen.findByRole('button', { name: 'Annulla' })
+  expect((await store.introduced()).map((i) => i.card).sort()).toEqual(
+    [...nCards].sort(),
+  )
+  vi.unstubAllGlobals()
+})
+
+test('fare le due cose lascia una sola introduzione per carta, con la data più vecchia', async () => {
+  const reach = stubObserver()
+  const store = createMemoryStore()
+  render(<Harness store={store} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Lo so già' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Sì, lo so già' }))
+  await screen.findByRole('button', { name: 'Annulla' })
+  const first = await store.introduced()
+  reach()
+  await new Promise((r) => setTimeout(r, 20))
+  expect(await store.introduced()).toEqual(first)
+  expect(first).toHaveLength(nCards.length)
+  vi.unstubAllGlobals()
 })

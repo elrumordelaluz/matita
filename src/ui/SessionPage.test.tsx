@@ -3,7 +3,10 @@ import { expect, test, vi } from 'vitest'
 import type { ChapterId } from '../content/chapters.ts'
 import { skills } from '../content/skills.ts'
 import { parseExpression, rationalToText, solve } from '../engine/index.ts'
+import type { QueueItem } from '../progress/queue.ts'
 import type { SessionItem } from '../progress/session.ts'
+import type { Flashcard } from '../content/flashcards.ts'
+import type { FlashcardGrade } from '../progress/flashcards.ts'
 import { SessionPage, type SessionSnapshot } from './SessionPage.tsx'
 
 // Il registro finto ha solo la lezione del primo capitolo: gli altri capitoli
@@ -12,17 +15,38 @@ vi.mock('../content/lessons/index.ts', () => ({
   lessons: { n: () => null },
 }))
 
-const item = (skill: string, reason: SessionItem['reason']): SessionItem => ({
-  skill,
-  reason,
+const cards: Flashcard[] = [
+  {
+    id: 'pow.zero',
+    chapter: 'pow',
+    front: String.raw`$a^0 = {}$?`,
+    back: String.raw`$1$, con $a \ne 0$.`,
+  },
+  {
+    id: 'n.order',
+    chapter: 'n',
+    front: 'In che ordine?',
+    back: 'Prima per e diviso.',
+  },
+]
+const card = (id: string): QueueItem => ({ kind: 'flashcard', card: id })
+
+const item = (skill: string, reason: SessionItem['reason']): QueueItem => ({
+  kind: 'exercise',
+  item: { skill, reason },
 })
 
 function renderSession(
-  items: readonly SessionItem[],
+  items: readonly QueueItem[],
   {
     onOpenLesson = () => {},
+    onFlashcardReview = () => {},
     resume,
   }: {
+    onFlashcardReview?: (review: {
+      card: string
+      grade: FlashcardGrade
+    }) => void
     onOpenLesson?: (chapter: ChapterId, snapshot: SessionSnapshot) => void
     resume?: SessionSnapshot
   } = {},
@@ -31,6 +55,8 @@ function renderSession(
     <SessionPage
       items={items}
       skills={skills}
+      flashcards={cards}
+      onFlashcardReview={onFlashcardReview}
       onAttempt={() => {}}
       onDone={() => {}}
       onOpenLesson={onOpenLesson}
@@ -179,4 +205,63 @@ test('dopo la lezione si torna al cancello: stessa voce, stessi risultati', () =
   expect(
     screen.getByText('Tutti corretti, senza suggerimenti.'),
   ).toBeInTheDocument()
+})
+
+test('una flashcard: il dietro e i voti solo dopo «Mostra», e niente Easy', () => {
+  renderSession([card('pow.zero')])
+  expect(screen.getByRole('math', { name: 'a^0 = {}' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Bene' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/con/)).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Mostra' }))
+  expect(screen.getByRole('math', { name: '1' })).toBeInTheDocument()
+  for (const name of ['Di nuovo', 'Difficile', 'Bene'])
+    expect(screen.getByRole('button', { name })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /facile|easy/i })).toBeNull()
+  expect(screen.getAllByRole('math')).toHaveLength(3)
+})
+
+test.each([
+  ['Di nuovo', 'again'],
+  ['Difficile', 'hard'],
+  ['Bene', 'good'],
+])('il voto «%s» chiama onFlashcardReview una volta', (name, grade) => {
+  const onFlashcardReview = vi.fn()
+  renderSession([card('pow.zero'), card('n.order')], { onFlashcardReview })
+  fireEvent.click(screen.getByRole('button', { name: 'Mostra' }))
+  fireEvent.click(screen.getByRole('button', { name }))
+  expect(onFlashcardReview).toHaveBeenCalledExactlyOnceWith({
+    card: 'pow.zero',
+    grade,
+  })
+})
+
+test('con Again la stessa flashcard torna prima della fine', () => {
+  const onFlashcardReview = vi.fn()
+  renderSession([card('pow.zero')], { onFlashcardReview })
+  fireEvent.click(screen.getByRole('button', { name: 'Mostra' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Di nuovo' }))
+  // Di nuovo davanti, con il dietro nascosto.
+  expect(screen.queryByText('Sessione completata.')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Mostra' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Mostra' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Bene' }))
+  expect(screen.getByText('Sessione completata.')).toBeInTheDocument()
+  expect(onFlashcardReview).toHaveBeenCalledTimes(2)
+})
+
+test('una sessione di sole flashcard si completa', () => {
+  renderSession([card('pow.zero'), card('n.order')])
+  for (let i = 0; i < 2; i++) {
+    fireEvent.click(screen.getByRole('button', { name: 'Mostra' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Bene' }))
+  }
+  expect(screen.getByText('Sessione completata.')).toBeInTheDocument()
+})
+
+test('un esercizio e poi una flashcard: dalla chiusura si passa alla carta', () => {
+  renderSession([item('n.add-sub', 'learning'), card('n.order')])
+  answerCorrectly()
+  next()
+  expect(screen.getByRole('button', { name: 'Mostra' })).toBeInTheDocument()
 })

@@ -8,12 +8,15 @@ import {
 import { useId, useMemo, useState } from 'react'
 import { chapters, type Chapter, type ChapterId } from '../content/chapters.ts'
 import { lessons } from '../content/lessons/index.ts'
+import type { Flashcard } from '../content/flashcards.ts'
 import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import type { Known } from '../progress/known.ts'
+import { dueFlashcards } from '../progress/flashcards.ts'
+import { composeQueue, type QueueItem } from '../progress/queue.ts'
 import { dueReviews } from '../progress/review.ts'
-import { composeSession, type SessionItem } from '../progress/session.ts'
+import type { SessionItem } from '../progress/session.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { canPractise } from './exercises.ts'
@@ -44,16 +47,24 @@ import { useProgress } from './useProgress.ts'
 
 interface Plan {
   readonly due: number
+  /** Le flashcard scadute. */
+  readonly dueCards: number
+  readonly queue: QueueItem[]
+  /** Gli esercizi della coda. */
   readonly session: SessionItem[]
   readonly states: Record<string, SkillState>
   readonly known: readonly Known[]
 }
 
-function pendingText(due: number): string {
-  if (due === 0) return 'Nessun ripasso in attesa.'
-  if (due === 1) return '1 ripasso in attesa.'
-  return `${due} ripassi in attesa.`
+function pendingText(due: number, cards = 0): string {
+  const reviews =
+    due === 0 ? 'Nessun ripasso' : due === 1 ? '1 ripasso' : `${due} ripassi`
+  if (cards === 0) return `${reviews} in attesa.`
+  return `${reviews} e ${cardsText(cards)} in attesa.`
 }
+
+const cardsText = (cards: number) =>
+  cards === 1 ? '1 flashcard' : `${cards} flashcard`
 
 // Le celle della striscia e le etichette dei motivi: grafite per il ripasso,
 // giallo pieno per l'abilità in corso, giallo tratteggiato per quella nuova.
@@ -87,6 +98,7 @@ const chapterCard: Record<ChapterStatus | 'working', string> = {
 export function HomePage({
   store,
   skills,
+  flashcards,
   onStart,
   onOpenLesson,
   onOpenProgress,
@@ -95,7 +107,8 @@ export function HomePage({
 }: {
   store: ProgressStore
   skills: readonly Skill[]
-  onStart: (session: SessionItem[]) => void
+  flashcards: readonly Flashcard[]
+  onStart: (queue: QueueItem[]) => void
   onOpenLesson?: (chapter: ChapterId) => void
   onOpenProgress?: (chapter: ChapterId) => void
   onPractise?: (skill: GeneratedSkill) => void
@@ -106,21 +119,28 @@ export function HomePage({
 
   const plan = useMemo<Plan | null>(() => {
     if (!progress) return null
-    const { attempts, known } = progress
+    const { attempts, known, introduced, flashcardReviews } = progress
     const now = new Date()
+    const queue = composeQueue({
+      graph: skills,
+      attempts,
+      known,
+      now,
+      canPractise,
+      flashcards,
+      introduced,
+      flashcardReviews,
+    })
     return {
       due: dueReviews(attempts, now, known).filter(canPractise).length,
-      session: composeSession({
-        graph: skills,
-        attempts,
-        known,
-        now,
-        canPractise,
-      }),
+      dueCards: dueFlashcards(flashcards, introduced, flashcardReviews, now)
+        .length,
+      queue,
+      session: queue.flatMap((q) => (q.kind === 'exercise' ? [q.item] : [])),
       states: skillStates(skills, attempts, known),
       known,
     }
-  }, [progress, skills])
+  }, [progress, skills, flashcards])
 
   async function write(change: Promise<void>) {
     await change
@@ -132,11 +152,7 @@ export function HomePage({
 
   return (
     <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
-      <Today
-        plan={plan}
-        skills={skills}
-        onStart={() => onStart(plan.session)}
-      />
+      <Today plan={plan} skills={skills} onStart={() => onStart(plan.queue)} />
       <Path
         states={plan.states}
         known={plan.known}
@@ -144,7 +160,7 @@ export function HomePage({
         onOpenProgress={onOpenProgress}
         onPractise={onPractise}
         onMark={(chapter) =>
-          void write(markChapterKnown(store, chapter, Date.now()))
+          void write(markChapterKnown(store, chapter, flashcards, Date.now()))
         }
         onUnmark={(chapter) => void write(unmarkChapterKnown(store, chapter))}
       />
@@ -161,9 +177,10 @@ function Today({
   skills: readonly Skill[]
   onStart: () => void
 }) {
-  const { due, session } = plan
+  const { due, dueCards, queue, session } = plan
+  const inQueue = queue.length - session.length
   const title = (id: string) => skills.find((s) => s.id === id)?.title ?? id
-  const empty = session.length === 0
+  const empty = queue.length === 0
 
   return (
     <Panel
@@ -172,17 +189,18 @@ function Today({
     >
       <Eyebrow>Oggi</Eyebrow>
 
-      {due > 0 ? (
+      {due > 0 || dueCards > 0 ? (
         <>
           {/* La frase intera per lo screen reader; a schermo il numero
               grande e le parole accanto. */}
-          <p className="sr-only">{pendingText(due)}</p>
+          <p className="sr-only">{pendingText(due, dueCards)}</p>
           <div aria-hidden="true" className="mt-3 flex items-end gap-4">
             <span className="animate-pop font-display text-8xl leading-[0.8] font-bold tracking-tighter tabular-nums">
               {due}
             </span>
             <span className="pb-1 font-display text-2xl leading-tight font-semibold">
               {due === 1 ? 'ripasso' : 'ripassi'}
+              {dueCards > 0 && ` e ${cardsText(dueCards)}`}
               <br />
               in attesa
             </span>
@@ -196,7 +214,7 @@ function Today({
       <p className="mt-3 max-w-md text-dim">
         {empty
           ? 'Per oggi non c’è altro da allenare: torna quando scade un ripasso.'
-          : due > 0
+          : due > 0 || dueCards > 0
             ? 'Si parte dai ripassi, poi si va avanti nel percorso.'
             : 'Niente da recuperare: oggi si va avanti nel percorso.'}
       </p>
@@ -205,7 +223,9 @@ function Today({
         <Sheet className="mt-6 rounded-2xl p-4 shadow-none sm:p-5">
           <div className="flex items-baseline justify-between gap-3">
             <p className="font-semibold">La sessione</p>
-            <Note className="-rotate-2">{session.length} esercizi</Note>
+            {session.length > 0 && (
+              <Note className="-rotate-2">{session.length} esercizi</Note>
+            )}
           </div>
           {/* Un quadretto per esercizio, nell'ordine in cui arrivano. */}
           <div aria-hidden="true" className="mt-3 flex flex-wrap gap-1.5">
@@ -241,6 +261,17 @@ function Today({
                 </span>
               </li>
             ))}
+            {inQueue > 0 && (
+              <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-panel/80 px-3 py-2">
+                <span className="rounded-full bg-lead/10 px-2.5 py-0.5 text-xs font-semibold text-lead">
+                  Flashcard
+                </span>
+                <span className="min-w-0 flex-1 font-medium">Da ricordare</span>
+                <span className="text-sm text-dim tabular-nums">
+                  ×{inQueue}
+                </span>
+              </li>
+            )}
           </ul>
         </Sheet>
       )}

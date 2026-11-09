@@ -1,11 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import { chapterById } from '../content/chapters.ts'
+import type { Flashcard } from '../content/flashcards.ts'
 import { skills } from '../content/skills.ts'
 import { createMemoryStore, type ProgressStore } from '../progress/store.ts'
 import { HomePage } from './HomePage.tsx'
 
 // Vedi SPEC.md, "Pagina iniziale" e "Il blocco è un consiglio".
+
+const flashcards: Flashcard[] = [1, 2, 3].map((n) => ({
+  id: `n.card-${n}`,
+  chapter: 'n',
+  front: 'davanti',
+  back: 'dietro',
+}))
 
 const monday = Date.UTC(2026, 8, 14, 9)
 
@@ -18,15 +26,22 @@ async function firstChapterKnown(): Promise<ProgressStore> {
 }
 
 function renderHome(store: ProgressStore) {
+  const onStart = vi.fn()
   const handlers = {
     onOpenLesson: vi.fn(),
     onOpenProgress: vi.fn(),
     onPractise: vi.fn(),
   }
   render(
-    <HomePage store={store} skills={skills} onStart={vi.fn()} {...handlers} />,
+    <HomePage
+      store={store}
+      skills={skills}
+      flashcards={flashcards}
+      onStart={onStart}
+      {...handlers}
+    />,
   )
-  return handlers
+  return { ...handlers, onStart }
 }
 
 const card = async (title: string) =>
@@ -108,4 +123,42 @@ test('ogni abilità si allena dalla sua scheda, anche bloccata', async () => {
   expect(parens.getByText('acquisita')).toBeInTheDocument()
   fireEvent.click(parens.getByRole('button', { name: 'Allena' }))
   expect(onPractise).toHaveBeenLastCalledWith('n.parens')
+})
+
+// Tre flashcard introdotte e votate Good tanto tempo fa: scadute.
+async function withDueFlashcards(): Promise<ProgressStore> {
+  const store = createMemoryStore()
+  await store.putIntroduced(
+    flashcards.map((f) => ({ card: f.id, introducedAt: monday })),
+  )
+  await store.putFlashcardReviews(
+    flashcards.map((f) => ({ card: f.id, grade: 'good', at: monday })),
+  )
+  return store
+}
+
+test('Oggi conta le flashcard scadute accanto ai ripassi', async () => {
+  renderHome(await withDueFlashcards())
+  expect(
+    await screen.findByText('Nessun ripasso e 3 flashcard in attesa.'),
+  ).toBeInTheDocument()
+})
+
+test('una sessione di sole flashcard può cominciare', async () => {
+  const { onStart } = renderHome(await withDueFlashcards())
+  const start = await screen.findByRole('button', {
+    name: 'Inizia la sessione',
+  })
+  fireEvent.click(start)
+  expect(onStart).toHaveBeenCalledOnce()
+  const queue = onStart.mock.calls[0]?.[0] as { kind: string }[]
+  expect(queue.filter((q) => q.kind === 'flashcard')).toHaveLength(3)
+})
+
+test('senza introduzioni il testo è quello di prima', async () => {
+  renderHome(createMemoryStore())
+  expect(
+    await screen.findByText('Nessun ripasso in attesa.'),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/flashcard/)).not.toBeInTheDocument()
 })

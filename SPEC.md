@@ -159,10 +159,12 @@ tentativi come gli altri e contano per la serie di tre. Un'abilità acquisita
 con i tentativi resta acquisita anche se il suo prerequisito torna in
 apprendimento, come vale per ogni abilità acquisita.
 
-**Backup.** Il file è alla versione 2, con tentativi e segni. Un file della
-versione 1, solo tentativi, si importa ancora. L'importazione aggiunge: un
-segno nel file sostituisce quello della stessa abilità, gli altri segni
-restano.
+**Backup.** Il file è alla versione 3, con tentativi, segni, introduzioni e
+voti delle flashcard. I file delle versioni 1 (solo tentativi) e 2 (anche i
+segni) si importano ancora, e vuol dire nessuna flashcard. L'importazione
+aggiunge: un segno nel file sostituisce quello della stessa abilità, gli altri
+segni restano. Segnare un capitolo come saputo ne introduce anche le
+flashcard (vedi [Flashcard](#ripasso-e-tracking)); toglierne il segno no.
 
 ## Motore
 
@@ -811,10 +813,44 @@ scaduti, mescolati fra abilità diverse (la pratica alternata funziona meglio
 di quella a blocchi), poi l'abilità in apprendimento, poi, se c'è spazio, la
 prossima abilità sbloccata preceduta dalla sua lezione.
 
+Le flashcard (vedi [Flashcard](#ripasso-e-tracking)) stanno nella stessa coda e non
+contano nei dieci esercizi. Le flashcard scadute si mescolano ai ripassi
+scaduti in un solo blocco, anche fra abilità e flashcard. Dopo il blocco
+vengono al più cinque flashcard nuove, cioè introdotte da una lezione e mai
+ancora votate; poi il resto della sessione. Una flashcard votata Again torna
+tre voci dopo, o in fondo se ne restano meno, nella stessa sessione, e ogni
+voto è un record a sé. Una sessione di sole flashcard è una sessione.
+
+**Flashcard.** Quello che si impara a memoria e non facendo: le proprietà
+delle potenze, il grado di un monomio, i prodotti notevoli, i simboli degli
+insiemi. Ogni capitolo ha le sue, scritte accanto alla lezione in
+`src/content/flashcards.ts`: una consegna davanti, cosa ricordare dietro,
+entrambe con formule KaTeX. Lo studente guarda il davanti, preme "Mostra" e
+dà un voto Again, Hard o Good; Easy non c'è, per lo stesso motivo degli
+esercizi, e il motore non controlla nulla. Una flashcard ha un id stabile,
+`<capitolo>.<nome>`, che non si riusa mai perché i record lo citano, e può
+nominare un'abilità del suo capitolo, così una carta sbagliata di continuo
+dice quale lezione rileggere. Un test del contenuto controlla che gli id siano
+unici, che inizino con il capitolo e che le abilità nominate esistano nello
+stesso capitolo.
+
+Una flashcard entra nel ripasso dopo la lezione: arrivare in fondo alla
+lezione di un capitolo, o segnarlo come saputo, ne introduce le flashcard.
+Una flashcard mai introdotta non sta in nessuna sessione. Si salvano la
+introduzione, `{ card, introducedAt }`, e ogni voto, `{ card, grade, at }`,
+accanto ai tentativi: `progress/` non conosce i capitoli e riceve le
+flashcard come parametro. La carta FSRS di una flashcard (da non confondere
+con quella di un'abilità) si ricalcola rigiocando i voti dalla data di
+introduzione, con le stesse impostazioni delle abilità; i voti prima
+dell'introduzione e i record di flashcard che non esistono più si ignorano.
+Una flashcard è _non ancora vista_, _nuova_, _in apprendimento_ (l'ultimo voto
+è Again) o _in ripasso_.
+
 **Storage.** IndexedDB, dietro un'interfaccia `ProgressStore` così la
 persistenza si può cambiare senza toccare il resto. Si salvano solo i
-tentativi e i segni di già saputo; stato e carte si ricalcolano. Esportazione
-e importazione di un file JSON con tutti e due: senza account, il backup è
+tentativi, i segni di già saputo, le introduzioni e i voti delle flashcard;
+stato e carte si ricalcolano. Esportazione e importazione di un file JSON con
+tutti e quattro: senza account, il backup è
 l'unica difesa contro un browser ripulito.
 
 ## Pagina iniziale
@@ -822,9 +858,9 @@ l'unica difesa contro un browser ripulito.
 La pagina iniziale risponde a due domande: cosa faccio oggi, e dove trovo
 tutto il resto. Ha due pannelli.
 
-**Oggi.** I ripassi in attesa, la sessione di oggi esercizio per esercizio
-con il motivo di ciascuno (ripasso, in corso, nuova) e il pulsante per
-cominciarla.
+**Oggi.** I ripassi in attesa e, accanto, le flashcard scadute; la sessione
+di oggi esercizio per esercizio con il motivo di ciascuno (ripasso, in corso,
+nuova), le flashcard in un'unica riga, e il pulsante per cominciarla.
 
 **Percorso.** In testa una riga di stato dice a che punto è lo studente:
 "18 di 37 abilità acquisite · in corso: Potenze". Il capitolo in corso è il
@@ -847,7 +883,9 @@ aperta solo la scheda del capitolo in corso, così sul telefono il percorso
 resta corto.
 
 La pagina iniziale è il posto dove si sceglie cosa fare; la mappa resta il
-posto della storia, con gli ultimi tentativi e la scadenza di ogni ripasso.
+posto della storia, con gli ultimi tentativi e la scadenza di ogni ripasso;
+sotto le abilità di ogni capitolo elenca le sue flashcard, ciascuna con il
+suo stato e, se è programmata, la scadenza.
 
 ## Lezioni
 

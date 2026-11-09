@@ -1,7 +1,9 @@
 import { chapterOf, chapters, type Chapter } from '../../content/chapters.ts'
+import type { Flashcard } from '../../content/flashcards.ts'
 import type { Skill } from '../../content/skills.ts'
 import type { GeneratedSkill } from '../../engine/index.ts'
 import type { Attempt } from '../../progress/attempt.ts'
+import { introduce } from '../../progress/flashcards.ts'
 import { knownSince, markKnown, type Known } from '../../progress/known.ts'
 import type { SkillState } from '../../progress/skillState.ts'
 import type { ProgressStore } from '../../progress/store.ts'
@@ -124,13 +126,34 @@ export function practiceSkill(
   return skill
 }
 
-/** Segna tutte le abilità del capitolo come già sapute, con la data di ora. */
-export function markChapterKnown(
+/**
+ * Introduce nel ripasso le flashcard del capitolo che non lo sono ancora: la
+ * data di una carta già introdotta non cambia.
+ */
+export async function introduceChapter(
   store: ProgressStore,
   chapter: Chapter,
+  flashcards: readonly Flashcard[],
   now: number,
 ): Promise<void> {
-  return store.putKnown(markKnown(skillIds(chapter), now))
+  const ids = flashcards
+    .filter((f) => f.chapter === chapter.id)
+    .map((f) => f.id)
+  await store.putIntroduced(introduce(ids, await store.introduced(), now))
+}
+
+/**
+ * Segna tutte le abilità del capitolo come già sapute, con la data di ora, e
+ * ne introduce le flashcard.
+ */
+export async function markChapterKnown(
+  store: ProgressStore,
+  chapter: Chapter,
+  flashcards: readonly Flashcard[],
+  now: number,
+): Promise<void> {
+  await store.putKnown(markKnown(skillIds(chapter), now))
+  await introduceChapter(store, chapter, flashcards, now)
 }
 
 export function unmarkChapterKnown(
