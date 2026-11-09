@@ -48,7 +48,7 @@ test('senza voci new, o senza piano, nessun cancello', () => {
 
 test('le flashcard contano nelle posizioni ma non portano il cancello', () => {
   const items: QueueItem[] = [
-    { kind: 'flashcard', card: 'n.order' },
+    { kind: 'flashcard', card: 'n.order', due: false },
     item('n.add-sub', 'new'),
   ]
   expect(firstNewItems(items)).toEqual(new Map([['n.add-sub', 1]]))

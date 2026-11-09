@@ -234,7 +234,7 @@ function Today({
             )}
           </div>
           {/* Un quadretto per voce, nell'ordine in cui arrivano; le flashcard
-              hanno il contorno grafite. */}
+              hanno il contorno grafite, tratteggiato per le nuove. */}
           <div aria-hidden="true" className="mt-3 flex flex-wrap gap-1.5">
             {queue.map((q, i) => (
               <span
@@ -244,13 +244,13 @@ function Today({
                   'size-5 animate-pop rounded-md',
                   q.kind === 'exercise'
                     ? reasonCell[q.item.reason]
-                    : 'border-2 border-lead',
+                    : cn('border-2 border-lead', !q.due && 'border-dashed'),
                 )}
               />
             ))}
           </div>
           <ul className="mt-4 space-y-2">
-            {groupQueue(queue, dueCards).map((group) => (
+            {groupQueue(queue).map((group) => (
               <li
                 key={
                   group.kind === 'exercise'
@@ -275,7 +275,7 @@ function Today({
                   {group.kind === 'exercise'
                     ? title(group.skill)
                     : group.due
-                      ? 'Da ricordare'
+                      ? 'Da ripassare'
                       : 'Nuove'}
                 </span>
                 <span className="text-sm text-dim tabular-nums">

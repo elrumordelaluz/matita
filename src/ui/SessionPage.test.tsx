@@ -29,7 +29,11 @@ const cards: Flashcard[] = [
     back: 'Prima per e diviso.',
   },
 ]
-const card = (id: string): QueueItem => ({ kind: 'flashcard', card: id })
+const card = (id: string): QueueItem => ({
+  kind: 'flashcard',
+  card: id,
+  due: true,
+})
 
 const item = (skill: string, reason: SessionItem['reason']): QueueItem => ({
   kind: 'exercise',

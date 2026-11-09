@@ -17,7 +17,11 @@ import type { SkillGraph } from './skillState.ts'
 
 export type QueueItem =
   | { readonly kind: 'exercise'; readonly item: SessionItem }
-  | { readonly kind: 'flashcard'; readonly card: string }
+  | {
+      readonly kind: 'flashcard'
+      readonly card: string
+      readonly due: boolean
+    }
 
 // Le flashcard nuove che una seduta introduce al più, dopo le scadute.
 const newPerSession = 5
@@ -57,12 +61,14 @@ export function composeQueue({
     kind: 'exercise',
     item,
   })
-  const flashcard = (card: string): QueueItem => ({ kind: 'flashcard', card })
+  const flashcard =
+    (due: boolean) =>
+    (card: string): QueueItem => ({ kind: 'flashcard', card, due })
 
   const due: QueueItem[] = [
     ...session.filter((i) => i.reason === 'review').map(exercise),
     ...dueFlashcards(flashcards, introduced, flashcardReviews, now).map(
-      flashcard,
+      flashcard(true),
     ),
   ]
   // Fisher-Yates.
@@ -72,7 +78,7 @@ export function composeQueue({
   }
   const fresh = newFlashcards(flashcards, introduced, flashcardReviews)
     .slice(0, newPerSession)
-    .map(flashcard)
+    .map(flashcard(false))
   const rest = session.filter((i) => i.reason !== 'review').map(exercise)
   return [...due, ...fresh, ...rest]
 }

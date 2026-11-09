@@ -194,7 +194,7 @@ test('Oggi somma i ripassi e le flashcard, e le mostra nell’ordine della coda'
   const firstNew = rows.findIndex((r) => r?.startsWith('FlashcardNuove'))
   const firstSkill = rows.findIndex((r) => r?.startsWith('Abilità nuova'))
   expect(rows.filter((r) => r?.startsWith('Flashcard'))).toEqual([
-    'FlashcardDa ricordare×3',
+    'FlashcardDa ripassare×3',
     'FlashcardNuove×2',
   ])
   expect(
@@ -208,10 +208,13 @@ test('Oggi somma i ripassi e le flashcard, e le mostra nell’ordine della coda'
     squares.filter((s) => s.matches('[data-kind=flashcard]')),
   ).toHaveLength(5)
   expect(squares.length).toBeGreaterThan(5)
-  expect(
-    squares
-      .filter((s) => s.matches('[data-kind=flashcard]'))
-      .every((s) => s.classList.contains('border-lead')),
-  ).toBe(true)
+  const cardSquares = squares.filter((s) => s.matches('[data-kind=flashcard]'))
+  expect(cardSquares.every((s) => s.classList.contains('border-lead'))).toBe(
+    true,
+  )
+  // Le scadute hanno il contorno continuo, le nuove tratteggiato.
+  expect(cardSquares.map((s) => s.classList.contains('border-dashed'))).toEqual(
+    [false, false, false, true, true],
+  )
   expect(today.getByText(/\d+ esercizi/)).toBeInTheDocument()
 })

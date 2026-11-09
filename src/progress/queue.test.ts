@@ -85,6 +85,20 @@ test('le nuove vengono dopo il blocco dei ripassi, al più cinque', () => {
   expect(queue.slice(0, 2).every((q) => q.kind === 'exercise')).toBe(true)
 })
 
+test('ogni flashcard dice se è scaduta o nuova', () => {
+  const ids = flashcards.map((f) => f.id)
+  const queue = compose({
+    introduced: introduced(ids),
+    flashcardReviews: ids.slice(0, 2).map((id) => reviewed(id, 0)),
+  })
+  const withDue = (due: boolean) =>
+    queue.flatMap((q) =>
+      q.kind === 'flashcard' && q.due === due ? [q.card] : [],
+    )
+  expect(withDue(true).sort()).toEqual(ids.slice(0, 2))
+  expect(withDue(false).sort()).toEqual(ids.slice(2, 7))
+})
+
 test('le flashcard non ancora scadute e quelle mai introdotte non ci sono', () => {
   const queue = compose({
     introduced: introduced(['n.card-0']),
@@ -110,7 +124,7 @@ test('le flashcard non cambiano il numero di esercizi, né quali', () => {
 test('requeue: Again rimette la voce tre posti dopo', () => {
   const q: QueueItem[] = 'abcde'
     .split('')
-    .map((card) => ({ kind: 'flashcard', card }))
+    .map((card) => ({ kind: 'flashcard', card, due: true }))
   const names = (x: QueueItem[]) => cardsOf(x).join('')
   expect(names(requeue(q, 0, 'again'))).toBe('abcade')
   expect(names(requeue(q, 3, 'again'))).toBe('abcded')
@@ -119,7 +133,7 @@ test('requeue: Again rimette la voce tre posti dopo', () => {
 })
 
 test('requeue: Hard e Good non rimettono nulla', () => {
-  const q: QueueItem[] = [{ kind: 'flashcard', card: 'a' }]
+  const q: QueueItem[] = [{ kind: 'flashcard', card: 'a', due: true }]
   expect(requeue(q, 0, 'hard')).toEqual(q)
   expect(requeue(q, 0, 'good')).toEqual(q)
 })

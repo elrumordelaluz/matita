@@ -80,14 +80,9 @@ export type QueueGroup =
 
 // La coda raccolta in righe, nell'ordine in cui compare ciascuna per la
 // prima volta: gli esercizi per abilità e motivo, le flashcard in una riga
-// sola per blocco. Le prime `dueCards` flashcard della coda sono le
-// scadute, le altre le nuove (vedi `composeQueue`).
-export function groupQueue(
-  queue: readonly QueueItem[],
-  dueCards: number,
-): QueueGroup[] {
+// sola per blocco, scadute e nuove separate.
+export function groupQueue(queue: readonly QueueItem[]): QueueGroup[] {
   const groups = new Map<string, QueueGroup>()
-  let cards = 0
   for (const q of queue) {
     let key: string
     let fresh: QueueGroup
@@ -96,7 +91,7 @@ export function groupQueue(
       key = `${reason}:${skill}`
       fresh = { kind: 'exercise', skill, reason, count: 0 }
     } else {
-      const due = cards++ < dueCards
+      const { due } = q
       key = due ? 'due-cards' : 'new-cards'
       fresh = { kind: 'flashcard', due, count: 0 }
     }
