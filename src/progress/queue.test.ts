@@ -89,7 +89,7 @@ test('ogni flashcard dice se è scaduta o nuova', () => {
   const ids = flashcards.map((f) => f.id)
   const queue = compose({
     introduced: introduced(ids),
-    flashcardReviews: ids.slice(0, 2).map((id) => reviewed(id, 0)),
+    flashcardReviews: ids.slice(0, 2).map((id) => reviewed(id, monday)),
   })
   const withDue = (due: boolean) =>
     queue.flatMap((q) =>
