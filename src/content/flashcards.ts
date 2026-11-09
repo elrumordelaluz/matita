@@ -38,6 +38,9 @@ export function flashcardProblems(
       problems.push(
         `Flashcard ${card.id} does not start with its chapter id: ${card.chapter}.`,
       )
+    for (const side of ['front', 'back'] as const)
+      if (card[side].trim() === '')
+        problems.push(`Flashcard ${card.id} has an empty ${side}`)
     if (card.skill === undefined) continue
     if (!skills.some((s) => s.id === card.skill))
       problems.push(

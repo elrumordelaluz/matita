@@ -1,3 +1,4 @@
+import katex from 'katex'
 import { expect, test } from 'vitest'
 import { chapters } from './chapters.ts'
 import { flashcardProblems, flashcards, type Flashcard } from './flashcards.ts'
@@ -83,4 +84,30 @@ test('un capitolo con meno di cinque flashcard è segnalato', () => {
       valid.filter((f) => f.id !== 'q.card-5'),
     ),
   ).toEqual(['Chapter q has 4 flashcards, at least 5 needed'])
+})
+
+test('un lato vuoto è segnalato', () => {
+  expect(
+    problems([
+      { id: 'n.blank-front', chapter: 'n', front: ' ', back: 'b' },
+      { id: 'n.blank-back', chapter: 'n', front: 'a', back: '' },
+    ]),
+  ).toEqual([
+    'Flashcard n.blank-front has an empty front',
+    'Flashcard n.blank-back has an empty back',
+  ])
+})
+
+test('ogni formula dei dati veri si rende con KaTeX', () => {
+  for (const card of flashcards)
+    for (const side of [card.front, card.back])
+      side
+        .split('$')
+        .filter((_, i) => i % 2 === 1)
+        .forEach((tex) =>
+          expect(
+            () => katex.renderToString(tex, { throwOnError: true }),
+            `${card.id}: ${tex}`,
+          ).not.toThrow(),
+        )
 })
