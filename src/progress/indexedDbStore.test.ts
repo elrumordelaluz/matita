@@ -109,3 +109,16 @@ test('un database della versione 2 passa alla 3 senza perdere tentativi e segni'
   await store.putFlashcardReviews([{ card: 'n.order', grade: 'hard', at: 1 }])
   expect(await store.flashcardReviews()).toHaveLength(1)
 })
+
+test('una introduzione più tarda della stessa carta non sostituisce la prima', async () => {
+  const store = await openIndexedDbStore(freshName())
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 5 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 0 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 0 },
+  ])
+})

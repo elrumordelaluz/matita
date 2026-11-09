@@ -24,7 +24,7 @@ export interface ProgressStore {
   removeKnown(skills: readonly string[]): Promise<void>
   /** Tutte le introduzioni delle flashcard, una per carta. */
   introduced(): Promise<Introduced[]>
-  /** Aggiunge le introduzioni, sostituendo quelle della stessa carta. */
+  /** Aggiunge le introduzioni; per la stessa carta resta la data più antica. */
   putIntroduced(introduced: readonly Introduced[]): Promise<void>
   /** Tutti i voti alle flashcard, in ordine cronologico. */
   flashcardReviews(): Promise<FlashcardReview[]>
@@ -60,7 +60,10 @@ export function createMemoryStore(): ProgressStore {
       return [...byCard.values()]
     },
     async putIntroduced(introduced) {
-      for (const i of introduced) byCard.set(i.card, i)
+      for (const i of introduced) {
+        const held = byCard.get(i.card)
+        if (!held || i.introducedAt < held.introducedAt) byCard.set(i.card, i)
+      }
     },
     async flashcardReviews() {
       return [...byCardAt.values()].sort((a, b) => a.at - b.at)

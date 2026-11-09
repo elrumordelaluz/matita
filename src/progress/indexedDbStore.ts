@@ -58,7 +58,13 @@ export async function openIndexedDbStore(
     },
     async putIntroduced(introduced) {
       const tx = db.transaction('introductions', 'readwrite')
-      await Promise.all([...introduced.map((i) => tx.store.put(i)), tx.done])
+      await Promise.all([
+        ...introduced.map(async (i) => {
+          const held = await tx.store.get(i.card)
+          if (!held || i.introducedAt < held.introducedAt) await tx.store.put(i)
+        }),
+        tx.done,
+      ])
     },
     async flashcardReviews() {
       const all = await db.getAll('flashcardReviews')

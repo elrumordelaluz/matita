@@ -47,3 +47,16 @@ test('le introduzioni e i voti delle flashcard si rileggono e la stessa chiave n
     { card: 'n.order', grade: 'good', at: 5 },
   ])
 })
+
+test('una introduzione più tarda della stessa carta non sostituisce la prima', async () => {
+  const store = createMemoryStore()
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 5 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 0 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 0 },
+  ])
+})
