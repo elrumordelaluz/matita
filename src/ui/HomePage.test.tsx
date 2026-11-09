@@ -25,7 +25,7 @@ async function firstChapterKnown(): Promise<ProgressStore> {
   return store
 }
 
-function renderHome(store: ProgressStore) {
+function renderHome(store: ProgressStore, cards = flashcards) {
   const onStart = vi.fn()
   const handlers = {
     onOpenLesson: vi.fn(),
@@ -36,7 +36,7 @@ function renderHome(store: ProgressStore) {
     <HomePage
       store={store}
       skills={skills}
-      flashcards={flashcards}
+      flashcards={cards}
       onStart={onStart}
       {...handlers}
     />,
@@ -161,4 +161,57 @@ test('senza introduzioni il testo è quello di prima', async () => {
     await screen.findByText('Nessun ripasso in attesa.'),
   ).toBeInTheDocument()
   expect(screen.queryByText(/flashcard/)).not.toBeInTheDocument()
+})
+
+// Il capitolo N saputo (cinque ripassi scaduti), tre flashcard scadute e due
+// introdotte e mai viste: la coda è ripassi e flashcard scadute, poi le
+// flashcard nuove, poi le abilità nuove.
+test('Oggi somma i ripassi e le flashcard, e le mostra nell’ordine della coda', async () => {
+  const cards: Flashcard[] = [1, 2, 3, 4, 5].map((n) => ({
+    id: `n.card-${n}`,
+    chapter: 'n',
+    front: 'davanti',
+    back: 'dietro',
+  }))
+  const store = await firstChapterKnown()
+  await store.putIntroduced(
+    cards.map((f) => ({ card: f.id, introducedAt: monday })),
+  )
+  await store.putFlashcardReviews(
+    cards.slice(0, 3).map((f) => ({ card: f.id, grade: 'good', at: monday })),
+  )
+  renderHome(store, cards)
+
+  const today = within(await screen.findByLabelText('Oggi'))
+  await today.findByText('5 ripassi e 3 flashcard in attesa.')
+  expect(today.getByText('8')).toBeInTheDocument()
+  expect(today.getByText(/in attesa:/)).toHaveTextContent(
+    'in attesa:5 ripassi e 3 flashcard',
+  )
+
+  // Le righe: ripassi e flashcard scadute, poi le nuove, poi le abilità.
+  const rows = today.getAllByRole('listitem').map((li) => li.textContent)
+  const firstNew = rows.findIndex((r) => r?.startsWith('FlashcardNuove'))
+  const firstSkill = rows.findIndex((r) => r?.startsWith('Abilità nuova'))
+  expect(rows.filter((r) => r?.startsWith('Flashcard'))).toEqual([
+    'FlashcardDa ricordare×3',
+    'FlashcardNuove×2',
+  ])
+  expect(
+    rows.slice(0, firstNew).every((r) => /^(Ripasso|Flashcard)/.test(r ?? '')),
+  ).toBe(true)
+  expect(firstNew).toBeLessThan(firstSkill)
+
+  // Un quadretto per voce della coda, le flashcard col loro contorno.
+  const squares = [...document.querySelectorAll('[data-kind]')]
+  expect(
+    squares.filter((s) => s.matches('[data-kind=flashcard]')),
+  ).toHaveLength(5)
+  expect(squares.length).toBeGreaterThan(5)
+  expect(
+    squares
+      .filter((s) => s.matches('[data-kind=flashcard]'))
+      .every((s) => s.classList.contains('border-lead')),
+  ).toBe(true)
+  expect(today.getByText(/\d+ esercizi/)).toBeInTheDocument()
 })
