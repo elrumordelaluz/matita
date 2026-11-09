@@ -97,7 +97,7 @@ test('il backup porta i segni di già saputo e li reimporta', async () => {
     { skill: 'n.mul-div', markedAt: 1 },
   ])
   const file = await exportBackup(original)
-  expect(JSON.parse(file)).toMatchObject({ version: 2 })
+  expect(JSON.parse(file)).toMatchObject({ version: 3 })
 
   const restored = createMemoryStore()
   expect(await importBackup(restored, file)).toEqual({

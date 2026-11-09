@@ -1,5 +1,6 @@
 import { openDB, type DBSchema } from 'idb'
 import { chronological, type Attempt } from './attempt.ts'
+import type { FlashcardReview, Introduced } from './flashcards.ts'
 import type { Known } from './known.ts'
 import type { ProgressStore } from './store.ts'
 
@@ -9,11 +10,13 @@ import type { ProgressStore } from './store.ts'
 interface ProgressDb extends DBSchema {
   attempts: { key: string; value: Attempt }
   known: { key: string; value: Known }
+  introductions: { key: string; value: Introduced }
+  flashcardReviews: { key: [string, number]; value: FlashcardReview }
 }
 
-// La versione 1 aveva solo i tentativi; la 2 aggiunge i segni. L'upgrade
+// La versione 1 aveva solo i tentativi; la 2 aggiunge i segni, la 3 le flashcard. L'upgrade
 // crea solo gli archivi che mancano, così i tentativi già salvati restano.
-const schemaVersion = 2
+const schemaVersion = 3
 
 export async function openIndexedDbStore(
   name = 'matita',
@@ -22,6 +25,10 @@ export async function openIndexedDbStore(
     upgrade(db, oldVersion) {
       if (oldVersion < 1) db.createObjectStore('attempts', { keyPath: 'id' })
       if (oldVersion < 2) db.createObjectStore('known', { keyPath: 'skill' })
+      if (oldVersion < 3) {
+        db.createObjectStore('introductions', { keyPath: 'card' })
+        db.createObjectStore('flashcardReviews', { keyPath: ['card', 'at'] })
+      }
     },
   })
   return {
@@ -45,6 +52,27 @@ export async function openIndexedDbStore(
     async removeKnown(skills) {
       const tx = db.transaction('known', 'readwrite')
       await Promise.all([...skills.map((s) => tx.store.delete(s)), tx.done])
+    },
+    async introduced() {
+      return db.getAll('introductions')
+    },
+    async putIntroduced(introduced) {
+      const tx = db.transaction('introductions', 'readwrite')
+      await Promise.all([
+        ...introduced.map(async (i) => {
+          const held = await tx.store.get(i.card)
+          if (!held || i.introducedAt < held.introducedAt) await tx.store.put(i)
+        }),
+        tx.done,
+      ])
+    },
+    async flashcardReviews() {
+      const all = await db.getAll('flashcardReviews')
+      return all.sort((a, b) => a.at - b.at)
+    },
+    async putFlashcardReviews(reviews) {
+      const tx = db.transaction('flashcardReviews', 'readwrite')
+      await Promise.all([...reviews.map((r) => tx.store.put(r)), tx.done])
     },
   }
 }

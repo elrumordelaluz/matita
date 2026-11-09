@@ -1,11 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import { chapterById } from '../content/chapters.ts'
+import type { Flashcard } from '../content/flashcards.ts'
 import { skills } from '../content/skills.ts'
 import { createMemoryStore, type ProgressStore } from '../progress/store.ts'
 import { HomePage } from './HomePage.tsx'
 
 // Vedi SPEC.md, "Pagina iniziale" e "Il blocco è un consiglio".
+
+const flashcards: Flashcard[] = [1, 2, 3].map((n) => ({
+  id: `n.card-${n}`,
+  chapter: 'n',
+  front: 'davanti',
+  back: 'dietro',
+}))
 
 const monday = Date.UTC(2026, 8, 14, 9)
 
@@ -17,16 +25,23 @@ async function firstChapterKnown(): Promise<ProgressStore> {
   return store
 }
 
-function renderHome(store: ProgressStore) {
+function renderHome(store: ProgressStore, cards = flashcards) {
+  const onStart = vi.fn()
   const handlers = {
     onOpenLesson: vi.fn(),
     onOpenProgress: vi.fn(),
     onPractise: vi.fn(),
   }
   render(
-    <HomePage store={store} skills={skills} onStart={vi.fn()} {...handlers} />,
+    <HomePage
+      store={store}
+      skills={skills}
+      flashcards={cards}
+      onStart={onStart}
+      {...handlers}
+    />,
   )
-  return handlers
+  return { ...handlers, onStart }
 }
 
 const card = async (title: string) =>
@@ -108,4 +123,98 @@ test('ogni abilità si allena dalla sua scheda, anche bloccata', async () => {
   expect(parens.getByText('acquisita')).toBeInTheDocument()
   fireEvent.click(parens.getByRole('button', { name: 'Allena' }))
   expect(onPractise).toHaveBeenLastCalledWith('n.parens')
+})
+
+// Tre flashcard introdotte e votate Good tanto tempo fa: scadute.
+async function withDueFlashcards(): Promise<ProgressStore> {
+  const store = createMemoryStore()
+  await store.putIntroduced(
+    flashcards.map((f) => ({ card: f.id, introducedAt: monday })),
+  )
+  await store.putFlashcardReviews(
+    flashcards.map((f) => ({ card: f.id, grade: 'good', at: monday })),
+  )
+  return store
+}
+
+test('Oggi conta le flashcard scadute accanto ai ripassi', async () => {
+  renderHome(await withDueFlashcards())
+  expect(
+    await screen.findByText('Nessun ripasso e 3 flashcard in attesa.'),
+  ).toBeInTheDocument()
+})
+
+test('una sessione di sole flashcard può cominciare', async () => {
+  const { onStart } = renderHome(await withDueFlashcards())
+  const start = await screen.findByRole('button', {
+    name: 'Inizia la sessione',
+  })
+  fireEvent.click(start)
+  expect(onStart).toHaveBeenCalledOnce()
+  const queue = onStart.mock.calls[0]?.[0] as { kind: string }[]
+  expect(queue.filter((q) => q.kind === 'flashcard')).toHaveLength(3)
+})
+
+test('senza introduzioni il testo è quello di prima', async () => {
+  renderHome(createMemoryStore())
+  expect(
+    await screen.findByText('Nessun ripasso in attesa.'),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/flashcard/)).not.toBeInTheDocument()
+})
+
+// Il capitolo N saputo (cinque ripassi scaduti), tre flashcard scadute e due
+// introdotte e mai viste: la coda è ripassi e flashcard scadute, poi le
+// flashcard nuove, poi le abilità nuove.
+test('Oggi somma i ripassi e le flashcard, e le mostra nell’ordine della coda', async () => {
+  const cards: Flashcard[] = [1, 2, 3, 4, 5].map((n) => ({
+    id: `n.card-${n}`,
+    chapter: 'n',
+    front: 'davanti',
+    back: 'dietro',
+  }))
+  const store = await firstChapterKnown()
+  await store.putIntroduced(
+    cards.map((f) => ({ card: f.id, introducedAt: monday })),
+  )
+  await store.putFlashcardReviews(
+    cards.slice(0, 3).map((f) => ({ card: f.id, grade: 'good', at: monday })),
+  )
+  renderHome(store, cards)
+
+  const today = within(await screen.findByLabelText('Oggi'))
+  await today.findByText('5 ripassi e 3 flashcard in attesa.')
+  expect(today.getByText('8')).toBeInTheDocument()
+  expect(today.getByText(/in attesa:/)).toHaveTextContent(
+    'in attesa:5 ripassi e 3 flashcard',
+  )
+
+  // Le righe: ripassi e flashcard scadute, poi le nuove, poi le abilità.
+  const rows = today.getAllByRole('listitem').map((li) => li.textContent)
+  const firstNew = rows.findIndex((r) => r?.startsWith('FlashcardNuove'))
+  const firstSkill = rows.findIndex((r) => r?.startsWith('Abilità nuova'))
+  expect(rows.filter((r) => r?.startsWith('Flashcard'))).toEqual([
+    'FlashcardDa ripassare×3',
+    'FlashcardNuove×2',
+  ])
+  expect(
+    rows.slice(0, firstNew).every((r) => /^(Ripasso|Flashcard)/.test(r ?? '')),
+  ).toBe(true)
+  expect(firstNew).toBeLessThan(firstSkill)
+
+  // Un quadretto per voce della coda, le flashcard col loro contorno.
+  const squares = [...document.querySelectorAll('[data-kind]')]
+  expect(
+    squares.filter((s) => s.matches('[data-kind=flashcard]')),
+  ).toHaveLength(5)
+  expect(squares.length).toBeGreaterThan(5)
+  const cardSquares = squares.filter((s) => s.matches('[data-kind=flashcard]'))
+  expect(cardSquares.every((s) => s.classList.contains('border-lead'))).toBe(
+    true,
+  )
+  // Le scadute hanno il contorno continuo, le nuove tratteggiato.
+  expect(cardSquares.map((s) => s.classList.contains('border-dashed'))).toEqual(
+    [false, false, false, true, true],
+  )
+  expect(today.getByText(/\d+ esercizi/)).toBeInTheDocument()
 })

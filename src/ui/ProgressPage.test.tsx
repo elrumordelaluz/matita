@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
+import type { Flashcard } from '../content/flashcards.ts'
 import { skills } from '../content/skills.ts'
 import { exportBackup } from '../progress/backup.ts'
 import { attempt } from '../progress/fixtures.ts'
@@ -21,7 +22,7 @@ test('mostra lo stato di ogni abilità', async () => {
   const store = createMemoryStore()
   for (let i = 0; i < 3; i++)
     await store.addAttempt(attempt({ skill: 'n.add-sub' }))
-  render(<ProgressPage store={store} skills={skills} />)
+  render(<ProgressPage store={store} skills={skills} flashcards={[]} />)
 
   expect(
     (await stateOf('Addizioni e sottrazioni')).getByText('acquisita'),
@@ -48,7 +49,7 @@ test('importa un backup e aggiorna lo stato', async () => {
   for (let i = 0; i < 3; i++)
     await backup.addAttempt(attempt({ skill: 'n.mul-div' }))
   const store = createMemoryStore()
-  render(<ProgressPage store={store} skills={skills} />)
+  render(<ProgressPage store={store} skills={skills} flashcards={[]} />)
   await stateOf('Moltiplicazioni e divisioni')
 
   chooseFile(await exportBackup(backup))
@@ -63,7 +64,7 @@ test('importa un backup e aggiorna lo stato', async () => {
 
 test('un backup senza tentativi né segni dice che non contiene progressi', async () => {
   const store = createMemoryStore()
-  render(<ProgressPage store={store} skills={skills} />)
+  render(<ProgressPage store={store} skills={skills} flashcards={[]} />)
 
   chooseFile(await exportBackup(createMemoryStore()))
 
@@ -75,7 +76,7 @@ test('un backup senza tentativi né segni dice che non contiene progressi', asyn
 test('un file non valido si rifiuta e i progressi restano', async () => {
   const store = createMemoryStore()
   await store.addAttempt(attempt({ id: 'kept' }))
-  render(<ProgressPage store={store} skills={skills} />)
+  render(<ProgressPage store={store} skills={skills} flashcards={[]} />)
 
   chooseFile('non sono un backup')
 
@@ -134,7 +135,7 @@ test('nella scheda gli ultimi cinque tentativi, dal più recente', async () => {
       answeredAt: Date.UTC(2026, 8, 15, 9),
     }),
   ])
-  render(<ProgressPage store={store} skills={skills} />)
+  render(<ProgressPage store={store} skills={skills} flashcards={[]} />)
 
   const card = await stateOf('Addizioni e sottrazioni')
   const rows = card.getAllByRole('listitem')
@@ -184,7 +185,14 @@ test('un tentativo che non si può ricostruire mostra risposta, esito e data', a
       answeredAt: Date.UTC(2026, 8, 14, 9),
     }),
   ])
-  render(<ProgressPage store={store} skills={skills} chapter="pow" />)
+  render(
+    <ProgressPage
+      store={store}
+      skills={skills}
+      flashcards={[]}
+      chapter="pow"
+    />,
+  )
 
   const card = await stateOf('La potenza')
   const rows = card.getAllByRole('listitem')
@@ -203,6 +211,7 @@ test('un’abilità bloccata si allena lo stesso, e la scheda dice cosa manca', 
     <ProgressPage
       store={createMemoryStore()}
       skills={skills}
+      flashcards={[]}
       onPractise={onPractise}
     />,
   )
@@ -218,4 +227,43 @@ test('un’abilità bloccata si allena lo stesso, e la scheda dice cosa manca', 
 
   const addSub = await stateOf('Addizioni e sottrazioni')
   expect(addSub.getByRole('button', { name: 'Allena' })).toBeInTheDocument()
+})
+
+const cards: Flashcard[] = [
+  { id: 'n.seen', chapter: 'n', front: 'prima', back: 'a' },
+  { id: 'n.fresh', chapter: 'n', front: 'seconda', back: 'b' },
+  { id: 'n.unseen', chapter: 'n', front: 'terza', back: 'c' },
+  { id: 'z.other', chapter: 'z', front: 'altro capitolo', back: 'd' },
+]
+
+test('ogni capitolo elenca le sue flashcard con stato e prossima scadenza', async () => {
+  const store = createMemoryStore()
+  const now = Date.now()
+  await store.putIntroduced([
+    { card: 'n.seen', introducedAt: now - 5 * 86_400_000 },
+    { card: 'n.fresh', introducedAt: now },
+  ])
+  await store.putFlashcardReviews([
+    { card: 'n.seen', grade: 'good', at: now - 4 * 86_400_000 },
+  ])
+  render(
+    <ProgressPage
+      store={store}
+      skills={skills}
+      flashcards={cards}
+      chapter="n"
+    />,
+  )
+  const list = within(await screen.findByRole('list', { name: 'Flashcard' }))
+  const item = (name: string) => within(list.getByRole('listitem', { name }))
+
+  expect(item('prima').getByText('in ripasso')).toBeInTheDocument()
+  expect(
+    item('prima').getByText(/^(da ripassare|ripasso )/),
+  ).toBeInTheDocument()
+  expect(item('seconda').getByText('nuova')).toBeInTheDocument()
+  expect(item('seconda').queryByText(/ripasso|ripassare/)).toBeNull()
+  expect(item('terza').getByText('non ancora vista')).toBeInTheDocument()
+  expect(item('terza').queryByText(/ripasso|ripassare/)).toBeNull()
+  expect(list.queryByText('altro capitolo')).not.toBeInTheDocument()
 })

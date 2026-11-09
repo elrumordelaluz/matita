@@ -11,7 +11,7 @@ import { masteryAttempts } from './skillState.ts'
 // Senza passi brevi: un'abilità appena acquisita ha già tre corretti di fila
 // e il primo ripasso va a qualche giorno, non a dieci minuti. Senza fuzz, così
 // rigiocare gli stessi tentativi dà sempre le stesse carte.
-const scheduler = fsrs({ enable_short_term: false, enable_fuzz: false })
+export const scheduler = fsrs({ enable_short_term: false, enable_fuzz: false })
 
 /** Easy non si usa finché non c'è un criterio onesto per darlo. */
 export function gradeFor(attempt: Attempt): Grade {

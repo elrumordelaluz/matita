@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Attempt } from '../progress/attempt.ts'
+import type { FlashcardReview, Introduced } from '../progress/flashcards.ts'
 import type { Known } from '../progress/known.ts'
 import type { ProgressStore } from '../progress/store.ts'
 
@@ -9,11 +10,18 @@ import type { ProgressStore } from '../progress/store.ts'
 export interface Progress {
   readonly attempts: Attempt[]
   readonly known: Known[]
+  readonly introduced: Introduced[]
+  readonly flashcardReviews: FlashcardReview[]
 }
 
 async function read(store: ProgressStore): Promise<Progress> {
-  const [attempts, known] = await Promise.all([store.attempts(), store.known()])
-  return { attempts, known }
+  const [attempts, known, introduced, flashcardReviews] = await Promise.all([
+    store.attempts(),
+    store.known(),
+    store.introduced(),
+    store.flashcardReviews(),
+  ])
+  return { attempts, known, introduced, flashcardReviews }
 }
 
 export function useProgress(store: ProgressStore): {

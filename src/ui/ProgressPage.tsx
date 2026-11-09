@@ -8,11 +8,17 @@ import {
 } from 'lucide-react'
 import { useId, useMemo, useState, type ChangeEvent } from 'react'
 import { chapterById, chapters, type ChapterId } from '../content/chapters.ts'
+import type { Flashcard } from '../content/flashcards.ts'
 import type { Skill } from '../content/skills.ts'
 import type { GeneratedSkill } from '../engine/index.ts'
 import { cn } from '../lib/cn.ts'
 import type { AttemptOutcome } from '../progress/attempt.ts'
 import { exportBackup, importBackup, importNotice } from '../progress/backup.ts'
+import {
+  flashcardCards,
+  flashcardState,
+  type FlashcardState,
+} from '../progress/flashcards.ts'
 import { latestAttempts, type AttemptEntry } from '../progress/history.ts'
 import { reviewCards } from '../progress/review.ts'
 import { skillStates, type SkillState } from '../progress/skillState.ts'
@@ -20,6 +26,7 @@ import type { ProgressStore } from '../progress/store.ts'
 import { ChapterPicker } from './ChapterPicker.tsx'
 import { canPractise } from './exercises.ts'
 import { ExercisePrompt } from './exerciseView.tsx'
+import { CardText } from './FlashcardView.tsx'
 import {
   missingPrerequisitesText,
   chapterStatus,
@@ -113,6 +120,13 @@ function datePhrase(at: number): string {
   })
 }
 
+const flashcardLabel: Record<FlashcardState, string> = {
+  unseen: 'non ancora vista',
+  new: 'nuova',
+  learning: 'in apprendimento',
+  review: 'in ripasso',
+}
+
 function reviewText(due: Date, now: Date): string {
   const days = Math.ceil((due.getTime() - now.getTime()) / day)
   if (days <= 0) return 'da ripassare'
@@ -123,11 +137,13 @@ function reviewText(due: Date, now: Date): string {
 export function ProgressPage({
   store,
   skills,
+  flashcards,
   chapter: initialChapter,
   onPractise,
 }: {
   store: ProgressStore
   skills: readonly Skill[]
+  flashcards: readonly Flashcard[]
   /** Il capitolo da mostrare; senza, quello su cui si lavora. */
   chapter?: ChapterId | undefined
   onPractise?: (skill: GeneratedSkill) => void
@@ -168,18 +184,24 @@ export function ProgressPage({
         states: skillStates(skills, stored.attempts, stored.known),
         streaks: currentStreaks(stored.attempts),
         cards: reviewCards(stored.attempts, stored.known),
+        flashcardCards: flashcardCards(
+          flashcards,
+          stored.introduced,
+          stored.flashcardReviews,
+        ),
         stats: attemptStats(stored.attempts),
         history: new Map<string, AttemptEntry[]>(
           skills.map((s) => [s.id, latestAttempts(stored.attempts, s.id)]),
         ),
       },
-    [stored, skills],
+    [stored, skills, flashcards],
   )
   const chapter = chosen
     ? chapterById(chosen)
     : progress
       ? workingChapter(progress.states)
       : undefined
+  const chapterCards = flashcards.filter((f) => f.chapter === chapter?.id)
   const rows = useMemo(() => levels(chapter?.skills ?? []), [chapter])
   const width = Math.min(3, Math.max(1, ...rows.map((r) => r.length)))
   const mastered = progress
@@ -419,6 +441,45 @@ export function ProgressPage({
                   }),
                 )}
               </ul>
+
+              {chapterCards.length > 0 && stored && (
+                <div className="mx-auto mt-10 max-w-2xl">
+                  <Eyebrow id={`${id}-cards`}>Flashcard</Eyebrow>
+                  <ul
+                    aria-labelledby={`${id}-cards`}
+                    className="mt-3 space-y-2"
+                  >
+                    {chapterCards.map((f) => {
+                      const state = flashcardState(
+                        f.id,
+                        stored.introduced,
+                        stored.flashcardReviews,
+                      )
+                      const due = progress.flashcardCards.get(f.id)?.due
+                      return (
+                        <li
+                          key={f.id}
+                          aria-label={f.front}
+                          className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl bg-panel/80 px-3 py-2"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <CardText text={f.front} />
+                          </span>
+                          <span className="text-sm font-semibold">
+                            {flashcardLabel[state]}
+                          </span>
+                          {due &&
+                            (state === 'learning' || state === 'review') && (
+                              <span className="text-sm text-dim">
+                                {reviewText(due, now)}
+                              </span>
+                            )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
             </Sheet>
           </div>
         )}

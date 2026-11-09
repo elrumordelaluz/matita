@@ -3,12 +3,13 @@ import {
   isAssisted,
   type Attempt,
 } from '../../progress/attempt.ts'
+import type { QueueItem } from '../../progress/queue.ts'
 import type { SessionItem } from '../../progress/session.ts'
 import type { SkillState } from '../../progress/skillState.ts'
 
 // Quello che home e progressi mostrano di ogni abilità: lo stato con il suo
 // tag, la serie verso l'acquisizione, qualche conto onesto sui tentativi, la
-// sessione raggruppata.
+// coda raggruppata.
 
 /** Tre corretti consecutivi senza aiuti. Vedi SPEC.md, "Stato di un'abilità". */
 export const masteryStreak = 3
@@ -64,20 +65,38 @@ export const reasonLabel: Record<Reason, string> = {
   new: 'Abilità nuova',
 }
 
-export interface SessionGroup {
-  readonly skill: string
-  readonly reason: Reason
-  readonly count: number
-}
+export type QueueGroup =
+  | {
+      readonly kind: 'exercise'
+      readonly skill: string
+      readonly reason: Reason
+      readonly count: number
+    }
+  | {
+      readonly kind: 'flashcard'
+      readonly due: boolean
+      readonly count: number
+    }
 
-// Gli esercizi della sessione raccolti per abilità e motivo, nell'ordine in
-// cui arrivano.
-export function groupSession(items: readonly SessionItem[]): SessionGroup[] {
-  const groups = new Map<string, SessionGroup>()
-  for (const { skill, reason } of items) {
-    const key = `${reason}:${skill}`
-    const group = groups.get(key)
-    groups.set(key, { skill, reason, count: (group?.count ?? 0) + 1 })
+// La coda raccolta in righe, nell'ordine in cui compare ciascuna per la
+// prima volta: gli esercizi per abilità e motivo, le flashcard in una riga
+// sola per blocco, scadute e nuove separate.
+export function groupQueue(queue: readonly QueueItem[]): QueueGroup[] {
+  const groups = new Map<string, QueueGroup>()
+  for (const q of queue) {
+    let key: string
+    let fresh: QueueGroup
+    if (q.kind === 'exercise') {
+      const { skill, reason } = q.item
+      key = `${reason}:${skill}`
+      fresh = { kind: 'exercise', skill, reason, count: 0 }
+    } else {
+      const { due } = q
+      key = due ? 'due-cards' : 'new-cards'
+      fresh = { kind: 'flashcard', due, count: 0 }
+    }
+    const group = groups.get(key) ?? fresh
+    groups.set(key, { ...group, count: group.count + 1 })
   }
   return [...groups.values()]
 }

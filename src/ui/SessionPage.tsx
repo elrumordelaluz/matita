@@ -2,6 +2,7 @@ import {
   BookOpen,
   Check,
   House,
+  Layers,
   PencilLine,
   RotateCcw,
   Sparkles,
@@ -10,10 +11,14 @@ import {
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { chapterOf, type ChapterId } from '../content/chapters.ts'
 import { lessons } from '../content/lessons/index.ts'
+import type { Flashcard } from '../content/flashcards.ts'
 import type { Skill } from '../content/skills.ts'
 import type { Exercise } from '../engine/index.ts'
+import type { FlashcardGrade } from '../progress/flashcards.ts'
+import { requeue, type QueueItem } from '../progress/queue.ts'
 import type { SessionItem } from '../progress/session.ts'
 import { exerciseFor, randomSeed } from './exercises.ts'
+import { FlashcardView } from './FlashcardView.tsx'
 import { Button, Panel } from './kit.tsx'
 import { PracticePage, type PracticeAttempt } from './PracticePage.tsx'
 import {
@@ -23,8 +28,10 @@ import {
 } from './practice/SessionTrack.tsx'
 import { firstNewItems } from './session/newSkillGate.ts'
 
-// Una sessione: gli esercizi in fila, uno per voce del piano. Finita la fila,
-// "Esercizio successivo" continua con l'ultima abilità, fuori sessione.
+// Una sessione: gli esercizi e le flashcard in fila, uno per voce della coda.
+// Finita la fila, "Esercizio successivo" continua con l'ultima abilità, fuori
+// sessione. Una flashcard votata Again rientra nella coda, quindi la coda è
+// uno stato.
 
 const reasons: Record<
   SessionItem['reason'],
@@ -36,7 +43,7 @@ const reasons: Record<
 }
 
 interface Progress {
-  /** La voce del piano mostrata adesso. */
+  /** La voce della coda mostrata adesso. */
   readonly index: number
   /** Se l'esercizio mostrato si è già chiuso. */
   readonly closed: boolean
@@ -44,6 +51,8 @@ interface Progress {
 
 /** La sessione a metà, da riprendere al ritorno dalla lezione. */
 export interface SessionSnapshot {
+  /** La coda com'era, con le flashcard rimesse da Again. */
+  readonly queue: readonly QueueItem[]
   readonly index: number
   readonly closed: boolean
   /** Com'è andato ogni esercizio chiuso, nell'ordine. */
@@ -60,20 +69,27 @@ function markOf({ outcome, hints, rewrites }: PracticeAttempt): Mark {
 export function SessionPage({
   items,
   skills,
+  flashcards,
   onAttempt,
+  onFlashcardReview,
   onDone,
   onOpenLesson,
   resume,
 }: {
-  items: readonly SessionItem[]
+  items: readonly QueueItem[]
   skills: readonly Skill[]
+  flashcards: readonly Flashcard[]
   onAttempt: (attempt: PracticeAttempt) => void
+  onFlashcardReview: (review: { card: string; grade: FlashcardGrade }) => void
   onDone: () => void
   /** Apre la lezione del capitolo di un'abilità nuova, senza chiuderla. */
   onOpenLesson: (chapter: ChapterId, snapshot: SessionSnapshot) => void
   /** Da dove la sessione riprende, dopo la lezione aperta dal cancello. */
   resume?: SessionSnapshot | null
 }) {
+  const [queue, setQueue] = useState<readonly QueueItem[]>(
+    () => resume?.queue ?? items,
+  )
   const [progress, setProgress] = useState<Progress>(() => ({
     index: resume?.index ?? 0,
     closed: resume?.closed ?? false,
@@ -94,9 +110,15 @@ export function SessionPage({
     setProgress(next)
   }
 
-  const last = items.length - 1
-  const item = items[Math.min(progress.index, last)]
+  const last = queue.length - 1
+  const entry = queue[Math.min(progress.index, last)]
+  const item = entry?.kind === 'exercise' ? entry.item : undefined
   const title = skills.find((s) => s.id === item?.skill)?.title
+  const exercises = queue.filter((q) => q.kind === 'exercise').length
+  // Gli esercizi già passati: la barra e il "di" contano solo quelli.
+  const exerciseIndex = queue
+    .slice(0, progress.index)
+    .filter((q) => q.kind === 'exercise').length
 
   function createExercise(): Exercise {
     let { index } = current.current
@@ -104,10 +126,22 @@ export function SessionPage({
       index++
       update({ index, closed: false })
     }
-    const next = items[Math.min(index, last)]
-    const exercise = next && exerciseFor(next.skill, randomSeed())
-    if (!exercise) throw new Error(`No generator for ${next?.skill}`)
+    const next = queue[Math.min(index, last)]
+    // Se dopo l'esercizio viene una flashcard, la pagina la mostra al posto
+    // di PracticePage nello stesso render: questo esercizio non si vede mai.
+    const skill =
+      next?.kind === 'exercise'
+        ? next.item.skill
+        : queue.find((q) => q.kind === 'exercise')?.item.skill
+    const exercise = skill && exerciseFor(skill, randomSeed())
+    if (!exercise) throw new Error(`No generator for ${skill}`)
     return exercise
+  }
+
+  function grade(card: string, mark: FlashcardGrade) {
+    onFlashcardReview({ card, grade: mark })
+    setQueue(requeue(queue, progress.index, mark))
+    update({ index: progress.index + 1, closed: false })
   }
 
   function record(attempt: PracticeAttempt) {
@@ -129,11 +163,15 @@ export function SessionPage({
   }, [finished])
 
   const reason = item && reasons[item.reason]
+  const flashcard =
+    entry?.kind === 'flashcard'
+      ? flashcards.find((f) => f.id === entry.card)
+      : undefined
 
   // Il cancello dell'abilità nuova: la sua prima voce `new`, se il capitolo
   // ha una lezione da offrire prima dell'esercizio.
   const chapter = item && chapterOf(item.skill)
-  const firsts = firstNewItems(items)
+  const firsts = firstNewItems(queue)
   const gate =
     item !== undefined &&
     chapter !== undefined &&
@@ -146,34 +184,51 @@ export function SessionPage({
       {finished ? (
         <Completed
           results={results}
-          total={items.length}
+          total={exercises}
           home={home}
           onDone={onDone}
         />
       ) : (
         inSession &&
-        reason && (
+        entry && (
           <Panel className="space-y-3 px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-display text-lg font-bold">{`Esercizio ${progress.index + 1} di ${items.length}`}</p>
+              <p className="font-display text-lg font-bold">
+                {item
+                  ? `Esercizio ${exerciseIndex + 1} di ${exercises}`
+                  : 'Flashcard'}
+              </p>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-pencil-soft px-3 py-1 text-xs font-semibold text-pencil-ink">
-                <reason.icon aria-hidden="true" className="size-3.5" />
-                {reason.label}
+                {reason ? (
+                  <reason.icon aria-hidden="true" className="size-3.5" />
+                ) : (
+                  <Layers aria-hidden="true" className="size-3.5" />
+                )}
+                {reason ? reason.label : 'Da ricordare'}
               </span>
             </div>
-            <SessionTrack
-              total={items.length}
-              index={progress.index}
-              closed={progress.closed}
-            />
+            {exercises > 0 && (
+              <SessionTrack
+                total={exercises}
+                index={exerciseIndex}
+                closed={item !== undefined && progress.closed}
+              />
+            )}
           </Panel>
         )
       )}
-      {gate && chapter && item ? (
+      {flashcard && entry?.kind === 'flashcard' && inSession ? (
+        <FlashcardView
+          key={progress.index}
+          card={flashcard}
+          onGrade={(mark) => grade(entry.card, mark)}
+        />
+      ) : entry?.kind === 'flashcard' ? null : gate && chapter && item ? (
         <NewSkillGate
           title={title ?? item.skill}
           onRead={() =>
             onOpenLesson(chapter.id, {
+              queue,
               index: progress.index,
               closed: progress.closed,
               results,
@@ -275,6 +330,7 @@ function Completed({
 }
 
 function summary(correct: number, clean: number, total: number): string {
+  if (total === 0) return 'Flashcard ripassate.'
   if (clean === total) return 'Tutti corretti, senza suggerimenti.'
   const right = `${correct} ${correct === 1 ? 'corretto' : 'corretti'} su ${total}`
   return clean > 0 ? `${right}, ${clean} senza suggerimenti.` : `${right}.`

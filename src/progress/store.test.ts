@@ -29,3 +29,34 @@ test('togliere i segni lascia gli altri segni e tutti i tentativi', async () => 
   expect(await store.known()).toEqual([{ skill: 'z.add-sub', markedAt: 1 }])
   expect(await store.attempts()).toEqual([a])
 })
+
+test('le introduzioni e i voti delle flashcard si rileggono e la stessa chiave non duplica', async () => {
+  const store = createMemoryStore()
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putFlashcardReviews([
+    { card: 'n.order', grade: 'good', at: 5 },
+    { card: 'n.order', grade: 'again', at: 2 },
+  ])
+  await store.putFlashcardReviews([{ card: 'n.order', grade: 'good', at: 5 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  expect(await store.flashcardReviews()).toEqual([
+    { card: 'n.order', grade: 'again', at: 2 },
+    { card: 'n.order', grade: 'good', at: 5 },
+  ])
+})
+
+test('una introduzione più tarda della stessa carta non sostituisce la prima', async () => {
+  const store = createMemoryStore()
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 5 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 0 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 0 },
+  ])
+})

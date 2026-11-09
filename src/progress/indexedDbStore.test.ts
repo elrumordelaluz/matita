@@ -67,3 +67,58 @@ test('un database della versione 1 passa alla 2 senza perdere i tentativi', asyn
   await store.putKnown([{ skill: 'n.add-sub', markedAt: 1 }])
   expect(await store.known()).toHaveLength(1)
 })
+
+test('le introduzioni e i voti delle flashcard restano dopo la riapertura', async () => {
+  const name = freshName()
+  const store = await openIndexedDbStore(name)
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putFlashcardReviews([
+    { card: 'n.order', grade: 'good', at: 5 },
+    { card: 'n.order', grade: 'again', at: 2 },
+  ])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putFlashcardReviews([{ card: 'n.order', grade: 'good', at: 5 }])
+
+  const reopened = await openIndexedDbStore(name)
+  expect(await reopened.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  expect(await reopened.flashcardReviews()).toEqual([
+    { card: 'n.order', grade: 'again', at: 2 },
+    { card: 'n.order', grade: 'good', at: 5 },
+  ])
+})
+
+test('un database della versione 2 passa alla 3 senza perdere tentativi e segni', async () => {
+  const name = freshName()
+  const a = attempt()
+  const old = await openDB(name, 2, {
+    upgrade(db) {
+      db.createObjectStore('attempts', { keyPath: 'id' })
+      db.createObjectStore('known', { keyPath: 'skill' })
+    },
+  })
+  await old.put('attempts', a)
+  await old.put('known', { skill: 'n.add-sub', markedAt: 1 })
+  old.close()
+
+  const store = await openIndexedDbStore(name)
+  expect(await store.attempts()).toEqual([a])
+  expect(await store.known()).toEqual([{ skill: 'n.add-sub', markedAt: 1 }])
+  expect(await store.introduced()).toEqual([])
+  await store.putFlashcardReviews([{ card: 'n.order', grade: 'hard', at: 1 }])
+  expect(await store.flashcardReviews()).toHaveLength(1)
+})
+
+test('una introduzione più tarda della stessa carta non sostituisce la prima', async () => {
+  const store = await openIndexedDbStore(freshName())
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 1 }])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 5 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 1 },
+  ])
+  await store.putIntroduced([{ card: 'n.order', introducedAt: 0 }])
+  expect(await store.introduced()).toEqual([
+    { card: 'n.order', introducedAt: 0 },
+  ])
+})
