@@ -154,7 +154,7 @@ export function HomePage({
   if (!plan) return null
 
   return (
-    <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
+    <div className="grid gap-5">
       <Today plan={plan} skills={skills} onStart={() => onStart(plan.queue)} />
       <Path
         states={plan.states}
@@ -185,10 +185,7 @@ function Today({
   const empty = queue.length === 0
 
   return (
-    <Panel
-      aria-label="Oggi"
-      className="relative animate-rise p-6 sm:p-8 lg:col-span-7"
-    >
+    <Panel aria-label="Oggi" className="relative animate-rise p-6 sm:p-8">
       <Eyebrow>Oggi</Eyebrow>
 
       {due > 0 || dueCards > 0 ? (
@@ -324,7 +321,7 @@ function Path({
   return (
     <Panel
       aria-labelledby="path-title"
-      className="animate-rise p-6 [animation-delay:90ms] sm:p-8 lg:col-span-5"
+      className="animate-rise p-6 [animation-delay:90ms] sm:p-8"
     >
       <Eyebrow>Percorso</Eyebrow>
       <h2
@@ -337,7 +334,7 @@ function Path({
         {`${mastered} di ${allSkills.length} abilità acquisite · in corso: ${working.title}`}
       </p>
 
-      <ol className="mt-5 space-y-3">
+      <ol className="mt-5 space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0 xl:grid-cols-3">
         {chapters.map((chapter) => (
           <ChapterCard
             key={chapter.id}
