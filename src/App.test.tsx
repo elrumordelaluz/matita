@@ -11,7 +11,7 @@ afterEach(() => {
 
 test('mostra il titolo', () => {
   render(<App />)
-  expect(screen.getByRole('heading', { name: 'Matita' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Lapiz' })).toBeInTheDocument()
 })
 
 // Risponde giusto all'esercizio sullo schermo, leggendolo dal nome
