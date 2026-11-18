@@ -159,7 +159,7 @@ export default function App({ store: given }: { store?: ProgressStore }) {
           </span>
           <div>
             <h1 className="font-display text-3xl leading-none font-bold tracking-tight">
-              Matita
+              Lapiz
             </h1>
             <p className="mt-1 text-sm text-dim">
               Spiega <span className="text-pencil">·</span> Allena{' '}
