@@ -110,9 +110,7 @@ test('ogni abilità si allena dalla sua scheda, anche bloccata', async () => {
     z.getByRole('listitem', { name: 'Le quattro operazioni con i relativi' }),
   )
   expect(order.getByText('bloccata')).toBeInTheDocument()
-  expect(
-    order.getByText('Prima: Somma algebrica, La regola dei segni'),
-  ).toBeInTheDocument()
+  expect(order.queryByText(/^Prima:/)).not.toBeInTheDocument()
   fireEvent.click(order.getByRole('button', { name: 'Allena lo stesso' }))
   expect(onPractise).toHaveBeenLastCalledWith('z.order')
 
