@@ -74,14 +74,24 @@ test('una scheda aperta non dice cosa aspetta', async () => {
   expect(first.queryByText(/^Prima: capitolo/)).not.toBeInTheDocument()
 })
 
-test('all’apertura solo la scheda del capitolo in corso mostra le abilità', async () => {
+test('all’apertura nessuna scheda mostra le abilità, nemmeno quella in corso', async () => {
   renderHome(await firstChapterKnown())
   const z = await card('Espressioni in Z')
-  expect(z.getByRole('button', { name: 'Abilità' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
+  const zToggle = z.getByRole('button', { name: 'Abilità' })
+  expect(zToggle).toHaveAttribute('aria-expanded', 'false')
+  expect(
+    z.queryByRole('listitem', { name: 'Somma algebrica' }),
+  ).not.toBeInTheDocument()
+
+  fireEvent.click(zToggle)
+  expect(zToggle).toHaveAttribute('aria-expanded', 'true')
   expect(z.getByRole('listitem', { name: 'Somma algebrica' })).toBeVisible()
+
+  fireEvent.click(zToggle)
+  expect(zToggle).toHaveAttribute('aria-expanded', 'false')
+  expect(
+    z.queryByRole('listitem', { name: 'Somma algebrica' }),
+  ).not.toBeInTheDocument()
 
   const n = await card('Espressioni in N')
   const toggle = n.getByRole('button', { name: 'Abilità' })
@@ -100,6 +110,7 @@ test('all’apertura solo la scheda del capitolo in corso mostra le abilità', a
 test('ogni abilità si allena dalla sua scheda, anche bloccata', async () => {
   const { onPractise } = renderHome(await firstChapterKnown())
   const z = await card('Espressioni in Z')
+  fireEvent.click(z.getByRole('button', { name: 'Abilità' }))
 
   const sum = within(z.getByRole('listitem', { name: 'Somma algebrica' }))
   expect(sum.getByText('in apprendimento')).toBeInTheDocument()

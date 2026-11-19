@@ -258,6 +258,7 @@ test('la lezione si apre sul capitolo su cui si lavora', async () => {
 test('dalla pagina iniziale si allena un’abilità bloccata', async () => {
   render(<App />)
   const first = await chapterCard('Espressioni in N')
+  fireEvent.click(first.getByRole('button', { name: 'Abilità' }))
   const order = within(
     first.getByRole('listitem', { name: 'Le quattro operazioni insieme' }),
   )
