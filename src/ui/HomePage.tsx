@@ -195,7 +195,10 @@ function Today({
           {/* La frase intera per lo screen reader; a schermo il numero
               grande e le parole accanto. */}
           <p className="sr-only">{pendingText(due, dueCards)}</p>
-          <div aria-hidden="true" className="mt-3 flex flex-wrap items-end gap-4">
+          <div
+            aria-hidden="true"
+            className="mt-3 flex flex-wrap items-end gap-4"
+          >
             <span className="animate-pop font-display text-8xl leading-[0.8] font-bold tracking-tighter tabular-nums">
               {due + dueCards}
             </span>
