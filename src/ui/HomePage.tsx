@@ -154,7 +154,6 @@ export function HomePage({
 
   return (
     <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
-      <Today plan={plan} skills={skills} onStart={() => onStart(plan.queue)} />
       <Path
         states={plan.states}
         known={plan.known}
@@ -166,6 +165,7 @@ export function HomePage({
         }
         onUnmark={(chapter) => void write(unmarkChapterKnown(store, chapter))}
       />
+      <Today plan={plan} skills={skills} onStart={() => onStart(plan.queue)} />
     </div>
   )
 }
@@ -186,7 +186,7 @@ function Today({
   return (
     <Panel
       aria-label="Oggi"
-      className="relative animate-rise p-6 sm:p-8 lg:col-span-7"
+      className="relative animate-rise p-6 [animation-delay:90ms] sm:p-8 lg:col-span-4"
     >
       <Eyebrow>Oggi</Eyebrow>
 
@@ -195,7 +195,7 @@ function Today({
           {/* La frase intera per lo screen reader; a schermo il numero
               grande e le parole accanto. */}
           <p className="sr-only">{pendingText(due, dueCards)}</p>
-          <div aria-hidden="true" className="mt-3 flex items-end gap-4">
+          <div aria-hidden="true" className="mt-3 flex flex-wrap items-end gap-4">
             <span className="animate-pop font-display text-8xl leading-[0.8] font-bold tracking-tighter tabular-nums">
               {due + dueCards}
             </span>
@@ -323,7 +323,7 @@ function Path({
   return (
     <Panel
       aria-labelledby="path-title"
-      className="animate-rise p-6 [animation-delay:90ms] sm:p-8 lg:col-span-5"
+      className="animate-rise p-6 sm:p-8 lg:col-span-8"
     >
       <Eyebrow>Percorso</Eyebrow>
       <h2
