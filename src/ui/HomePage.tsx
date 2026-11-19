@@ -385,9 +385,9 @@ function ChapterCard({
 }) {
   const titleId = useId()
   const listId = useId()
-  // Aperta all'inizio solo la scheda del capitolo in corso, così sul
-  // telefono il percorso resta corto.
-  const [expanded, setExpanded] = useState(working)
+  // All'inizio le schede sono chiuse, anche quella del capitolo in corso,
+  // così sul telefono il percorso resta corto.
+  const [expanded, setExpanded] = useState(false)
   const summary = summarize(chapter, states, known)
   const { status, mastered, total } = summary
   const locked = status === 'locked'
