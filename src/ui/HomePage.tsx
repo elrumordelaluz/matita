@@ -21,7 +21,6 @@ import { skillStates, type SkillState } from '../progress/skillState.ts'
 import type { ProgressStore } from '../progress/store.ts'
 import { canPractise } from './exercises.ts'
 import {
-  missingPrerequisitesText,
   markChapterKnown,
   summarize,
   unmarkChapterKnown,
@@ -515,8 +514,7 @@ function ChapterCard({
 }
 
 // Un'abilità nella scheda del suo capitolo: nome, stato e il pulsante per
-// allenarla. Su un'abilità bloccata il pulsante dice "Allena lo stesso" e
-// sotto il nome ci sono i prerequisiti che mancano.
+// allenarla. Su un'abilità bloccata il pulsante dice "Allena lo stesso".
 function SkillRow({
   skill,
   states,
@@ -540,11 +538,6 @@ function SkillRow({
         <p id={titleId} className={cn('font-medium', locked && 'text-ink/70')}>
           {skill.title}
         </p>
-        {locked && (
-          <p className="text-xs text-dim">
-            {missingPrerequisitesText(skill, states)}
-          </p>
-        )}
       </div>
       <span
         className={cn(
